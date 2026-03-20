@@ -18,9 +18,9 @@
       <UDropdownMenu :items="userMenuItems" :content="{ align: 'end' as const }">
         <button class="flex items-center space-x-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition-colors">
           <div class="w-8 h-8 rounded-full bg-crystal-100 flex items-center justify-center">
-            <span class="text-crystal-600 text-sm font-medium">管</span>
+            <span class="text-crystal-600 text-sm font-medium">{{ displayInitial }}</span>
           </div>
-          <span class="text-sm text-gray-700 font-medium hidden sm:inline">管理员</span>
+          <span class="text-sm text-gray-700 font-medium hidden sm:inline">{{ displayName }}</span>
           <UIcon name="i-heroicons-chevron-down-20-solid" class="w-4 h-4 text-gray-400" />
         </button>
       </UDropdownMenu>
@@ -30,13 +30,16 @@
 
 <script setup lang="ts">
 const { breadcrumbs } = useNavigation()
-const router = useRouter()
+const { user, logout } = useAuth()
+
+const displayName = computed(() => user.value?.name || '用户')
+const displayInitial = computed(() => (user.value?.name || '?').slice(0, 1))
 
 const userMenuItems = [
   [{
     label: '退出登录',
     icon: 'i-heroicons-arrow-right-on-rectangle',
-    onSelect: () => router.push('/'),
+    onSelect: () => logout(),
   }],
 ]
 </script>

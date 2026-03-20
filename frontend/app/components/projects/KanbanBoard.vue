@@ -13,7 +13,7 @@
           class="block bg-white rounded-lg border border-gray-100 p-3 hover:shadow-sm transition-shadow"
         >
           <div class="flex items-center justify-between mb-1.5">
-            <span class="text-xs text-gray-400">{{ issue.id }}</span>
+            <span class="text-xs text-gray-400">{{ issue.display_id || issue.id }}</span>
             <UBadge
               :color="issue.priority === 'P0' ? 'error' : issue.priority === 'P1' ? 'warning' : issue.priority === 'P2' ? 'warning' : 'neutral'"
               variant="subtle"
@@ -25,9 +25,9 @@
           <p class="text-sm text-gray-900 font-medium line-clamp-2">{{ issue.title }}</p>
           <div class="mt-2 flex items-center">
             <div class="w-5 h-5 rounded-full bg-crystal-100 flex items-center justify-center">
-              <span class="text-crystal-600 text-[10px] font-medium">{{ getUserName(issue.assignee).slice(0, 1) }}</span>
+              <span class="text-crystal-600 text-[10px] font-medium">{{ (issue.assignee_name || '?').slice(0, 1) }}</span>
             </div>
-            <span class="ml-1.5 text-xs text-gray-400">{{ getUserName(issue.assignee) }}</span>
+            <span class="ml-1.5 text-xs text-gray-400">{{ issue.assignee_name || '-' }}</span>
           </div>
         </NuxtLink>
       </div>
@@ -36,8 +36,6 @@
 </template>
 
 <script setup lang="ts">
-import { getUserName } from '~/data/mock'
-
 const props = defineProps<{
   issues: any[]
 }>()
