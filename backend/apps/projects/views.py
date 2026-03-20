@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from apps.permissions import FullDjangoModelPermissions
 from .models import Project, ProjectMember
 from .serializers import (
     ProjectListSerializer,
@@ -17,7 +18,7 @@ User = get_user_model()
 
 class ProjectListCreateView(generics.ListCreateAPIView):
     queryset = Project.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -27,7 +28,7 @@ class ProjectListCreateView(generics.ListCreateAPIView):
 
 class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Project.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
 
     def get_serializer_class(self):
         if self.request.method in ("PATCH", "PUT"):
