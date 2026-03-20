@@ -4,3 +4,10 @@ node_modules/
 dist/
 .DS_Store
 *.log
+
+# Python / Backend
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+db.sqlite3

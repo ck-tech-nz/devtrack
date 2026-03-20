@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Nuxt: Dev Server",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nuxt", "dev"],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Local:\\s+http://localhost:(\\d+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "openExternally"
+      }
+    },
+    {
+      "name": "Nuxt: Debug Client (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3004",
+      "webRoot": "${workspaceFolder}/frontend"
+    }
+  ]
+}
