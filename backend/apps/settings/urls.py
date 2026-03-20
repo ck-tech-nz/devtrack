@@ -1,3 +1,6 @@
 from django.urls import path
+from .views import SiteSettingsView
 
-urlpatterns = []
+urlpatterns = [
+    path("", SiteSettingsView.as_view(), name="site-settings"),
+]
