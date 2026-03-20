@@ -1,0 +1,21 @@
+{
+  "name": "devtrack",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@iconify-json/heroicons": "^1.2.3",
+    "@nuxt/ui": "^2.22.3",
+    "echarts": "^6.0.0",
+    "nuxt": "^3.21.1",
+    "vue": "^3.5.30",
+    "vue-echarts": "^8.0.1",
+    "vue-router": "^4.6.4"
+  }
+}

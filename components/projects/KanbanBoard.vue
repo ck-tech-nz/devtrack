@@ -1,0 +1,50 @@
+<template>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div v-for="col in columns" :key="col.status" class="bg-gray-50 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="text-sm font-semibold text-gray-700">{{ col.label }}</h4>
+        <UBadge color="gray" variant="subtle" size="xs">{{ col.items.length }}</UBadge>
+      </div>
+      <div class="space-y-2">
+        <NuxtLink
+          v-for="issue in col.items"
+          :key="issue.id"
+          :to="`/app/issues/${issue.id}`"
+          class="block bg-white rounded-lg border border-gray-100 p-3 hover:shadow-sm transition-shadow"
+        >
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs text-gray-400">{{ issue.id }}</span>
+            <UBadge
+              :color="issue.priority === 'P0' ? 'red' : issue.priority === 'P1' ? 'orange' : issue.priority === 'P2' ? 'yellow' : 'gray'"
+              variant="subtle"
+              size="xs"
+            >
+              {{ issue.priority }}
+            </UBadge>
+          </div>
+          <p class="text-sm text-gray-900 font-medium line-clamp-2">{{ issue.title }}</p>
+          <div class="mt-2 flex items-center">
+            <div class="w-5 h-5 rounded-full bg-crystal-100 flex items-center justify-center">
+              <span class="text-crystal-600 text-[10px] font-medium">{{ getUserName(issue.assignee).slice(0, 1) }}</span>
+            </div>
+            <span class="ml-1.5 text-xs text-gray-400">{{ getUserName(issue.assignee) }}</span>
+          </div>
+        </NuxtLink>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { getUserName } from '~/data/mock'
+
+const props = defineProps<{
+  issues: any[]
+}>()
+
+const columns = computed(() => [
+  { status: '待处理', label: '待处理', items: props.issues.filter(i => i.status === '待处理') },
+  { status: '进行中', label: '进行中', items: props.issues.filter(i => i.status === '进行中') },
+  { status: '已解决', label: '已解决', items: props.issues.filter(i => i.status === '已解决') },
+])
+</script>
