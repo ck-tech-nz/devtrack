@@ -17,7 +17,8 @@
         <UFormField label="密码">
           <UInput v-model="password" type="password" placeholder="请输入密码" icon="i-heroicons-lock-closed" size="lg" />
         </UFormField>
-        <UButton block size="lg" color="primary" @click="handleLogin">登录</UButton>
+        <p v-if="error" class="text-sm text-red-500">{{ error }}</p>
+        <UButton block size="lg" color="primary" :loading="loading" @click="handleLogin">登录</UButton>
       </div>
     </div>
 
@@ -27,7 +28,30 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
+
 const username = ref('admin')
 const password = ref('')
-async function handleLogin() { await navigateTo('/app/dashboard') }
+const error = ref('')
+const loading = ref(false)
+
+const { setTokens } = useApi()
+const { fetchMe } = useAuth()
+
+async function handleLogin() {
+  error.value = ''
+  loading.value = true
+  try {
+    const data = await $fetch<{ access: string; refresh: string }>('/api/auth/login/', {
+      method: 'POST',
+      body: { username: username.value, password: password.value },
+    })
+    setTokens(data.access, data.refresh)
+    await fetchMe()
+    await navigateTo('/app/dashboard')
+  } catch (e: any) {
+    error.value = '用户名或密码错误'
+  } finally {
+    loading.value = false
+  }
+}
 </script>

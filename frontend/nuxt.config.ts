@@ -11,5 +11,8 @@ export default defineNuxtConfig({
       title: 'DevTrack - 项目管理平台',
     },
   },
+  routeRules: {
+    '/api/**': { proxy: 'http://localhost:8000/api/**' },
+  },
   compatibilityDate: '2025-01-01',
 })
