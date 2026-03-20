@@ -19,6 +19,9 @@ export const projects = [
     name: '贷后智能体平台',
     description: '基于 AI 的贷后管理系统，包含智能外呼、策略引擎等模块',
     status: '进行中',
+    remark: '当前重点推进 AI 外呼模块，预计 4 月初完成核心功能联调',
+    estimated_completion: '2026-04-30T00:00:00Z',
+    actual_hours: 1280,
     created_at: '2026-01-15T09:00:00Z',
     updated_at: '2026-03-20T10:00:00Z',
     linked_repos: ['r1'],
@@ -37,6 +40,9 @@ export const projects = [
     name: 'DevTrack 项目管理工具',
     description: '内部开发团队使用的项目管理和问题追踪工具',
     status: '进行中',
+    remark: '第一版基本完成，后续迭代增加 GitHub 集成和 AI 分析功能',
+    estimated_completion: '2026-05-15T00:00:00Z',
+    actual_hours: 420,
     created_at: '2026-02-01T09:00:00Z',
     updated_at: '2026-03-19T14:00:00Z',
     linked_repos: ['r2'],
@@ -52,6 +58,9 @@ export const projects = [
     name: '数据分析平台 v2',
     description: '数据可视化和报表系统重构',
     status: '已完成',
+    remark: '已交付上线，运行稳定',
+    estimated_completion: '2026-02-28T00:00:00Z',
+    actual_hours: 960,
     created_at: '2025-09-01T09:00:00Z',
     updated_at: '2026-02-28T18:00:00Z',
     linked_repos: ['r1', 'r2'],
@@ -67,6 +76,18 @@ export const projects = [
 export const labelOptions = ['前端', '后端', 'Bug', '优化', '需求', '文档', 'CI/CD', '安全', '性能', 'UI/UX']
 
 // ===== Issues (50+) =====
+const issueRemarks = [
+  '需要与外呼服务团队联调', '阻塞策略模块上线', '前端已修复，待后端配合',
+  '已联系模型团队排查', '需要更新音色配置文档', '产品确认优化方向',
+  '已上线，观察效果', '依赖策略模块完成', '对接文书系统团队',
+  '需要电话线路支持', '', '与 ISS-001 可能相关',
+  '等待产品验收', '设计稿已确认', '', '已修复，待回归测试',
+  '参考现有系统实现', '参数需要持续调优', '需要运维协助查看日志',
+  '', '准确率已达到 95%+', 'API 隔离方案已评审通过',
+  '架构升级风险较高，需灰度发布', '知识库持续补充中', '方案已评审',
+  '', '已合并到 CI 流水线', '下次上线前完成', '安全审计重点关注', '需要压测验证',
+]
+
 const issueTemplates = [
   { title: '执行完成后偶发未外呼', labels: ['Bug', '后端'], cause: '批次外呼任务异步执行时序问题', solution: '增加任务状态校验和重试机制' },
   { title: '外呼内容与策略选择无挂钩', labels: ['Bug', '后端'], cause: '话术与策略关联逻辑缺失', solution: '增加策略-话术映射配置' },
@@ -131,6 +152,10 @@ function generateIssues() {
     const branchMerged = resolved && seededRandom() > 0.3
     const branchCreated = resolved || status === '进行中' ? new Date(createdDate.getTime() + seededRandom() * 86400000) : null
 
+    const estimatedDays = Math.floor(seededRandom() * 10) + 1
+    const estimatedDate = new Date(createdDate.getTime() + estimatedDays * 86400000)
+    const actualHours = resolved ? Math.round((resolvedDate!.getTime() - createdDate.getTime()) / 3600000) : (status === '进行中' ? Math.floor(seededRandom() * 40) + 2 : null)
+
     result.push({
       id: `ISS-${String(i + 1).padStart(3, '0')}`,
       project_id: projectId,
@@ -141,6 +166,9 @@ function generateIssues() {
       labels: t.labels,
       reporter,
       assignee,
+      remark: issueRemarks[i] || '',
+      estimated_completion: estimatedDate.toISOString(),
+      actual_hours: actualHours,
       cause: t.cause,
       solution: t.solution,
       created_at: createdDate.toISOString(),
@@ -171,6 +199,9 @@ function generateIssues() {
     const resolved = status === '已解决' || status === '已关闭'
     const createdDate = new Date(2026, 2, Math.floor(seededRandom() * 20) + 1)
     const resolvedDate = resolved ? new Date(createdDate.getTime() + seededRandom() * 7 * 86400000) : null
+    const estDays = Math.floor(seededRandom() * 10) + 1
+    const estDate = new Date(createdDate.getTime() + estDays * 86400000)
+    const actHours = resolved ? Math.round((resolvedDate!.getTime() - createdDate.getTime()) / 3600000) : (status === '进行中' ? Math.floor(seededRandom() * 40) + 2 : null)
     result.push({
       id: `ISS-${String(i + 1).padStart(3, '0')}`,
       project_id: randomFrom(['p1', 'p2', 'p3']),
@@ -181,6 +212,9 @@ function generateIssues() {
       labels: [randomFrom(labelOptions), randomFrom(labelOptions)],
       reporter: randomFrom(reporters),
       assignee: randomFrom(assignees),
+      remark: '',
+      estimated_completion: estDate.toISOString(),
+      actual_hours: actHours,
       cause: '',
       solution: resolved ? '已修复' : '',
       created_at: createdDate.toISOString(),

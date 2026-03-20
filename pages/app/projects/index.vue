@@ -20,7 +20,7 @@
           </UBadge>
         </div>
         <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ project.description }}</p>
-        <div class="flex items-center text-xs text-gray-400 space-x-4">
+        <div class="flex items-center flex-wrap gap-y-1 text-xs text-gray-400 space-x-4">
           <span class="flex items-center">
             <UIcon name="i-heroicons-users" class="w-3.5 h-3.5 mr-1" />
             {{ project.members.length }} 成员
@@ -32,6 +32,10 @@
           <span class="flex items-center">
             <UIcon name="i-heroicons-code-bracket" class="w-3.5 h-3.5 mr-1" />
             {{ project.linked_repos.length }} 仓库
+          </span>
+          <span v-if="project.estimated_completion" class="flex items-center">
+            <UIcon name="i-heroicons-calendar" class="w-3.5 h-3.5 mr-1" />
+            预计 {{ project.estimated_completion.slice(0, 10) }}
           </span>
         </div>
       </NuxtLink>

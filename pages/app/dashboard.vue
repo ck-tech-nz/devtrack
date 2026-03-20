@@ -2,6 +2,29 @@
   <div class="space-y-6">
     <h1 class="text-2xl font-semibold text-gray-900">项目概览</h1>
 
+    <!-- Active Projects Quick Access -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <NuxtLink
+        v-for="p in activeProjects"
+        :key="p.id"
+        :to="`/app/projects/${p.id}`"
+        class="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm hover:border-crystal-200 transition-all flex items-center gap-4 group"
+      >
+        <div class="w-10 h-10 rounded-lg bg-crystal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-crystal-100 transition-colors">
+          <UIcon name="i-heroicons-folder-open" class="w-5 h-5 text-crystal-500" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-gray-900 truncate">{{ p.name }}</p>
+          <div class="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+            <span>{{ p.members.length }} 成员</span>
+            <span>{{ getProjectIssueCount(p.id) }} Issues</span>
+            <span v-if="p.estimated_completion">预计 {{ p.estimated_completion.slice(0, 10) }}</span>
+          </div>
+        </div>
+        <UIcon name="i-heroicons-chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-crystal-400 flex-shrink-0" />
+      </NuxtLink>
+    </div>
+
     <!-- Stat Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <DashboardStatCard label="总 Issue 数" :value="stats.total_issues" icon="i-heroicons-bug-ant" icon-bg="bg-crystal-50" icon-color="text-crystal-500" />
@@ -62,7 +85,12 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
-import { dashboardStats, dailyTrends, priorityDistribution, developerStats, recentActivity } from '~/data/mock'
+import { projects, issues, dashboardStats, dailyTrends, priorityDistribution, developerStats, recentActivity } from '~/data/mock'
+
+const activeProjects = projects.filter(p => p.status === '进行中')
+function getProjectIssueCount(projectId: string) {
+  return issues.filter(i => i.project_id === projectId).length
+}
 
 const stats = dashboardStats
 const trendDates = dailyTrends.map(d => d.date.slice(5))

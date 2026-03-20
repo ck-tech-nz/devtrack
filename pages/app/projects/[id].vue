@@ -13,6 +13,29 @@
       </UBadge>
     </div>
 
+    <!-- Project Info -->
+    <div class="bg-white rounded-xl border border-gray-100 p-5">
+      <h3 class="text-sm font-semibold text-gray-900 mb-3">项目信息</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gray-50 rounded-lg px-4 py-3">
+          <p class="text-xs text-gray-400 mb-1">预计完成时间</p>
+          <p class="text-sm font-medium text-gray-900">{{ project?.estimated_completion ? project.estimated_completion.slice(0, 10) : '-' }}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg px-4 py-3">
+          <p class="text-xs text-gray-400 mb-1">实际完成耗时</p>
+          <p class="text-sm font-medium text-gray-900">{{ project?.actual_hours ? formatHours(project.actual_hours) : '-' }}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg px-4 py-3">
+          <p class="text-xs text-gray-400 mb-1">创建时间</p>
+          <p class="text-sm font-medium text-gray-900">{{ project?.created_at?.slice(0, 10) }}</p>
+        </div>
+      </div>
+      <div v-if="project?.remark" class="mt-4 bg-gray-50 rounded-lg px-4 py-3">
+        <p class="text-xs text-gray-400 mb-1">备注</p>
+        <p class="text-sm text-gray-700">{{ project.remark }}</p>
+      </div>
+    </div>
+
     <!-- Members -->
     <div class="bg-white rounded-xl border border-gray-100 p-5">
       <h3 class="text-sm font-semibold text-gray-900 mb-3">项目成员</h3>
@@ -57,8 +80,8 @@
           :columns="tableColumns"
           :ui="{ th: { base: 'text-xs' }, td: { base: 'text-sm' } }"
         >
-          <template #id-data="{ row }">
-            <NuxtLink :to="`/app/issues/${row.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ row.id }}</NuxtLink>
+          <template #id-data="{ row, index }">
+            <NuxtLink :to="`/app/issues/${row.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ index + 1 }}</NuxtLink>
           </template>
           <template #title-data="{ row }">
             <NuxtLink :to="`/app/issues/${row.id}`" class="text-gray-900 hover:text-crystal-600 line-clamp-1">{{ row.title }}</NuxtLink>
@@ -71,6 +94,16 @@
           </template>
           <template #assignee-data="{ row }">
             {{ getUserName(row.assignee) }}
+          </template>
+          <template #remark-data="{ row }">
+            <span class="text-gray-500 line-clamp-1" :title="row.remark">{{ row.remark || '-' }}</span>
+          </template>
+          <template #estimated_completion-data="{ row }">
+            {{ row.estimated_completion ? row.estimated_completion.slice(0, 10) : '-' }}
+          </template>
+          <template #actual_hours-data="{ row }">
+            <span v-if="row.actual_hours != null">{{ row.actual_hours }}h</span>
+            <span v-else class="text-gray-300">-</span>
           </template>
           <template #created_at-data="{ row }">
             {{ row.created_at.slice(0, 10) }}
@@ -91,12 +124,23 @@ const project = computed(() => projects.find(p => p.id === route.params.id))
 const projectMembers = computed(() => project.value?.members ?? [])
 const projectIssues = computed(() => issues.filter(i => i.project_id === route.params.id && i.status !== '已关闭'))
 
+function formatHours(hours: number): string {
+  if (hours >= 24) {
+    const days = Math.floor(hours / 8) // 按 8 小时工作日计算
+    return `${days} 人天 (${hours}h)`
+  }
+  return `${hours}h`
+}
+
 const tableColumns = [
   { key: 'id', label: 'ID', sortable: true },
   { key: 'title', label: '标题' },
   { key: 'priority', label: '优先级', sortable: true },
   { key: 'status', label: '状态' },
   { key: 'assignee', label: '负责人' },
+  { key: 'remark', label: '备注' },
+  { key: 'estimated_completion', label: '预计完成', sortable: true },
+  { key: 'actual_hours', label: '实际耗时', sortable: true },
   { key: 'created_at', label: '创建时间', sortable: true },
 ]
 </script>
