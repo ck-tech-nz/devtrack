@@ -14,8 +14,8 @@
         <p class="text-sm text-gray-500 mt-1">{{ repo.description }}</p>
       </div>
       <div class="flex items-center space-x-3">
-        <UBadge color="gray" variant="subtle">{{ repo.language }}</UBadge>
-        <UBadge color="gray" variant="subtle"><UIcon name="i-heroicons-star" class="w-3 h-3 mr-1" />{{ repo.stars }}</UBadge>
+        <UBadge color="neutral" variant="subtle">{{ repo.language }}</UBadge>
+        <UBadge color="neutral" variant="subtle"><UIcon name="i-heroicons-star" class="w-3 h-3 mr-1" />{{ repo.stars }}</UBadge>
       </div>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 p-5">
@@ -48,7 +48,7 @@
       <div v-if="repo.open_issues.length" class="divide-y divide-gray-50">
         <div v-for="issue in repo.open_issues" :key="issue.number" class="py-3 first:pt-0 last:pb-0 flex items-center justify-between">
           <div><span class="text-sm text-crystal-600 font-medium">#{{ issue.number }}</span><span class="text-sm text-gray-900 ml-2">{{ issue.title }}</span></div>
-          <div class="flex items-center space-x-2"><UBadge v-for="l in issue.labels" :key="l" color="gray" variant="subtle" size="xs">{{ l }}</UBadge></div>
+          <div class="flex items-center space-x-2"><UBadge v-for="l in issue.labels" :key="l" color="neutral" variant="subtle" size="xs">{{ l }}</UBadge></div>
         </div>
       </div>
       <p v-else class="text-sm text-gray-400">暂无 Open Issue</p>

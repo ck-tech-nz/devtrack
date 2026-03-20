@@ -11,12 +11,12 @@
       </div>
     </div>
     <div class="flex items-center space-x-3">
-      <UButton v-if="!issue.branch_name" color="violet" size="sm" icon="i-heroicons-code-bracket" @click="createBranch">创建分支</UButton>
+      <UButton v-if="!issue.branch_name" color="primary" size="sm" icon="i-heroicons-code-bracket" @click="createBranch">创建分支</UButton>
       <div v-else class="flex items-center bg-crystal-50 text-crystal-700 rounded-lg px-3 py-1.5 text-sm">
         <UIcon name="i-heroicons-code-bracket" class="w-4 h-4 mr-2" />
         {{ issue.branch_name }}
       </div>
-      <UButton v-for="action in statusActions" :key="action.label" variant="outline" color="gray" size="sm" @click="action.handler">{{ action.label }}</UButton>
+      <UButton v-for="action in statusActions" :key="action.label" variant="outline" color="neutral" size="sm" @click="action.handler">{{ action.label }}</UButton>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2 space-y-6">
@@ -38,7 +38,7 @@
               <div>
                 <span class="text-xs text-gray-400">建议标签</span>
                 <div class="flex gap-1 mt-1">
-                  <UBadge v-for="l in issue.ai_analysis.suggested_labels" :key="l" color="violet" variant="subtle" size="xs">{{ l }}</UBadge>
+                  <UBadge v-for="l in issue.ai_analysis.suggested_labels" :key="l" color="primary" variant="subtle" size="xs">{{ l }}</UBadge>
                 </div>
               </div>
               <div>
@@ -103,7 +103,7 @@
         <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
           <div><span class="text-xs text-gray-400">负责人</span><p class="text-sm text-gray-900 mt-0.5">{{ getUserName(issue.assignee) }}</p></div>
           <div><span class="text-xs text-gray-400">提出人</span><p class="text-sm text-gray-900 mt-0.5">{{ getUserName(issue.reporter) }}</p></div>
-          <div><span class="text-xs text-gray-400">标签</span><div class="flex flex-wrap gap-1 mt-1"><UBadge v-for="l in issue.labels" :key="l" color="gray" variant="subtle" size="xs">{{ l }}</UBadge></div></div>
+          <div><span class="text-xs text-gray-400">标签</span><div class="flex flex-wrap gap-1 mt-1"><UBadge v-for="l in issue.labels" :key="l" color="neutral" variant="subtle" size="xs">{{ l }}</UBadge></div></div>
           <div><span class="text-xs text-gray-400">创建时间</span><p class="text-sm text-gray-900 mt-0.5">{{ issue.created_at.slice(0, 10) }}</p></div>
           <div v-if="issue.resolved_at"><span class="text-xs text-gray-400">解决时间</span><p class="text-sm text-gray-900 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p></div>
           <div v-if="issue.resolution_hours"><span class="text-xs text-gray-400">解决耗时</span><p class="text-sm text-gray-900 mt-0.5">{{ issue.resolution_hours }} 小时</p></div>
@@ -124,10 +124,10 @@ const { isOnline } = useServiceStatus()
 const issue = computed(() => issues.find(i => i.id === route.params.id))
 
 function priorityColor(p: string) {
-  return p === 'P0' ? 'red' : p === 'P1' ? 'orange' : p === 'P2' ? 'yellow' : 'gray'
+  return p === 'P0' ? 'error' : p === 'P1' ? 'warning' : p === 'P2' ? 'warning' : 'neutral'
 }
 function statusColor(s: string) {
-  return s === '待处理' ? 'amber' : s === '进行中' ? 'blue' : s === '已解决' ? 'green' : 'gray'
+  return s === '待处理' ? 'warning' : s === '进行中' ? 'info' : s === '已解决' ? 'success' : 'neutral'
 }
 
 function createBranch() {

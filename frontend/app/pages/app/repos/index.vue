@@ -9,7 +9,7 @@
         <NuxtLink v-for="repo in repos" :key="repo.id" :to="`/app/repos/${repo.id}`" class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow block">
           <div class="flex items-center justify-between mb-2">
             <h3 class="font-semibold text-gray-900">{{ repo.full_name }}</h3>
-            <UBadge :color="repo.status === '在线' ? 'green' : 'gray'" variant="subtle" size="xs">{{ repo.status }}</UBadge>
+            <UBadge :color="repo.status === '在线' ? 'success' : 'neutral'" variant="subtle" size="xs">{{ repo.status }}</UBadge>
           </div>
           <p class="text-sm text-gray-500 mb-3">{{ repo.description }}</p>
           <div class="flex items-center text-xs text-gray-400 space-x-4">

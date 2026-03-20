@@ -12,7 +12,7 @@
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-semibold text-gray-900">{{ project.name }}</h3>
           <UBadge
-            :color="project.status === '进行中' ? 'violet' : project.status === '已完成' ? 'green' : 'gray'"
+            :color="project.status === '进行中' ? 'primary' : project.status === '已完成' ? 'success' : 'neutral'"
             variant="subtle"
             size="xs"
           >

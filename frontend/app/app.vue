@@ -1,7 +1,9 @@
 <template>
-  <NuxtLayout>
-    <NuxtPage />
-  </NuxtLayout>
+  <UApp>
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
+  </UApp>
 </template>
 
 <script setup lang="ts">
@@ -10,9 +12,3 @@ useHead({
   bodyAttrs: { class: 'font-sans antialiased' },
 })
 </script>
-
-<style>
-body {
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-}
-</style>

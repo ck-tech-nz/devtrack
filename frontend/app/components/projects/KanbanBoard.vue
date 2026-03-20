@@ -3,7 +3,7 @@
     <div v-for="col in columns" :key="col.status" class="bg-gray-50 rounded-xl p-4">
       <div class="flex items-center justify-between mb-3">
         <h4 class="text-sm font-semibold text-gray-700">{{ col.label }}</h4>
-        <UBadge color="gray" variant="subtle" size="xs">{{ col.items.length }}</UBadge>
+        <UBadge color="neutral" variant="subtle" size="xs">{{ col.items.length }}</UBadge>
       </div>
       <div class="space-y-2">
         <NuxtLink
@@ -15,7 +15,7 @@
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-xs text-gray-400">{{ issue.id }}</span>
             <UBadge
-              :color="issue.priority === 'P0' ? 'red' : issue.priority === 'P1' ? 'orange' : issue.priority === 'P2' ? 'yellow' : 'gray'"
+              :color="issue.priority === 'P0' ? 'error' : issue.priority === 'P1' ? 'warning' : issue.priority === 'P2' ? 'warning' : 'neutral'"
               variant="subtle"
               size="xs"
             >

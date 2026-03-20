@@ -9,3 +9,10 @@
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+onErrorCaptured((err) => {
+  console.error('[PAGE ERROR]', err)
+  return false
+})
+</script>

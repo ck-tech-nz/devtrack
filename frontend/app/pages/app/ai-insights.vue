@@ -29,14 +29,14 @@
       </div>
       <div class="bg-white rounded-xl border border-gray-100 p-5">
         <h3 class="text-sm font-semibold text-gray-900 mb-4">开发者统计</h3>
-        <UTable :rows="developerStats" :columns="devColumns" :ui="{ th: { base: 'text-xs' }, td: { base: 'text-sm' } }">
-          <template #avg_resolution_hours-data="{ row }">{{ row.avg_resolution_hours ? row.avg_resolution_hours + 'h' : '-' }}</template>
-          <template #priority_distribution-data="{ row }">
+        <UTable :data="developerStats" :columns="devColumns" :ui="{ th: 'text-xs', td: 'text-sm' }">
+          <template #avg_resolution_hours-cell="{ row }">{{ row.original.avg_resolution_hours ? row.original.avg_resolution_hours + 'h' : '-' }}</template>
+          <template #priority_distribution-cell="{ row }">
             <div class="flex gap-1">
-              <UBadge v-if="row.priority_distribution.P0" color="red" variant="subtle" size="xs">P0: {{ row.priority_distribution.P0 }}</UBadge>
-              <UBadge v-if="row.priority_distribution.P1" color="orange" variant="subtle" size="xs">P1: {{ row.priority_distribution.P1 }}</UBadge>
-              <UBadge v-if="row.priority_distribution.P2" color="yellow" variant="subtle" size="xs">P2: {{ row.priority_distribution.P2 }}</UBadge>
-              <UBadge v-if="row.priority_distribution.P3" color="gray" variant="subtle" size="xs">P3: {{ row.priority_distribution.P3 }}</UBadge>
+              <UBadge v-if="row.original.priority_distribution.P0" color="error" variant="subtle" size="xs">P0: {{ row.original.priority_distribution.P0 }}</UBadge>
+              <UBadge v-if="row.original.priority_distribution.P1" color="warning" variant="subtle" size="xs">P1: {{ row.original.priority_distribution.P1 }}</UBadge>
+              <UBadge v-if="row.original.priority_distribution.P2" color="warning" variant="subtle" size="xs">P2: {{ row.original.priority_distribution.P2 }}</UBadge>
+              <UBadge v-if="row.original.priority_distribution.P3" color="neutral" variant="subtle" size="xs">P3: {{ row.original.priority_distribution.P3 }}</UBadge>
             </div>
           </template>
         </UTable>
@@ -48,7 +48,7 @@
             <div class="flex items-center">
               <UIcon :name="b.type === 'assignee' ? 'i-heroicons-user' : 'i-heroicons-tag'" class="w-4 h-4 text-gray-400 mr-2" />
               <span class="text-sm text-gray-700">{{ b.name }}</span>
-              <UBadge class="ml-2" color="gray" variant="subtle" size="xs">{{ b.type === 'assignee' ? '负责人' : '标签' }}</UBadge>
+              <UBadge class="ml-2" color="neutral" variant="subtle" size="xs">{{ b.type === 'assignee' ? '负责人' : '标签' }}</UBadge>
             </div>
             <span class="text-sm font-semibold text-amber-600">{{ b.pending_count }} 积压</span>
           </div>
@@ -78,9 +78,9 @@ import { aiInsights, developerStats } from '~/data/mock'
 const { isOnline } = useServiceStatus()
 const insights = aiInsights
 const devColumns = [
-  { key: 'user_name', label: '开发者' },
-  { key: 'monthly_resolved_count', label: '本月解决数', sortable: true },
-  { key: 'avg_resolution_hours', label: '平均处理时间', sortable: true },
-  { key: 'priority_distribution', label: '优先级分布' },
+  { accessorKey: 'user_name', header: '开发者' },
+  { accessorKey: 'monthly_resolved_count', header: '本月解决数' },
+  { accessorKey: 'avg_resolution_hours', header: '平均处理时间' },
+  { accessorKey: 'priority_distribution', header: '优先级分布' },
 ]
 </script>

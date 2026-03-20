@@ -6,7 +6,7 @@
         <p class="text-sm text-gray-500 mt-1">{{ project?.description }}</p>
       </div>
       <UBadge
-        :color="project?.status === '进行中' ? 'violet' : project?.status === '已完成' ? 'green' : 'gray'"
+        :color="project?.status === '进行中' ? 'primary' : project?.status === '已完成' ? 'success' : 'neutral'"
         variant="subtle"
       >
         {{ project?.status }}
@@ -45,7 +45,7 @@
             <span class="text-crystal-600 text-xs font-medium">{{ getUserName(m.user_id).slice(0, 1) }}</span>
           </div>
           <span class="ml-2 text-sm text-gray-700">{{ getUserName(m.user_id) }}</span>
-          <UBadge class="ml-2" color="gray" variant="subtle" size="xs">{{ m.role }}</UBadge>
+          <UBadge class="ml-2" color="neutral" variant="subtle" size="xs">{{ m.role }}</UBadge>
         </div>
       </div>
     </div>
@@ -76,37 +76,37 @@
 
       <div v-else class="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <UTable
-          :rows="projectIssues"
+          :data="projectIssues"
           :columns="tableColumns"
-          :ui="{ th: { base: 'text-xs' }, td: { base: 'text-sm' } }"
+          :ui="{ th: 'text-xs', td: 'text-sm' }"
         >
-          <template #id-data="{ row, index }">
-            <NuxtLink :to="`/app/issues/${row.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ index + 1 }}</NuxtLink>
+          <template #id-cell="{ row }">
+            <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ row.index + 1 }}</NuxtLink>
           </template>
-          <template #title-data="{ row }">
-            <NuxtLink :to="`/app/issues/${row.id}`" class="text-gray-900 hover:text-crystal-600 line-clamp-1">{{ row.title }}</NuxtLink>
+          <template #title-cell="{ row }">
+            <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-gray-900 hover:text-crystal-600 line-clamp-1">{{ row.original.title }}</NuxtLink>
           </template>
-          <template #priority-data="{ row }">
-            <UBadge :color="row.priority === 'P0' ? 'red' : row.priority === 'P1' ? 'orange' : row.priority === 'P2' ? 'yellow' : 'gray'" variant="subtle" size="xs">{{ row.priority }}</UBadge>
+          <template #priority-cell="{ row }">
+            <UBadge :color="row.original.priority === 'P0' ? 'error' : row.original.priority === 'P1' ? 'warning' : row.original.priority === 'P2' ? 'warning' : 'neutral'" variant="subtle" size="xs">{{ row.original.priority }}</UBadge>
           </template>
-          <template #status-data="{ row }">
-            <UBadge :color="row.status === '待处理' ? 'amber' : row.status === '进行中' ? 'blue' : 'green'" variant="subtle" size="xs">{{ row.status }}</UBadge>
+          <template #status-cell="{ row }">
+            <UBadge :color="row.original.status === '待处理' ? 'warning' : row.original.status === '进行中' ? 'info' : 'success'" variant="subtle" size="xs">{{ row.original.status }}</UBadge>
           </template>
-          <template #assignee-data="{ row }">
-            {{ getUserName(row.assignee) }}
+          <template #assignee-cell="{ row }">
+            {{ getUserName(row.original.assignee) }}
           </template>
-          <template #remark-data="{ row }">
-            <span class="text-gray-500 line-clamp-1" :title="row.remark">{{ row.remark || '-' }}</span>
+          <template #remark-cell="{ row }">
+            <span class="text-gray-500 line-clamp-1" :title="row.original.remark">{{ row.original.remark || '-' }}</span>
           </template>
-          <template #estimated_completion-data="{ row }">
-            {{ row.estimated_completion ? row.estimated_completion.slice(0, 10) : '-' }}
+          <template #estimated_completion-cell="{ row }">
+            {{ row.original.estimated_completion ? row.original.estimated_completion.slice(0, 10) : '-' }}
           </template>
-          <template #actual_hours-data="{ row }">
-            <span v-if="row.actual_hours != null">{{ row.actual_hours }}h</span>
+          <template #actual_hours-cell="{ row }">
+            <span v-if="row.original.actual_hours != null">{{ row.original.actual_hours }}h</span>
             <span v-else class="text-gray-300">-</span>
           </template>
-          <template #created_at-data="{ row }">
-            {{ row.created_at.slice(0, 10) }}
+          <template #created_at-cell="{ row }">
+            {{ row.original.created_at.slice(0, 10) }}
           </template>
         </UTable>
       </div>
@@ -126,21 +126,21 @@ const projectIssues = computed(() => issues.filter(i => i.project_id === route.p
 
 function formatHours(hours: number): string {
   if (hours >= 24) {
-    const days = Math.floor(hours / 8) // 按 8 小时工作日计算
+    const days = Math.floor(hours / 8)
     return `${days} 人天 (${hours}h)`
   }
   return `${hours}h`
 }
 
 const tableColumns = [
-  { key: 'id', label: 'ID', sortable: true },
-  { key: 'title', label: '标题' },
-  { key: 'priority', label: '优先级', sortable: true },
-  { key: 'status', label: '状态' },
-  { key: 'assignee', label: '负责人' },
-  { key: 'remark', label: '备注' },
-  { key: 'estimated_completion', label: '预计完成', sortable: true },
-  { key: 'actual_hours', label: '实际耗时', sortable: true },
-  { key: 'created_at', label: '创建时间', sortable: true },
+  { accessorKey: 'id', header: 'ID' },
+  { accessorKey: 'title', header: '标题' },
+  { accessorKey: 'priority', header: '优先级' },
+  { accessorKey: 'status', header: '状态' },
+  { accessorKey: 'assignee', header: '负责人' },
+  { accessorKey: 'remark', header: '备注' },
+  { accessorKey: 'estimated_completion', header: '预计完成' },
+  { accessorKey: 'actual_hours', header: '实际耗时' },
+  { accessorKey: 'created_at', header: '创建时间' },
 ]
 </script>

@@ -11,13 +11,13 @@
     <div class="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8">
       <h2 class="text-lg font-semibold text-gray-900 mb-6">登录</h2>
       <div class="space-y-4">
-        <UFormGroup label="用户名">
+        <UFormField label="用户名">
           <UInput v-model="username" placeholder="请输入用户名" icon="i-heroicons-user" size="lg" />
-        </UFormGroup>
-        <UFormGroup label="密码">
+        </UFormField>
+        <UFormField label="密码">
           <UInput v-model="password" type="password" placeholder="请输入密码" icon="i-heroicons-lock-closed" size="lg" />
-        </UFormGroup>
-        <UButton block size="lg" color="violet" @click="handleLogin">登录</UButton>
+        </UFormField>
+        <UButton block size="lg" color="primary" @click="handleLogin">登录</UButton>
       </div>
     </div>
 
