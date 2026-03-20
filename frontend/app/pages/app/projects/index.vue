@@ -6,28 +6,32 @@
     </div>
 
     <!-- Create Project Modal -->
-    <UModal v-model:open="showCreateModal" title="新建项目" :close="true">
-      <template #body>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">项目名 <span class="text-red-500">*</span></label>
-            <UInput v-model="newProject.name" placeholder="输入项目名" size="sm" />
+    <UModal v-model:open="showCreateModal" title="新建项目" :ui="{ width: 'sm:max-w-lg' }">
+      <template #content>
+        <div class="modal-form">
+          <div class="modal-header">
+            <h3>新建项目</h3>
+            <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showCreateModal = false" />
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
-            <UTextarea v-model="newProject.description" placeholder="输入项目描述" size="sm" :rows="3" />
+          <div class="modal-body">
+            <div class="form-row">
+              <label>项目名 <span class="text-red-400">*</span></label>
+              <UInput v-model="newProject.name" placeholder="输入项目名称" />
+            </div>
+            <div class="form-row">
+              <label>描述</label>
+              <UTextarea v-model="newProject.description" placeholder="输入项目描述" :rows="4" />
+            </div>
+            <div class="form-row">
+              <label>状态</label>
+              <USelect v-model="newProject.status" :items="projectStatusOptions" value-key="value" />
+            </div>
+            <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
-            <USelect v-model="newProject.status" :items="projectStatusOptions" size="sm" value-key="value" />
+          <div class="modal-footer">
+            <UButton variant="outline" color="neutral" @click="showCreateModal = false">取消</UButton>
+            <UButton :loading="creating" @click="handleCreateProject">创建</UButton>
           </div>
-          <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton variant="ghost" @click="showCreateModal = false">取消</UButton>
-          <UButton :loading="creating" @click="handleCreateProject">创建</UButton>
         </div>
       </template>
     </UModal>
@@ -137,14 +141,39 @@ async function handleCreateProject() {
     newProject.value = { name: '', description: '', status: '进行中' }
     await fetchProjects()
   } catch (e: any) {
-    createError.value = e?.data?.detail || e?.message || '创建失败，请重试'
-    console.error('Failed to create project:', e)
+    createError.value = formatApiError(e, '创建失败，请重试')
   } finally {
     creating.value = false
   }
+}
+
+function formatApiError(e: any, fallback: string): string {
+  const data = e?.data || e?.response?._data
+  if (data && typeof data === 'object') {
+    const msgs = Object.entries(data)
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+      .join('; ')
+    if (msgs) return msgs
+  }
+  return e?.message || fallback
 }
 
 onMounted(() => {
   fetchProjects()
 })
 </script>
+
+<style scoped>
+.modal-form { padding: 1.5rem 2rem; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.modal-header h3 { font-size: 1.125rem; font-weight: 600; color: #111827; }
+.modal-body { display: flex; flex-direction: column; gap: 1rem; }
+.form-row { display: flex; flex-direction: column; gap: 0.375rem; }
+.form-row label { font-size: 0.8125rem; font-weight: 500; color: #374151; }
+.form-row :deep(input),
+.form-row :deep(textarea),
+.form-row :deep(select),
+.form-row :deep(button[role="combobox"]),
+.form-row :deep([data-part="trigger"]) { width: 100% !important; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f3f4f6; }
+</style>

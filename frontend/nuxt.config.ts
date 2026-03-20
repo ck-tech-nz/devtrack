@@ -1,3 +1,6 @@
+declare const process: { env: Record<string, string | undefined> }
+const apiBase = process.env.NUXT_API_BASE || 'http://localhost:8000'
+
 export default defineNuxtConfig({
   ssr: false,
   devtools: { enabled: false },
@@ -12,12 +15,12 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
-    '/api/**': { proxy: 'http://localhost:8000/api/**' },
+    '/api/**': { proxy: `${apiBase}/api/**` },
   },
   nitro: {
     devProxy: {
       '/api/': {
-        target: 'http://localhost:8000/api/',
+        target: `${apiBase}/api/`,
         changeOrigin: true,
       },
     },

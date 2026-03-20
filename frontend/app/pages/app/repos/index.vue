@@ -27,30 +27,40 @@
     </template>
 
     <!-- Create Modal -->
-    <UModal v-model:open="showCreateModal">
-      <template #default>
-        <div class="p-6 space-y-4">
-          <h3 class="text-lg font-semibold text-gray-900">添加仓库</h3>
-          <UFormField label="仓库全名" required>
-            <UInput v-model="form.full_name" placeholder="如 org/repo-name" />
-          </UFormField>
-          <UFormField label="GitHub URL">
-            <UInput v-model="form.url" placeholder="https://github.com/org/repo-name" />
-          </UFormField>
-          <UFormField label="描述">
-            <UTextarea v-model="form.description" placeholder="仓库描述" />
-          </UFormField>
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField label="主要语言">
-              <UInput v-model="form.language" placeholder="如 Python" />
-            </UFormField>
-            <UFormField label="默认分支">
-              <UInput v-model="form.default_branch" placeholder="main" />
-            </UFormField>
+    <UModal v-model:open="showCreateModal" title="添加仓库" :ui="{ width: 'sm:max-w-lg' }">
+      <template #content>
+        <div class="modal-form">
+          <div class="modal-header">
+            <h3>添加仓库</h3>
+            <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showCreateModal = false" />
           </div>
-          <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
-          <div class="flex justify-end gap-2 pt-2">
-            <UButton variant="ghost" color="neutral" @click="showCreateModal = false">取消</UButton>
+          <div class="modal-body">
+            <div class="form-row">
+              <label>仓库全名 <span class="text-red-400">*</span></label>
+              <UInput v-model="form.full_name" placeholder="如 org/repo-name" />
+            </div>
+            <div class="form-row">
+              <label>GitHub URL</label>
+              <UInput v-model="form.url" placeholder="https://github.com/org/repo-name" />
+            </div>
+            <div class="form-row">
+              <label>描述</label>
+              <UTextarea v-model="form.description" placeholder="仓库描述" :rows="3" />
+            </div>
+            <div class="form-grid-2">
+              <div class="form-row">
+                <label>主要语言</label>
+                <UInput v-model="form.language" placeholder="如 Python" />
+              </div>
+              <div class="form-row">
+                <label>默认分支</label>
+                <UInput v-model="form.default_branch" placeholder="main" />
+              </div>
+            </div>
+            <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
+          </div>
+          <div class="modal-footer">
+            <UButton variant="outline" color="neutral" @click="showCreateModal = false">取消</UButton>
             <UButton :loading="creating" @click="handleCreate">添加</UButton>
           </div>
         </div>
@@ -95,11 +105,38 @@ async function handleCreate() {
     form.value = { full_name: '', url: '', description: '', language: '', default_branch: 'main' }
     await fetchRepos()
   } catch (e: any) {
-    createError.value = '添加失败，请检查输入'
+    createError.value = formatApiError(e, '添加失败')
   } finally {
     creating.value = false
   }
 }
 
+function formatApiError(e: any, fallback: string): string {
+  const data = e?.data || e?.response?._data
+  if (data && typeof data === 'object') {
+    const msgs = Object.entries(data)
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+      .join('; ')
+    if (msgs) return msgs
+  }
+  return e?.message || fallback
+}
+
 onMounted(fetchRepos)
 </script>
+
+<style scoped>
+.modal-form { padding: 1.5rem 2rem; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.modal-header h3 { font-size: 1.125rem; font-weight: 600; color: #111827; }
+.modal-body { display: flex; flex-direction: column; gap: 1rem; }
+.form-row { display: flex; flex-direction: column; gap: 0.375rem; }
+.form-row label { font-size: 0.8125rem; font-weight: 500; color: #374151; }
+.form-row :deep(input),
+.form-row :deep(textarea),
+.form-row :deep(select),
+.form-row :deep(button[role="combobox"]),
+.form-row :deep([data-part="trigger"]) { width: 100% !important; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f3f4f6; }
+</style>

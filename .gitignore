@@ -5,6 +5,8 @@ dist/
 .DS_Store
 *.log
 
+.env
+
 # Python / Backend
 __pycache__/
 *.pyc
