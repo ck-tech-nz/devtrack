@@ -1,6 +1,36 @@
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-900">项目管理</h1>
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-semibold text-gray-900">项目管理</h1>
+      <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建项目</UButton>
+    </div>
+
+    <!-- Create Project Modal -->
+    <UModal v-model:open="showCreateModal" title="新建项目" :close="true">
+      <template #body>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">项目名 <span class="text-red-500">*</span></label>
+            <UInput v-model="newProject.name" placeholder="输入项目名" size="sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <UTextarea v-model="newProject.description" placeholder="输入项目描述" size="sm" :rows="3" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+            <USelect v-model="newProject.status" :items="projectStatusOptions" size="sm" value-key="value" />
+          </div>
+          <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton variant="ghost" @click="showCreateModal = false">取消</UButton>
+          <UButton :loading="creating" @click="handleCreateProject">创建</UButton>
+        </div>
+      </template>
+    </UModal>
 
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-20">
@@ -59,7 +89,24 @@ const { api } = useApi()
 const loading = ref(true)
 const projects = ref<any[]>([])
 
-onMounted(async () => {
+// Create project modal state
+const showCreateModal = ref(false)
+const creating = ref(false)
+const createError = ref('')
+const newProject = ref({
+  name: '',
+  description: '',
+  status: '进行中',
+})
+
+const projectStatusOptions = [
+  { label: '进行中', value: '进行中' },
+  { label: '已完成', value: '已完成' },
+  { label: '已归档', value: '已归档' },
+]
+
+async function fetchProjects() {
+  loading.value = true
   try {
     const data = await api<any>('/api/projects/')
     projects.value = data.results || data || []
@@ -68,5 +115,36 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+async function handleCreateProject() {
+  if (!newProject.value.name.trim()) {
+    createError.value = '项目名不能为空'
+    return
+  }
+  creating.value = true
+  createError.value = ''
+  try {
+    await api('/api/projects/', {
+      method: 'POST',
+      body: {
+        name: newProject.value.name,
+        description: newProject.value.description,
+        status: newProject.value.status,
+      },
+    })
+    showCreateModal.value = false
+    newProject.value = { name: '', description: '', status: '进行中' }
+    await fetchProjects()
+  } catch (e: any) {
+    createError.value = e?.data?.detail || e?.message || '创建失败，请重试'
+    console.error('Failed to create project:', e)
+  } finally {
+    creating.value = false
+  }
+}
+
+onMounted(() => {
+  fetchProjects()
 })
 </script>

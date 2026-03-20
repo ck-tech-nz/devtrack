@@ -2,7 +2,53 @@
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold text-gray-900">问题跟踪</h1>
+      <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建 Issue</UButton>
     </div>
+
+    <!-- Create Issue Modal -->
+    <UModal v-model:open="showCreateModal" title="新建 Issue" :close="true">
+      <template #body>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">项目</label>
+            <USelect v-model="newIssue.project" :items="projectOptions" placeholder="选择项目" size="sm" value-key="value" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">标题 <span class="text-red-500">*</span></label>
+            <UInput v-model="newIssue.title" placeholder="输入标题" size="sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <UTextarea v-model="newIssue.description" placeholder="输入描述" size="sm" :rows="3" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+              <USelect v-model="newIssue.priority" :items="createPriorityOptions" size="sm" value-key="value" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+              <USelect v-model="newIssue.status" :items="createStatusOptions" size="sm" value-key="value" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">标签</label>
+            <USelectMenu v-model="newIssue.labels" :items="labelOptions" multiple placeholder="选择标签" size="sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">负责人</label>
+            <USelect v-model="newIssue.assignee" :items="createAssigneeOptions" placeholder="选择负责人" size="sm" value-key="value" />
+          </div>
+          <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton variant="ghost" @click="showCreateModal = false">取消</UButton>
+          <UButton :loading="creating" @click="handleCreateIssue">创建</UButton>
+        </div>
+      </template>
+    </UModal>
 
     <!-- Filters -->
     <div class="bg-white rounded-xl border border-gray-100 p-4">
@@ -109,6 +155,55 @@ const issues = ref<any[]>([])
 const totalCount = ref(0)
 const users = ref<any[]>([])
 const labelOptions = ref<string[]>([])
+const projects = ref<any[]>([])
+
+// Create issue modal state
+const showCreateModal = ref(false)
+const creating = ref(false)
+const createError = ref('')
+const newIssue = ref({
+  project: '',
+  title: '',
+  description: '',
+  priority: 'P2',
+  status: '待处理',
+  labels: [] as string[],
+  assignee: '',
+})
+
+const projectOptions = computed(() => projects.value.map(p => ({ label: p.name, value: String(p.id) })))
+const createPriorityOptions = [{ label: 'P0', value: 'P0' }, { label: 'P1', value: 'P1' }, { label: 'P2', value: 'P2' }, { label: 'P3', value: 'P3' }]
+const createStatusOptions = [{ label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
+const createAssigneeOptions = computed(() => [{ label: '无', value: '' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
+
+async function handleCreateIssue() {
+  if (!newIssue.value.title.trim()) {
+    createError.value = '标题不能为空'
+    return
+  }
+  creating.value = true
+  createError.value = ''
+  try {
+    const body: any = {
+      title: newIssue.value.title,
+      description: newIssue.value.description,
+      priority: newIssue.value.priority,
+      status: newIssue.value.status,
+      labels: newIssue.value.labels,
+    }
+    if (newIssue.value.project) body.project = Number(newIssue.value.project)
+    if (newIssue.value.assignee) body.assignee = Number(newIssue.value.assignee)
+    await api('/api/issues/', { method: 'POST', body, format: 'json' })
+    showCreateModal.value = false
+    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: '' }
+    await fetchIssues()
+  } catch (e: any) {
+    createError.value = e?.data?.detail || e?.message || '创建失败，请重试'
+    console.error('Failed to create issue:', e)
+  } finally {
+    creating.value = false
+  }
+}
 
 const selectedRowsData = computed(() => {
   return Object.entries(rowSelection.value)
@@ -202,12 +297,14 @@ watch(page, () => {
 })
 
 onMounted(async () => {
-  const [, usersData, settingsData] = await Promise.all([
+  const [, usersData, settingsData, projectsData] = await Promise.all([
     fetchIssues(),
     api<any[]>('/api/users/').catch(() => []),
     api<any>('/api/settings/').catch(() => ({ labels: [] })),
+    api<any>('/api/projects/').catch(() => ({ results: [] })),
   ])
   users.value = usersData || []
   labelOptions.value = settingsData?.labels || []
+  projects.value = projectsData?.results || projectsData || []
 })
 </script>
