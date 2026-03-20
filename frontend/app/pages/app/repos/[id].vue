@@ -1,11 +1,6 @@
 <template>
-  <div v-if="!isOnline('github')" class="space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-900">GitHub 仓库</h1>
-    <div class="bg-white rounded-xl border border-gray-100 p-12 text-center">
-      <UIcon name="i-heroicons-exclamation-circle" class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-      <p class="text-gray-500">GitHub 连接不可用</p>
-      <p class="text-sm text-gray-400 mt-1">请检查 GitHub API 连接配置</p>
-    </div>
+  <div v-if="loading" class="flex items-center justify-center py-20">
+    <div class="text-sm text-gray-400">加载中...</div>
   </div>
   <div v-else-if="repo" class="space-y-6">
     <div class="flex items-center justify-between">
@@ -19,47 +14,52 @@
       </div>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 p-5">
+      <h3 class="text-sm font-semibold text-gray-900 mb-3">仓库信息</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gray-50 rounded-lg px-4 py-3">
+          <p class="text-xs text-gray-400 mb-1">默认分支</p>
+          <p class="text-sm font-medium text-gray-900">{{ repo.default_branch }}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg px-4 py-3">
+          <p class="text-xs text-gray-400 mb-1">绑定时间</p>
+          <p class="text-sm font-medium text-gray-900">{{ repo.connected_at?.slice(0, 10) }}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg px-4 py-3">
+          <p class="text-xs text-gray-400 mb-1">状态</p>
+          <p class="text-sm font-medium text-gray-900">{{ repo.status }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 p-5">
       <h3 class="text-sm font-semibold text-gray-900 mb-3">最近提交</h3>
-      <div class="divide-y divide-gray-50">
-        <div v-for="commit in repo.recent_commits" :key="commit.sha" class="py-3 first:pt-0 last:pb-0">
-          <div class="flex items-center justify-between">
-            <p class="text-sm text-gray-900">{{ commit.message }}</p>
-            <span class="text-xs text-gray-400 font-mono ml-4 flex-shrink-0">{{ commit.sha }}</span>
-          </div>
-          <div class="flex items-center mt-1 text-xs text-gray-400 space-x-3">
-            <span>{{ commit.author }}</span>
-            <span>{{ commit.date.slice(0, 10) }}</span>
-          </div>
-        </div>
-      </div>
+      <p class="text-sm text-gray-400">GitHub 集成尚未接入，暂无提交记录</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 p-5">
-      <h3 class="text-sm font-semibold text-gray-900 mb-3">Open Pull Requests ({{ repo.open_prs.length }})</h3>
-      <div v-if="repo.open_prs.length" class="divide-y divide-gray-50">
-        <div v-for="pr in repo.open_prs" :key="pr.number" class="py-3 first:pt-0 last:pb-0 flex items-center justify-between">
-          <div><span class="text-sm text-crystal-600 font-medium">#{{ pr.number }}</span><span class="text-sm text-gray-900 ml-2">{{ pr.title }}</span></div>
-          <div class="text-xs text-gray-400">{{ pr.author }} &middot; {{ pr.created_at.slice(0, 10) }}</div>
-        </div>
-      </div>
-      <p v-else class="text-sm text-gray-400">暂无 Open PR</p>
+      <h3 class="text-sm font-semibold text-gray-900 mb-3">Open Pull Requests</h3>
+      <p class="text-sm text-gray-400">GitHub 集成尚未接入，暂无 PR 数据</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-100 p-5">
-      <h3 class="text-sm font-semibold text-gray-900 mb-3">Open Issues ({{ repo.open_issues.length }})</h3>
-      <div v-if="repo.open_issues.length" class="divide-y divide-gray-50">
-        <div v-for="issue in repo.open_issues" :key="issue.number" class="py-3 first:pt-0 last:pb-0 flex items-center justify-between">
-          <div><span class="text-sm text-crystal-600 font-medium">#{{ issue.number }}</span><span class="text-sm text-gray-900 ml-2">{{ issue.title }}</span></div>
-          <div class="flex items-center space-x-2"><UBadge v-for="l in issue.labels" :key="l" color="neutral" variant="subtle" size="xs">{{ l }}</UBadge></div>
-        </div>
-      </div>
-      <p v-else class="text-sm text-gray-400">暂无 Open Issue</p>
+      <h3 class="text-sm font-semibold text-gray-900 mb-3">Open Issues</h3>
+      <p class="text-sm text-gray-400">GitHub 集成尚未接入，暂无 Issue 数据</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
-import { repos } from '~/data/mock'
+
 const route = useRoute()
-const { isOnline } = useServiceStatus()
-const repo = computed(() => repos.find(r => r.id === route.params.id))
+const { api } = useApi()
+const loading = ref(true)
+const repo = ref<any>(null)
+
+onMounted(async () => {
+  try {
+    repo.value = await api<any>(`/api/repos/${route.params.id}/`)
+  } catch (e) {
+    console.error('Failed to load repo:', e)
+  } finally {
+    loading.value = false
+  }
+})
 </script>

@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
 from apps.projects.models import Project, ProjectMember
 from apps.issues.models import Issue, Activity
+from apps.repos.models import Repo
 
 fake = Faker("zh_CN")
 User = get_user_model()
@@ -69,3 +70,17 @@ class ActivityFactory(factory.django.DjangoModelFactory):
     issue = factory.SubFactory(IssueFactory)
     action = "created"
     detail = ""
+
+
+class RepoFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Repo
+
+    name = factory.LazyFunction(lambda: fake.word() + "-" + fake.word())
+    full_name = factory.LazyAttribute(lambda o: f"org/{o.name}")
+    url = factory.LazyAttribute(lambda o: f"https://github.com/{o.full_name}")
+    description = factory.LazyFunction(lambda: fake.sentence())
+    default_branch = "main"
+    language = factory.Iterator(["Python", "TypeScript", "Go", "Java"])
+    stars = factory.LazyFunction(lambda: fake.random_int(0, 500))
+    status = "在线"
