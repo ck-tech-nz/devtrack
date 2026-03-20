@@ -1,3 +1,7 @@
 from django.urls import path
+from .views import UserListView, UserDetailView
 
-urlpatterns = []
+urlpatterns = [
+    path("", UserListView.as_view(), name="user-list"),
+    path("<uuid:pk>/", UserDetailView.as_view(), name="user-detail"),
+]
