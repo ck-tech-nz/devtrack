@@ -2,6 +2,7 @@ import factory
 from faker import Faker
 from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
+from apps.projects.models import Project, ProjectMember
 
 fake = Faker("zh_CN")
 User = get_user_model()
@@ -26,3 +27,21 @@ class SiteSettingsFactory(factory.django.DjangoModelFactory):
     labels = ["前端", "后端", "Bug", "优化", "需求", "文档", "CI/CD", "安全", "性能", "UI/UX"]
     priorities = ["P0", "P1", "P2", "P3"]
     issue_statuses = ["待处理", "进行中", "已解决", "已关闭"]
+
+
+class ProjectFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Project
+
+    name = factory.LazyFunction(lambda: fake.catch_phrase())
+    description = factory.LazyFunction(lambda: fake.paragraph())
+    status = "进行中"
+
+
+class ProjectMemberFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ProjectMember
+
+    project = factory.SubFactory(ProjectFactory)
+    user = factory.SubFactory(UserFactory)
+    role = "member"
