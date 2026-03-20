@@ -9,6 +9,11 @@ export interface NavItem {
 export const useNavigation = () => {
   const navItems: NavItem[] = [
     {
+      label: '问题跟踪',
+      icon: 'i-heroicons-bug-ant',
+      to: '/app/issues',
+    },
+    {
       label: '项目概览',
       icon: 'i-heroicons-squares-2x2',
       to: '/app/dashboard',
@@ -17,11 +22,6 @@ export const useNavigation = () => {
       label: '项目管理',
       icon: 'i-heroicons-folder-open',
       to: '/app/projects',
-    },
-    {
-      label: '问题跟踪',
-      icon: 'i-heroicons-bug-ant',
-      to: '/app/issues',
     },
     {
       label: 'GitHub 仓库',
