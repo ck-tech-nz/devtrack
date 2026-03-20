@@ -3,6 +3,7 @@ from faker import Faker
 from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
 from apps.projects.models import Project, ProjectMember
+from apps.issues.models import Issue, Activity
 
 fake = Faker("zh_CN")
 User = get_user_model()
@@ -45,3 +46,26 @@ class ProjectMemberFactory(factory.django.DjangoModelFactory):
     project = factory.SubFactory(ProjectFactory)
     user = factory.SubFactory(UserFactory)
     role = "member"
+
+
+class IssueFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Issue
+
+    project = factory.SubFactory(ProjectFactory)
+    title = factory.LazyFunction(lambda: fake.sentence())
+    description = factory.LazyFunction(lambda: fake.paragraph())
+    priority = factory.Iterator(["P0", "P1", "P2", "P3"])
+    status = "待处理"
+    labels = factory.LazyFunction(lambda: [fake.random_element(["前端", "后端", "Bug"])])
+    reporter = factory.SubFactory(UserFactory)
+
+
+class ActivityFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Activity
+
+    user = factory.SubFactory(UserFactory)
+    issue = factory.SubFactory(IssueFactory)
+    action = "created"
+    detail = ""
