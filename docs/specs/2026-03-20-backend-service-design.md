@@ -81,7 +81,8 @@ devtrack/
 | status | CharField(max_length=20) | 进行中 / 已完成 / 已归档 |
 | remark | TextField(blank=True) | 备注 |
 | estimated_completion | DateField(null=True) | 预计完成日期 |
-| actual_hours | DecimalField(null=True) | 实际工时 |
+| actual_hours | DecimalField(max_digits=8, decimal_places=2, null=True) | 实际工时 |
+| linked_repos | JSONField(default=list) | 关联的 GitHub 仓库名列表（如 `["postloan-backend"]`），前端项目卡片展示用 |
 | members | M2M → User through ProjectMember | 成员 |
 | created_at | DateTimeField(auto_now_add=True) | 创建时间 |
 | updated_at | DateTimeField(auto_now=True) | 更新时间 |
@@ -100,29 +101,49 @@ devtrack/
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUIDField (pk) | 主键 |
+| number | AutoField (unique) | 自增展示编号，前端显示为 `ISS-001` 格式 |
 | project | FK → Project | 所属项目 |
 | title | CharField(max_length=200) | 标题 |
 | description | TextField(blank=True) | 描述 |
 | priority | CharField(max_length=10) | P0 / P1 / P2 / P3 |
 | status | CharField(max_length=20) | 待处理 / 进行中 / 已解决 / 已关闭 |
-| labels | JSONField(default=list) | 标签数组，校验来自 SiteSettings.labels |
+| labels | JSONField(default=list) | 标签数组，serializer 层校验来自 SiteSettings.labels |
 | reporter | FK → User(related_name="reported_issues") | 提出人 |
 | assignee | FK → User(null=True, related_name="assigned_issues") | 负责人 |
 | remark | TextField(blank=True) | 备注 |
 | estimated_completion | DateField(null=True) | 预计完成 |
-| actual_hours | DecimalField(null=True) | 实际工时 |
+| actual_hours | DecimalField(max_digits=8, decimal_places=2, null=True) | 实际工时 |
 | cause | TextField(blank=True) | 原因分析 |
 | solution | TextField(blank=True) | 解决办法 |
 | created_at | DateTimeField(auto_now_add=True) | 创建时间 |
+| updated_at | DateTimeField(auto_now=True) | 更新时间 |
 | resolved_at | DateTimeField(null=True) | 解决时间 |
 
 **计算属性**：
 - `resolution_hours` — 由 `resolved_at - created_at` 在 serializer 中计算，不存储
+- `display_id` — serializer 中格式化为 `ISS-{number:03d}`
+
+**校验策略**：所有动态枚举值（labels、priority、status、role）在 **serializer 层** 校验，从 SiteSettings 读取合法值列表。Model 层不做校验，保证 Django Admin 和 API 使用同一套规则。
 
 **未纳入字段**（属于 GitHub/AI 模块，后续扩展）：
 - branch_name, branch_created_at, branch_merged_at
 - linked_commits, linked_prs
 - ai_analysis
+
+### issues app — Activity（活动记录）
+
+Issue 变更时自动创建活动记录，用于 Dashboard 活动流。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | UUIDField (pk) | 主键 |
+| user | FK → User | 操作人 |
+| action | CharField(max_length=20) | 动作类型：created / updated / resolved / closed / assigned |
+| issue | FK → Issue | 关联 Issue |
+| detail | CharField(max_length=200, blank=True) | 补充信息（如"优先级从 P2 改为 P0"） |
+| created_at | DateTimeField(auto_now_add=True) | 操作时间 |
+
+Activity 记录通过 Issue serializer 的 `save()` 方法自动创建，不暴露独立的 CRUD 接口。
 
 ## API 设计
 
@@ -169,16 +190,27 @@ devtrack/
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
-| GET | `/api/issues/` | Issue 列表（筛选：priority, status, labels, assignee, project_id） |
+| GET | `/api/issues/` | Issue 列表（筛选 + 搜索） |
 | POST | `/api/issues/` | 创建 Issue |
 | GET | `/api/issues/:id/` | Issue 详情 |
 | PATCH | `/api/issues/:id/` | 更新 Issue |
 | DELETE | `/api/issues/:id/` | 删除 Issue |
-| PATCH | `/api/issues/batch/` | 批量操作（分配负责人、改优先级） |
+| POST | `/api/issues/batch-update/` | 批量操作（分配负责人、改优先级） |
 
-**筛选**: query params `?priority=P0&status=进行中&assignee=uuid&labels=前端`
+**筛选**: query params `?priority=P0&status=进行中&assignee=uuid&labels=前端&project_id=uuid`
+**搜索**: `?search=关键词`（DRF SearchFilter，匹配 title 和 display_id）
 **分页**: `PageNumberPagination`，默认 20 条
 **排序**: `?ordering=-created_at,priority`
+
+**批量操作请求格式**：
+
+```json
+{
+  "ids": ["uuid1", "uuid2"],
+  "action": "assign",       // assign | set_priority
+  "value": "user-uuid"      // assignee UUID 或 "P0"/"P1" 等
+}
+```
 
 ### Dashboard 聚合
 
@@ -190,7 +222,69 @@ devtrack/
 | GET | `/api/dashboard/developer-leaderboard/` | 本月解决数 Top 5 |
 | GET | `/api/dashboard/recent-activity/` | 最近活动流 |
 
-Dashboard 接口为只读聚合查询，归属 issues app。
+Dashboard 接口为只读聚合查询，归属 issues app。均不分页，返回单个对象或数组。
+
+**响应格式定义**：
+
+`GET /api/dashboard/stats/` — 返回单个对象：
+
+```json
+{
+  "total": 55,
+  "pending": 12,
+  "in_progress": 8,
+  "resolved_this_week": 5
+}
+```
+
+`GET /api/dashboard/trends/` — 滚动 30 天，每日一条：
+
+```json
+[
+  { "date": "2026-02-18", "created": 3, "resolved": 2 },
+  { "date": "2026-02-19", "created": 1, "resolved": 4 }
+]
+```
+
+`GET /api/dashboard/priority-distribution/` — 按优先级聚合：
+
+```json
+[
+  { "priority": "P0", "count": 5 },
+  { "priority": "P1", "count": 12 },
+  { "priority": "P2", "count": 25 },
+  { "priority": "P3", "count": 13 }
+]
+```
+
+`GET /api/dashboard/developer-leaderboard/` — 本月 Top 5，含基础统计：
+
+```json
+[
+  {
+    "user_id": "uuid",
+    "user_name": "张三",
+    "monthly_resolved_count": 15,
+    "avg_resolution_hours": 4.2
+  }
+]
+```
+
+`GET /api/dashboard/recent-activity/` — 最近 20 条 Activity 记录：
+
+```json
+[
+  {
+    "id": "uuid",
+    "user_name": "张三",
+    "action": "resolved",
+    "issue_title": "登录页样式错乱",
+    "issue_id": "uuid",
+    "issue_display_id": "ISS-042",
+    "created_at": "2026-03-20T10:30:00Z"
+  }
+]
+```
 
 ## TDD 策略
 
