@@ -105,8 +105,8 @@
             @update:model-value="(v: boolean) => row.toggleSelected(!!v)"
           />
         </template>
-        <template #display_id-cell="{ row }">
-          <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ row.original.display_id }}</NuxtLink>
+        <template #id-cell="{ row }">
+          <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ row.original.id }}</NuxtLink>
         </template>
         <template #title-cell="{ row }">
           <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-gray-900 hover:text-crystal-600 line-clamp-1">{{ row.original.title }}</NuxtLink>
@@ -122,6 +122,15 @@
         </template>
         <template #reporter_name-cell="{ row }">
           {{ row.original.reporter_name || '-' }}
+        </template>
+        <template #remark-cell="{ row }">
+          <EditableCell :value="row.original.remark" @save="(v: string) => inlineUpdate(row.original.id, 'remark', v)" />
+        </template>
+        <template #cause-cell="{ row }">
+          <EditableCell :value="row.original.cause" @save="(v: string) => inlineUpdate(row.original.id, 'cause', v)" />
+        </template>
+        <template #solution-cell="{ row }">
+          <EditableCell :value="row.original.solution" @save="(v: string) => inlineUpdate(row.original.id, 'solution', v)" />
         </template>
         <template #created_at-cell="{ row }">
           {{ row.original.created_at ? row.original.created_at.slice(0, 10) : '-' }}
@@ -226,15 +235,33 @@ const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageS
 
 const columns = [
   { id: 'select', header: '', cell: '' },
-  { accessorKey: 'display_id', header: 'ID' },
+  { accessorKey: 'id', header: 'ID' },
   { accessorKey: 'title', header: '标题' },
   { accessorKey: 'priority', header: '优先级' },
   { accessorKey: 'status', header: '状态' },
   { accessorKey: 'assignee_name', header: '负责人' },
   { accessorKey: 'reporter_name', header: '提出人' },
+  { accessorKey: 'remark', header: '备注' },
+  { accessorKey: 'cause', header: '原因分析' },
+  { accessorKey: 'solution', header: '解决方案' },
   { accessorKey: 'created_at', header: '创建时间' },
   { accessorKey: 'resolution_hours', header: '解决耗时' },
 ]
+
+async function inlineUpdate(issueId: string, field: string, value: string) {
+  try {
+    await api(`/api/issues/${issueId}/`, {
+      method: 'PATCH',
+      body: { [field]: value },
+    })
+    // Update locally without full refetch
+    const issue = issues.value.find((i: any) => i.id === issueId)
+    if (issue) issue[field] = value
+  } catch (e) {
+    console.error('Inline update failed:', e)
+    await fetchIssues()
+  }
+}
 
 function formatApiError(e: any, fallback: string): string {
   const data = e?.data || e?.response?._data

@@ -1,9 +1,7 @@
-import uuid
 from django.db import models
 
 
 class Repo(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, verbose_name="仓库名")
     full_name = models.CharField(max_length=200, verbose_name="完整名称")
     url = models.CharField(max_length=500, verbose_name="GitHub URL")

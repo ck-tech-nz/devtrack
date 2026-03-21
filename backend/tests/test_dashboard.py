@@ -78,4 +78,4 @@ class TestDashboardRecentActivity:
         assert "user_name" in entry
         assert "action" in entry
         assert "issue_title" in entry
-        assert "issue_display_id" in entry
+        assert "issue_id" in entry

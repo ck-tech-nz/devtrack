@@ -9,8 +9,8 @@ from .views import (
 
 urlpatterns = [
     path("", ProjectListCreateView.as_view(), name="project-list"),
-    path("<uuid:pk>/", ProjectDetailView.as_view(), name="project-detail"),
-    path("<uuid:project_pk>/members/", ProjectMemberListCreateView.as_view(), name="project-members"),
-    path("<uuid:project_pk>/members/<uuid:user_pk>/", ProjectMemberDeleteView.as_view(), name="project-member-delete"),
-    path("<uuid:project_pk>/issues/", ProjectIssuesView.as_view(), name="project-issues"),
+    path("<int:pk>/", ProjectDetailView.as_view(), name="project-detail"),
+    path("<int:project_pk>/members/", ProjectMemberListCreateView.as_view(), name="project-members"),
+    path("<int:project_pk>/members/<int:user_pk>/", ProjectMemberDeleteView.as_view(), name="project-member-delete"),
+    path("<int:project_pk>/issues/", ProjectIssuesView.as_view(), name="project-issues"),
 ]

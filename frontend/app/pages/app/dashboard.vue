@@ -120,7 +120,7 @@ function activityIcon(action: string): string {
 
 function activityMessage(item: any): string {
   const name = item.user_name || '未知用户'
-  const issueRef = item.issue_display_id || item.issue_title || ''
+  const issueRef = item.issue_id ? `#${item.issue_id}` : ''
   switch (item.action) {
     case 'created': return `${name} 创建了问题 ${issueRef}${item.issue_title ? '「' + item.issue_title + '」' : ''}`
     case 'resolved': return `${name} 解决了问题 ${issueRef}${item.issue_title ? '「' + item.issue_title + '」' : ''}`

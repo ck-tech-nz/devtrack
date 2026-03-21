@@ -4,7 +4,7 @@ from .models import Issue, Activity
 
 @admin.register(Issue)
 class IssueAdmin(admin.ModelAdmin):
-    list_display = ("number", "title", "priority", "status", "assignee", "created_at")
+    list_display = ("id", "title", "priority", "status", "assignee", "created_at")
     list_filter = ("priority", "status")
     search_fields = ("title",)
 

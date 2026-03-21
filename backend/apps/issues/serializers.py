@@ -7,19 +7,14 @@ from .models import Issue, Activity
 class ActivitySerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.name", read_only=True)
     issue_title = serializers.CharField(source="issue.title", read_only=True)
-    issue_id = serializers.UUIDField(source="issue.id", read_only=True)
-    issue_display_id = serializers.SerializerMethodField()
+    issue_id = serializers.IntegerField(source="issue.id", read_only=True)
 
     class Meta:
         model = Activity
-        fields = ["id", "user_name", "action", "issue_title", "issue_id", "issue_display_id", "detail", "created_at"]
-
-    def get_issue_display_id(self, obj):
-        return f"ISS-{obj.issue.number:03d}" if obj.issue.number else None
+        fields = ["id", "user_name", "action", "issue_title", "issue_id", "detail", "created_at"]
 
 
 class IssueListSerializer(serializers.ModelSerializer):
-    display_id = serializers.SerializerMethodField()
     reporter_name = serializers.CharField(source="reporter.name", read_only=True, default=None)
     assignee_name = serializers.CharField(source="assignee.name", read_only=True, default=None)
     resolution_hours = serializers.SerializerMethodField()
@@ -27,14 +22,11 @@ class IssueListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Issue
         fields = [
-            "id", "number", "display_id", "project", "title", "priority",
+            "id", "project", "title", "priority",
             "status", "labels", "reporter", "reporter_name",
-            "assignee", "assignee_name", "resolution_hours",
-            "created_at", "updated_at",
+            "assignee", "assignee_name", "remark", "cause", "solution",
+            "resolution_hours", "created_at", "updated_at",
         ]
-
-    def get_display_id(self, obj):
-        return f"ISS-{obj.number:03d}" if obj.number else None
 
     def get_resolution_hours(self, obj):
         if obj.resolved_at and obj.created_at:
@@ -46,8 +38,8 @@ class IssueListSerializer(serializers.ModelSerializer):
 class IssueDetailSerializer(IssueListSerializer):
     class Meta(IssueListSerializer.Meta):
         fields = IssueListSerializer.Meta.fields + [
-            "description", "remark", "estimated_completion",
-            "actual_hours", "cause", "solution", "resolved_at",
+            "description", "estimated_completion",
+            "actual_hours", "resolved_at",
         ]
 
 
@@ -96,7 +88,6 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
         old_assignee = instance.assignee_id
         issue = super().update(instance, validated_data)
 
-        # Track status changes
         new_status = validated_data.get("status")
         if new_status and new_status != old_status:
             action = "resolved" if new_status == "已解决" else "closed" if new_status == "已关闭" else "updated"
@@ -108,7 +99,6 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
                 issue.resolved_at = timezone.now()
                 issue.save(update_fields=["resolved_at"])
 
-        # Track assignee changes
         new_assignee = validated_data.get("assignee")
         if "assignee" in validated_data and str(getattr(new_assignee, "id", None)) != str(old_assignee):
             Activity.objects.create(
@@ -120,6 +110,6 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
 
 
 class BatchUpdateSerializer(serializers.Serializer):
-    ids = serializers.ListField(child=serializers.UUIDField())
+    ids = serializers.ListField(child=serializers.IntegerField())
     action = serializers.ChoiceField(choices=["assign", "set_priority"])
     value = serializers.CharField()

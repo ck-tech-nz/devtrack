@@ -16,7 +16,7 @@
 
     <nav class="flex-1 overflow-y-auto py-4 space-y-1 px-2">
       <NuxtLink
-        v-for="item in navItems"
+        v-for="item in filteredNavItems"
         :key="item.label"
         :to="item.to!"
         class="flex items-center h-10 px-2 rounded-lg transition-colors group"
@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-const { navItems, currentPath } = useNavigation()
+const { filteredNavItems, currentPath } = useNavigation()
 const { isOnline, toggle, getLabel } = useServiceStatus()
 const expanded = ref(true)
 const autoCollapse = ref(false)

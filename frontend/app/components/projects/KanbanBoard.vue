@@ -13,7 +13,7 @@
           class="block bg-white rounded-lg border border-gray-100 p-3 hover:shadow-sm transition-shadow"
         >
           <div class="flex items-center justify-between mb-1.5">
-            <span class="text-xs text-gray-400">{{ issue.display_id || issue.id }}</span>
+            <span class="text-xs text-gray-400">#{{ issue.id }}</span>
             <UBadge
               :color="issue.priority === 'P0' ? 'error' : issue.priority === 'P1' ? 'warning' : issue.priority === 'P2' ? 'warning' : 'neutral'"
               variant="subtle"

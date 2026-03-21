@@ -1,10 +1,8 @@
-import uuid
 from django.conf import settings
 from django.db import models
 
 
 class Project(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, verbose_name="项目名")
     description = models.TextField(blank=True, verbose_name="描述")
     status = models.CharField(max_length=20, verbose_name="状态")

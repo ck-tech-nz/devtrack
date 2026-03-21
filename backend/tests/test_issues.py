@@ -54,8 +54,7 @@ class TestIssueDetail:
         response = auth_client.get(f"/api/issues/{issue.id}/")
         assert response.status_code == 200
         assert response.data["title"] == "Bug修复"
-        assert "display_id" in response.data
-        assert response.data["display_id"].startswith("ISS-")
+        assert isinstance(response.data["id"], int)
 
     def test_resolution_hours_computed(self, auth_client, site_settings):
         from django.utils import timezone

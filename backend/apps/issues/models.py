@@ -1,11 +1,8 @@
-import uuid
 from django.conf import settings
 from django.db import models
 
 
 class Issue(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    number = models.PositiveIntegerField(unique=True, editable=False, null=True)
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, related_name="issues"
     )
@@ -13,7 +10,7 @@ class Issue(models.Model):
     description = models.TextField(blank=True, verbose_name="描述")
     priority = models.CharField(max_length=10, verbose_name="优先级")
     status = models.CharField(max_length=20, verbose_name="状态")
-    labels = models.JSONField(default=list, verbose_name="标签")
+    labels = models.JSONField(default=list, verbose_name="标签", blank=True)
     reporter = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
         related_name="reported_issues", verbose_name="提出人",
@@ -41,19 +38,10 @@ class Issue(models.Model):
         ]
 
     def __str__(self):
-        if self.number:
-            return f"ISS-{self.number:03d} {self.title}"
-        return self.title
-
-    def save(self, *args, **kwargs):
-        if self._state.adding and not self.number:
-            last = Issue.objects.order_by("-number").values_list("number", flat=True).first()
-            self.number = (last or 0) + 1
-        super().save(*args, **kwargs)
+        return f"#{self.pk} {self.title}"
 
 
 class Activity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="activities")
     action = models.CharField(max_length=20, verbose_name="动作")
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name="activities")

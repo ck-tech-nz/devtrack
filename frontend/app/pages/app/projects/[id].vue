@@ -85,8 +85,8 @@
           :columns="tableColumns"
           :ui="{ th: 'text-xs', td: 'text-sm' }"
         >
-          <template #display_id-cell="{ row }">
-            <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ row.original.display_id || row.original.number }}</NuxtLink>
+          <template #id-cell="{ row }">
+            <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ row.original.id }}</NuxtLink>
           </template>
           <template #title-cell="{ row }">
             <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-gray-900 hover:text-crystal-600 line-clamp-1">{{ row.original.title }}</NuxtLink>
@@ -133,7 +133,7 @@ function formatHours(hours: number): string {
 }
 
 const tableColumns = [
-  { accessorKey: 'display_id', header: 'ID' },
+  { accessorKey: 'id', header: 'ID' },
   { accessorKey: 'title', header: '标题' },
   { accessorKey: 'priority', header: '优先级' },
   { accessorKey: 'status', header: '状态' },

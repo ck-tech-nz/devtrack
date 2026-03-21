@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 class ProjectMemberSerializer(serializers.ModelSerializer):
-    user_id = serializers.UUIDField(source="user.id", read_only=True)
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
     user_name = serializers.CharField(source="user.name", read_only=True)
     avatar = serializers.URLField(source="user.avatar", read_only=True)
 
@@ -16,7 +16,7 @@ class ProjectMemberSerializer(serializers.ModelSerializer):
 
 
 class ProjectMemberCreateSerializer(serializers.Serializer):
-    user_id = serializers.UUIDField()
+    user_id = serializers.IntegerField()
     role = serializers.ChoiceField(choices=["owner", "admin", "member"])
 
     def validate_user_id(self, value):

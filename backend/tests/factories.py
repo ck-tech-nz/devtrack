@@ -14,7 +14,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.LazyFunction(lambda: fake.user_name())
+    username = factory.Sequence(lambda n: f"{fake.user_name()}_{n}")
     name = factory.LazyFunction(lambda: fake.name())
     email = factory.LazyFunction(lambda: fake.email())
     password = factory.PostGenerationMethodCall("set_password", "testpass123")
