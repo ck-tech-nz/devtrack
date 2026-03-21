@@ -1,24 +1,3 @@
-/**
- * Route-to-permission mapping.
- * Keys are route prefixes; the first match wins.
- * Routes without a mapping are accessible to all authenticated users.
- */
-const routePermissions: Record<string, string> = {
-  '/app/dashboard': 'issues.view_dashboard',
-  '/app/issues': 'issues.view_issue',
-  '/app/projects': 'projects.view_project',
-  '/app/repos': 'repos.view_repo',
-}
-
-function getRequiredPermission(path: string): string | undefined {
-  for (const [prefix, perm] of Object.entries(routePermissions)) {
-    if (path === prefix || path.startsWith(prefix + '/')) {
-      return perm
-    }
-  }
-  return undefined
-}
-
 export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/' || to.path === '/login') return
   if (to.path === '/app/forbidden') return
@@ -29,19 +8,31 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   const { user, fetchMe, can } = useAuth()
+  const { loaded, fetchRoutes, routePermissions, error } = usePagePerms()
 
-  // Ensure user data (including permissions) is loaded
   if (!user.value) {
     await fetchMe()
   }
 
-  // If fetchMe failed (e.g. token expired), redirect to login
   if (!user.value) {
     return navigateTo('/')
   }
 
-  const required = getRequiredPermission(to.path)
-  if (required && !can(required)) {
+  if (!loaded.value) {
+    await fetchRoutes()
+  }
+
+  if (error.value && to.path.startsWith('/app/')) {
     return navigateTo('/app/forbidden')
+  }
+
+  const perms = routePermissions.value
+  for (const [prefix, perm] of Object.entries(perms)) {
+    if (to.path === prefix || to.path.startsWith(prefix + '/')) {
+      if (!can(perm)) {
+        return navigateTo('/app/forbidden')
+      }
+      break
+    }
   }
 })

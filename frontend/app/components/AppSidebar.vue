@@ -29,8 +29,8 @@
           <span v-if="expanded" class="ml-3 text-sm font-medium whitespace-nowrap flex items-center gap-2">
             {{ item.label }}
             <ServiceStatusDot
-              v-if="item.serviceKey"
-              :online="isOnline(item.serviceKey)"
+              v-if="item.meta?.serviceKey"
+              :online="isOnline(item.meta.serviceKey)"
             />
           </span>
         </transition>

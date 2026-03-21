@@ -6,6 +6,7 @@ interface AuthUser {
   groups: string[]
   permissions: string[]
   settings: Record<string, any>
+  is_superuser: boolean
 }
 
 export function useAuth() {

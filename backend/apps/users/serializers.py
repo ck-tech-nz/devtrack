@@ -16,8 +16,8 @@ class MeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "name", "email", "github_id", "avatar", "groups", "permissions", "settings"]
-        read_only_fields = ["id", "username", "groups", "permissions"]
+        fields = ["id", "username", "name", "email", "github_id", "avatar", "groups", "permissions", "settings", "is_superuser"]
+        read_only_fields = ["id", "username", "groups", "permissions", "is_superuser"]
 
     def get_groups(self, obj):
         return list(obj.groups.values_list("name", flat=True))
