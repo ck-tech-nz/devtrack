@@ -81,6 +81,26 @@
 
         <!-- Tab 2: Group Permissions -->
         <div v-if="activeTab === 'groups'">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-sm text-gray-500 dark:text-gray-400">共 {{ groups.length }} 个组</span>
+            <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-md p-0.5">
+              <button
+                class="px-2.5 py-1 text-xs rounded transition-colors"
+                :class="groupViewMode === 'listbox' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'"
+                @click="groupViewMode = 'listbox'"
+              >
+                列表模式
+              </button>
+              <button
+                class="px-2.5 py-1 text-xs rounded transition-colors"
+                :class="groupViewMode === 'tags' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'"
+                @click="groupViewMode = 'tags'"
+              >
+                标签模式
+              </button>
+            </div>
+          </div>
+
           <div class="space-y-4">
             <div
               v-for="group in groups"
@@ -91,7 +111,17 @@
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ group.name }}</h3>
                 <UButton size="xs" variant="outline" color="neutral" :loading="savingGroup === group.id" @click="saveGroup(group)">保存</UButton>
               </div>
-              <div class="flex flex-wrap gap-2">
+
+              <!-- Listbox mode -->
+              <DualListbox
+                v-if="groupViewMode === 'listbox'"
+                :items="allPermissionNames"
+                :model-value="Array.from(group._selectedPerms)"
+                @update:model-value="updateGroupPerms(group, $event)"
+              />
+
+              <!-- Tags mode (original) -->
+              <div v-else class="flex flex-wrap gap-2">
                 <label
                   v-for="perm in allPermissions"
                   :key="perm.full_codename"
@@ -263,6 +293,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'permissions', label: '权限列表' },
 ]
 const activeTab = ref<TabKey>('routes')
+const groupViewMode = ref<'listbox' | 'tags'>('listbox')
 
 // Data
 const loading = ref(true)
@@ -297,6 +328,10 @@ const permSelectOptions = computed(() => [
   { label: '不绑定权限', value: '' },
   ...allPermissions.value.map(p => ({ label: p.full_codename, value: p.full_codename })),
 ])
+
+const allPermissionNames = computed(() =>
+  allPermissions.value.map(p => p.full_codename)
+)
 
 // ---- Route CRUD ----
 const showRouteModal = ref(false)
@@ -411,6 +446,10 @@ async function handleCreatePerm() {
 
 // ---- Group Permission Management ----
 const savingGroup = ref<number | null>(null)
+
+function updateGroupPerms(group: any, perms: string[]) {
+  group._selectedPerms = new Set(perms)
+}
 
 function toggleGroupPerm(group: any, perm: string) {
   if (group._selectedPerms.has(perm)) {
