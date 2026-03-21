@@ -34,7 +34,8 @@ class PageRouteViewSet(viewsets.ModelViewSet):
         qs = PageRoute.objects.select_related("permission__content_type").all()
         if not (self.request.user and self.request.user.is_superuser):
             qs = qs.filter(is_active=True)
-        elif self.request.query_params.get("all") != "true":
+        elif self.action == "list" and self.request.query_params.get("all") != "true":
+            # 仅在列表接口默认过滤非活跃路由，detail 操作不过滤
             qs = qs.filter(is_active=True)
         return qs
 
