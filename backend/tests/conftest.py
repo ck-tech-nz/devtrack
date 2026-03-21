@@ -24,3 +24,17 @@ def auth_client(api_client):
 @pytest.fixture
 def site_settings():
     return SiteSettingsFactory()
+
+
+@pytest.fixture
+def superuser_client(api_client):
+    user = UserFactory(is_superuser=True, is_staff=True)
+    api_client.force_authenticate(user=user)
+    return api_client
+
+
+@pytest.fixture
+def regular_client(api_client):
+    user = UserFactory()
+    api_client.force_authenticate(user=user)
+    return api_client
