@@ -37,6 +37,9 @@ const filteredSelected = computed(() => {
   return selectedItems.value.filter(i => i.toLowerCase().includes(q))
 })
 
+watch(leftFilter, () => { leftHighlighted.value.clear(); leftLastClicked.value = -1 })
+watch(rightFilter, () => { rightHighlighted.value.clear(); rightLastClicked.value = -1 })
+
 function handleItemClick(side: 'left' | 'right', item: string, index: number, event: MouseEvent) {
   const highlighted = side === 'left' ? leftHighlighted : rightHighlighted
   const lastClicked = side === 'left' ? leftLastClicked : rightLastClicked
