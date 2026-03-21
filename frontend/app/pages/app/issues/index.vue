@@ -2,7 +2,25 @@
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold text-gray-900">问题跟踪</h1>
-      <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建 Issue</UButton>
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center bg-gray-100 rounded-lg p-0.5">
+          <button
+            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+            :class="viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            @click="viewMode = 'kanban'"
+          >
+            看板
+          </button>
+          <button
+            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+            :class="viewMode === 'table' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            @click="viewMode = 'table'"
+          >
+            列表
+          </button>
+        </div>
+        <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建 Issue</UButton>
+      </div>
     </div>
 
     <!-- Create Issue Modal -->
@@ -56,17 +74,6 @@
       </template>
     </UModal>
 
-    <!-- Filters -->
-    <div class="bg-white rounded-xl border border-gray-100 p-4">
-      <div class="flex flex-wrap gap-3">
-        <UInput v-model="search" placeholder="搜索标题/ID" icon="i-heroicons-magnifying-glass" size="sm" class="w-60" />
-        <USelect v-model="filterPriority" :items="priorityOptions" placeholder="优先级" size="sm" class="w-28" value-key="value" />
-        <USelect v-model="filterStatus" :items="statusOptions" placeholder="状态" size="sm" class="w-28" value-key="value" />
-        <USelect v-model="filterLabel" :items="labelFilterOptions" placeholder="标签" size="sm" class="w-28" value-key="value" />
-        <USelect v-model="filterAssignee" :items="assigneeOptions" placeholder="负责人" size="sm" class="w-32" value-key="value" />
-      </div>
-    </div>
-
     <!-- Batch Actions -->
     <div v-if="selectedRowsData.length > 0" class="bg-crystal-50 rounded-xl border border-crystal-100 p-3 flex items-center justify-between">
       <span class="text-sm text-crystal-700">已选择 {{ selectedRowsData.length }} 项</span>
@@ -85,7 +92,10 @@
       <div class="text-sm text-gray-400">加载中...</div>
     </div>
 
-    <!-- Table -->
+    <!-- Kanban View -->
+    <ProjectsKanbanBoard v-else-if="viewMode === 'kanban'" :issues="issues" @update:status="onStatusChange" />
+
+    <!-- Table View -->
     <div v-else class="bg-white rounded-xl border border-gray-100 overflow-hidden">
       <UTable
         v-model:row-selection="rowSelection"
@@ -156,11 +166,7 @@ definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
 
-const search = ref('')
-const filterPriority = ref('_all')
-const filterStatus = ref('_all')
-const filterLabel = ref('_all')
-const filterAssignee = ref('_all')
+const viewMode = ref<'kanban' | 'table'>('table')
 const page = ref(1)
 const pageSize = 15
 const rowSelection = ref<Record<string, boolean>>({})
@@ -226,11 +232,6 @@ const selectedRowsData = computed(() => {
     .filter(Boolean)
 })
 
-const priorityOptions = [{ label: '全部', value: '_all' }, { label: 'P0', value: 'P0' }, { label: 'P1', value: 'P1' }, { label: 'P2', value: 'P2' }, { label: 'P3', value: 'P3' }]
-const statusOptions = [{ label: '全部', value: '_all' }, { label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
-const labelFilterOptions = computed(() => [{ label: '全部', value: '_all' }, ...labelOptions.value.map(l => ({ label: l, value: l }))])
-const assigneeOptions = computed(() => [{ label: '全部', value: '_all' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
-
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize)))
 
 const columns = [
@@ -247,6 +248,24 @@ const columns = [
   { accessorKey: 'created_at', header: '创建时间' },
   { accessorKey: 'resolution_hours', header: '解决耗时' },
 ]
+
+async function onStatusChange({ issueId, newStatus }: { issueId: number, newStatus: string }) {
+  const issue = issues.value.find((i: any) => i.id === issueId)
+  if (!issue) return
+
+  const oldStatus = issue.status
+  issue.status = newStatus
+
+  try {
+    await api(`/api/issues/${issueId}/`, {
+      method: 'PATCH',
+      body: { status: newStatus },
+    })
+  } catch (e) {
+    console.error('Failed to update issue status:', e)
+    issue.status = oldStatus
+  }
+}
 
 async function inlineUpdate(issueId: string, field: string, value: string) {
   try {
@@ -287,11 +306,6 @@ async function fetchIssues() {
     const params = new URLSearchParams()
     params.set('page', String(page.value))
     params.set('page_size', String(pageSize))
-    if (search.value) params.set('search', search.value)
-    if (filterPriority.value && filterPriority.value !== '_all') params.set('priority', filterPriority.value)
-    if (filterStatus.value && filterStatus.value !== '_all') params.set('status', filterStatus.value)
-    if (filterLabel.value && filterLabel.value !== '_all') params.set('label', filterLabel.value)
-    if (filterAssignee.value && filterAssignee.value !== '_all') params.set('assignee', filterAssignee.value)
 
     const data = await api<any>(`/api/issues/?${params.toString()}`)
     issues.value = data.results || data || []
@@ -327,12 +341,6 @@ const batchPriorityItems = [['P0', 'P1', 'P2', 'P3'].map(p => ({
   label: p,
   onSelect: () => batchUpdate('priority', p),
 }))]
-
-watch([filterPriority, filterStatus, filterLabel, filterAssignee, search], () => {
-  page.value = 1
-  rowSelection.value = {}
-  fetchIssues()
-})
 
 watch(page, () => {
   rowSelection.value = {}

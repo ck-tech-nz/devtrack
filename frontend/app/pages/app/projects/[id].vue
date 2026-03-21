@@ -59,29 +59,37 @@
     <div>
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-gray-900">Issues</h3>
-        <div class="flex items-center bg-gray-100 rounded-lg p-0.5">
-          <button
-            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-            :class="viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-            @click="viewMode = 'kanban'"
-          >
-            看板
-          </button>
-          <button
-            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-            :class="viewMode === 'table' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-            @click="viewMode = 'table'"
-          >
-            列表
-          </button>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <UInput v-model="search" placeholder="搜索" icon="i-heroicons-magnifying-glass" size="xs" class="w-40" />
+            <USelect v-model="filterPriority" :items="priorityOptions" size="xs" class="w-24" value-key="value" />
+            <USelect v-model="filterStatus" :items="statusOptions" size="xs" class="w-24" value-key="value" />
+            <USelect v-model="filterAssignee" :items="assigneeOptions" size="xs" class="w-28" value-key="value" />
+          </div>
+          <div class="flex items-center bg-gray-100 rounded-lg p-0.5">
+            <button
+              class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+              :class="viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              @click="viewMode = 'kanban'"
+            >
+              看板
+            </button>
+            <button
+              class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+              :class="viewMode === 'table' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              @click="viewMode = 'table'"
+            >
+              列表
+            </button>
+          </div>
         </div>
       </div>
 
-      <ProjectsKanbanBoard v-if="viewMode === 'kanban'" :issues="projectIssues" />
+      <ProjectsKanbanBoard v-if="viewMode === 'kanban'" :issues="filteredIssues" @update:status="onStatusChange" />
 
       <div v-else class="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <UTable
-          :data="projectIssues"
+          :data="filteredIssues"
           :columns="tableColumns"
           :ui="{ th: 'text-xs', td: 'text-sm' }"
         >
@@ -120,7 +128,29 @@ const route = useRoute()
 const loading = ref(true)
 const project = ref<any>(null)
 const projectIssues = ref<any[]>([])
+const users = ref<any[]>([])
 const viewMode = ref<'kanban' | 'table'>('kanban')
+
+const search = ref('')
+const filterPriority = ref('_all')
+const filterStatus = ref('_all')
+const filterAssignee = ref('_all')
+
+const priorityOptions = [{ label: '全部', value: '_all' }, { label: 'P0', value: 'P0' }, { label: 'P1', value: 'P1' }, { label: 'P2', value: 'P2' }, { label: 'P3', value: 'P3' }]
+const statusOptions = [{ label: '全部', value: '_all' }, { label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
+const assigneeOptions = computed(() => [{ label: '全部', value: '_all' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
+
+const filteredIssues = computed(() => {
+  let result = projectIssues.value
+  if (search.value) {
+    const q = search.value.toLowerCase()
+    result = result.filter(i => i.title?.toLowerCase().includes(q) || String(i.id).includes(q))
+  }
+  if (filterPriority.value !== '_all') result = result.filter(i => i.priority === filterPriority.value)
+  if (filterStatus.value !== '_all') result = result.filter(i => i.status === filterStatus.value)
+  if (filterAssignee.value !== '_all') result = result.filter(i => String(i.assignee) === filterAssignee.value)
+  return result
+})
 
 const projectMembers = computed(() => project.value?.members ?? [])
 
@@ -130,6 +160,24 @@ function formatHours(hours: number): string {
     return `${days} 人天 (${hours}h)`
   }
   return `${hours}h`
+}
+
+async function onStatusChange({ issueId, newStatus }: { issueId: number, newStatus: string }) {
+  const issue = projectIssues.value.find((i: any) => i.id === issueId)
+  if (!issue) return
+
+  const oldStatus = issue.status
+  issue.status = newStatus
+
+  try {
+    await api(`/api/issues/${issueId}/`, {
+      method: 'PATCH',
+      body: { status: newStatus },
+    })
+  } catch (e) {
+    console.error('Failed to update issue status:', e)
+    issue.status = oldStatus
+  }
 }
 
 const tableColumns = [
@@ -144,13 +192,14 @@ const tableColumns = [
 onMounted(async () => {
   const id = route.params.id
   try {
-    const [projectData, issuesData] = await Promise.all([
+    const [projectData, issuesData, usersData] = await Promise.all([
       api<any>(`/api/projects/${id}/`),
       api<any>(`/api/projects/${id}/issues/`),
+      api<any[]>('/api/users/').catch(() => []),
     ])
     project.value = projectData
-    const issues = issuesData.results || issuesData || []
-    projectIssues.value = issues.filter((i: any) => i.status !== '已关闭')
+    projectIssues.value = issuesData.results || issuesData || []
+    users.value = usersData || []
   } catch (e) {
     console.error('Failed to load project:', e)
   } finally {
