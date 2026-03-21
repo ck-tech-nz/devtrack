@@ -1,0 +1,20 @@
+[project]
+name = "django-page-perms"
+version = "0.1.0"
+description = "Dynamic page-permission mapping for Django + DRF projects"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=4.2",
+    "djangorestframework>=3.14",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-django>=4.9,<5.0",
+    "factory-boy>=3.3,<4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
