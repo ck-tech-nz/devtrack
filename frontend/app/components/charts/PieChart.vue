@@ -19,6 +19,9 @@ const chartRef = ref<HTMLElement>()
 let chart: echarts.ECharts | null = null
 const colors = ['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe']
 
+const colorMode = useColorMode()
+const isDark = computed(() => colorMode.value === 'dark')
+
 onMounted(() => {
   if (!chartRef.value) return
   chart = echarts.init(chartRef.value)
@@ -26,12 +29,19 @@ onMounted(() => {
 })
 
 watch(() => props.data, renderChart, { deep: true })
+watch(isDark, () => renderChart())
 
 function renderChart() {
   if (!chart) return
+  const dark = isDark.value
   chart.setOption({
-    tooltip: { trigger: 'item', backgroundColor: '#fff', borderColor: '#e5e7eb', textStyle: { color: '#374151', fontSize: 12 } },
-    legend: { bottom: 0, itemWidth: 8, itemHeight: 8, textStyle: { color: '#6b7280', fontSize: 11 } },
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: dark ? '#1f2937' : '#fff',
+      borderColor: dark ? '#374151' : '#e5e7eb',
+      textStyle: { color: dark ? '#e5e7eb' : '#374151', fontSize: 12 },
+    },
+    legend: { bottom: 0, itemWidth: 8, itemHeight: 8, textStyle: { color: dark ? '#9ca3af' : '#6b7280', fontSize: 11 } },
     color: colors,
     series: [{
       type: 'pie',
@@ -41,7 +51,7 @@ function renderChart() {
       label: { show: false },
       emphasis: { label: { show: true, fontSize: 13, fontWeight: 600 } },
       data: props.data,
-      itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderRadius: 4, borderColor: dark ? '#111827' : '#fff', borderWidth: 2 },
     }],
   })
 }

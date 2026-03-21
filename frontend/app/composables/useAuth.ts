@@ -5,15 +5,18 @@ interface AuthUser {
   avatar: string
   groups: string[]
   permissions: string[]
+  settings: Record<string, any>
 }
 
 export function useAuth() {
   const user = useState<AuthUser | null>('auth_user', () => null)
   const { api, clearTokens } = useApi()
+  const { load: loadSettings } = useUserSettings()
 
   async function fetchMe() {
     try {
       user.value = await api<AuthUser>('/api/auth/me/')
+      loadSettings(user.value?.settings)
     } catch {
       user.value = null
     }

@@ -6,6 +6,7 @@ class User(AbstractUser):
     name = models.CharField(max_length=50, verbose_name="姓名")
     github_id = models.CharField(max_length=100, blank=True, verbose_name="GitHub ID")
     avatar = models.URLField(blank=True, verbose_name="头像")
+    settings = models.JSONField(default=dict, blank=True, verbose_name="用户设置")
 
     class Meta:
         verbose_name = "用户"

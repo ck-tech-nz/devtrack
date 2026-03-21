@@ -66,4 +66,9 @@ function cancel() {
   outline: none;
   background: white;
 }
+:root.dark .editable-input {
+  background: #1f2937;
+  color: #e5e7eb;
+  border-color: #7c3aed;
+}
 </style>

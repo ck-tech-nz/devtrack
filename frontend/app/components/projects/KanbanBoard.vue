@@ -3,14 +3,14 @@
     <div
       v-for="col in columns"
       :key="col.status"
-      class="bg-gray-50 rounded-xl p-4 transition-colors"
-      :class="dragOverTarget === col.status ? 'ring-2 ring-crystal-300 bg-crystal-50' : ''"
+      class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 transition-colors"
+      :class="dragOverTarget === col.status ? 'ring-2 ring-crystal-300 dark:ring-crystal-700 bg-crystal-50 dark:bg-crystal-950' : ''"
       @dragover.prevent="onDragOver(col.status)"
       @dragleave="onDragLeave"
       @drop="onDrop(col.status)"
     >
       <div class="flex items-center justify-between mb-3">
-        <h4 class="text-sm font-semibold text-gray-700">{{ col.label }}</h4>
+        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ col.label }}</h4>
         <UBadge color="neutral" variant="subtle" size="xs">{{ col.items.length }}</UBadge>
       </div>
       <div class="space-y-2">
@@ -18,14 +18,14 @@
           v-for="issue in col.items"
           :key="issue.id"
           draggable="true"
-          class="bg-white rounded-lg border border-gray-100 p-3 hover:shadow-sm transition-shadow cursor-grab active:cursor-grabbing"
+          class="bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800 p-3 hover:shadow-sm transition-shadow cursor-grab active:cursor-grabbing"
           :class="draggingId === issue.id ? 'opacity-40' : ''"
           @dragstart="onDragStart(issue.id)"
           @dragend="onDragEnd"
         >
           <NuxtLink :to="`/app/issues/${issue.id}`" class="block">
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs text-gray-400">#{{ issue.id }}</span>
+              <span class="text-xs text-gray-400 dark:text-gray-500">#{{ issue.id }}</span>
               <UBadge
                 :color="issue.priority === 'P0' ? 'error' : issue.priority === 'P1' ? 'warning' : issue.priority === 'P2' ? 'warning' : 'neutral'"
                 variant="subtle"
@@ -34,12 +34,12 @@
                 {{ issue.priority }}
               </UBadge>
             </div>
-            <p class="text-sm text-gray-900 font-medium line-clamp-2">{{ issue.title }}</p>
+            <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2">{{ issue.title }}</p>
             <div class="mt-2 flex items-center">
-              <div class="w-5 h-5 rounded-full bg-crystal-100 flex items-center justify-center">
-                <span class="text-crystal-600 text-[10px] font-medium">{{ (issue.assignee_name || '?').slice(0, 1) }}</span>
+              <div class="w-5 h-5 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center">
+                <span class="text-crystal-600 dark:text-crystal-400 text-[10px] font-medium">{{ (issue.assignee_name || '?').slice(0, 1) }}</span>
               </div>
-              <span class="ml-1.5 text-xs text-gray-400">{{ issue.assignee_name || '-' }}</span>
+              <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500">{{ issue.assignee_name || '-' }}</span>
             </div>
           </NuxtLink>
         </div>

@@ -1,16 +1,16 @@
 <template>
   <div v-if="loading" class="flex items-center justify-center py-20">
-    <div class="text-sm text-gray-400">加载中...</div>
+    <div class="text-sm text-gray-400 dark:text-gray-500">加载中...</div>
   </div>
 
   <div v-else-if="issue" class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <NuxtLink to="/app/issues" class="text-gray-400 hover:text-gray-600">
+        <NuxtLink to="/app/issues" class="text-gray-400 dark:text-gray-500 hover:text-gray-600">
           <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
         </NuxtLink>
-        <h1 class="text-2xl font-semibold text-gray-900">#{{ issue.id }}</h1>
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">#{{ issue.id }}</h1>
         <UBadge :color="priorityColor(issue.priority)" variant="subtle">{{ issue.priority }}</UBadge>
         <UBadge :color="statusColor(issue.status)" variant="subtle">{{ issue.status }}</UBadge>
       </div>
@@ -23,7 +23,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Main content -->
       <div class="lg:col-span-2 space-y-4">
-        <div class="bg-white rounded-xl border border-gray-100 p-5">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
           <div class="space-y-4">
             <div class="form-row">
               <label>标题</label>
@@ -56,8 +56,8 @@
           </div>
         </div>
 
-        <div class="bg-white rounded-xl border border-gray-100 p-5">
-          <h3 class="text-sm font-semibold text-gray-900 mb-4">分析记录</h3>
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">分析记录</h3>
           <div class="space-y-4">
             <div class="form-row">
               <label>备注</label>
@@ -77,54 +77,54 @@
 
       <!-- Sidebar -->
       <div class="space-y-4">
-        <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
-          <h3 class="text-sm font-semibold text-gray-900">信息</h3>
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">信息</h3>
           <div class="text-sm">
-            <span class="text-gray-400">提出人</span>
-            <p class="text-gray-900 mt-0.5">{{ issue.reporter_name || '-' }}</p>
+            <span class="text-gray-400 dark:text-gray-500">提出人</span>
+            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter_name || '-' }}</p>
           </div>
           <div class="text-sm">
-            <span class="text-gray-400">创建时间</span>
-            <p class="text-gray-900 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
+            <span class="text-gray-400 dark:text-gray-500">创建时间</span>
+            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
           </div>
           <div v-if="issue.resolved_at" class="text-sm">
-            <span class="text-gray-400">解决时间</span>
-            <p class="text-gray-900 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
+            <span class="text-gray-400 dark:text-gray-500">解决时间</span>
+            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
           </div>
           <div v-if="issue.resolution_hours" class="text-sm">
-            <span class="text-gray-400">解决耗时</span>
-            <p class="text-gray-900 mt-0.5">{{ issue.resolution_hours }}h</p>
+            <span class="text-gray-400 dark:text-gray-500">解决耗时</span>
+            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
           </div>
           <div class="form-row">
-            <label class="text-gray-400">预计完成</label>
+            <label class="text-gray-400 dark:text-gray-500">预计完成</label>
             <UInput v-model="form.estimated_completion" type="date" />
           </div>
           <div class="form-row">
-            <label class="text-gray-400">实际工时</label>
+            <label class="text-gray-400 dark:text-gray-500">实际工时</label>
             <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
           </div>
         </div>
 
-        <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-900">AI 分析</h3>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI 分析</h3>
             <ServiceStatusDot :online="isOnline('ai')" />
           </div>
-          <p class="text-sm text-gray-400">暂无 AI 分析结果</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500">暂无 AI 分析结果</p>
         </div>
 
-        <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-900">GitHub 关联</h3>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">GitHub 关联</h3>
             <ServiceStatusDot :online="isOnline('github')" />
           </div>
-          <p class="text-sm text-gray-400">暂无关联记录</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500">暂无关联记录</p>
         </div>
       </div>
     </div>
   </div>
 
-  <div v-else class="text-center py-20 text-sm text-gray-400">问题不存在</div>
+  <div v-else class="text-center py-20 text-sm text-gray-400 dark:text-gray-500">问题不存在</div>
 </template>
 
 <script setup lang="ts">
@@ -262,6 +262,7 @@ onMounted(async () => {
 <style scoped>
 .form-row { display: flex; flex-direction: column; gap: 0.375rem; }
 .form-row label { font-size: 0.8125rem; font-weight: 500; color: #374151; }
+:root.dark .form-row label { color: #9ca3af; }
 .form-row :deep(input),
 .form-row :deep(textarea),
 .form-row :deep(select),

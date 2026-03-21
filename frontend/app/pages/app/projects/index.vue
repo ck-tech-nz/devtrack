@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-gray-900">项目管理</h1>
+      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">项目管理</h1>
       <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建项目</UButton>
     </div>
 
@@ -38,7 +38,7 @@
 
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-20">
-      <div class="text-sm text-gray-400">加载中...</div>
+      <div class="text-sm text-gray-400 dark:text-gray-500">加载中...</div>
     </div>
 
     <template v-else>
@@ -47,10 +47,10 @@
           v-for="project in projects"
           :key="project.id"
           :to="`/app/projects/${project.id}`"
-          class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow block"
+          class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 hover:shadow-sm transition-shadow block"
         >
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-semibold text-gray-900">{{ project.name }}</h3>
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100">{{ project.name }}</h3>
             <UBadge
               :color="project.status === '进行中' ? 'primary' : project.status === '已完成' ? 'success' : 'neutral'"
               variant="subtle"
@@ -59,8 +59,8 @@
               {{ project.status }}
             </UBadge>
           </div>
-          <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ project.description }}</p>
-          <div class="flex items-center flex-wrap gap-y-1 text-xs text-gray-400 space-x-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-2">{{ project.description }}</p>
+          <div class="flex items-center flex-wrap gap-y-1 text-xs text-gray-400 dark:text-gray-500 space-x-4">
             <span class="flex items-center">
               <UIcon name="i-heroicons-users" class="w-3.5 h-3.5 mr-1" />
               {{ project.member_count }} 成员
@@ -80,7 +80,7 @@
           </div>
         </NuxtLink>
       </div>
-      <div v-else class="text-center py-20 text-sm text-gray-400">暂无项目</div>
+      <div v-else class="text-center py-20 text-sm text-gray-400 dark:text-gray-500">暂无项目</div>
     </template>
   </div>
 </template>
@@ -167,13 +167,16 @@ onMounted(() => {
 .modal-form { padding: 1.5rem 2rem; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
 .modal-header h3 { font-size: 1.125rem; font-weight: 600; color: #111827; }
+:root.dark .modal-header h3 { color: #f3f4f6; }
 .modal-body { display: flex; flex-direction: column; gap: 1rem; }
 .form-row { display: flex; flex-direction: column; gap: 0.375rem; }
 .form-row label { font-size: 0.8125rem; font-weight: 500; color: #374151; }
+:root.dark .form-row label { color: #9ca3af; }
 .form-row :deep(input),
 .form-row :deep(textarea),
 .form-row :deep(select),
 .form-row :deep(button[role="combobox"]),
 .form-row :deep([data-part="trigger"]) { width: 100% !important; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f3f4f6; }
+:root.dark .modal-footer { border-top-color: #374151; }
 </style>

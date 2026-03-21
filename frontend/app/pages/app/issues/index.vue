@@ -1,19 +1,19 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-gray-900">问题跟踪</h1>
+      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
       <div class="flex items-center space-x-3">
-        <div class="flex items-center bg-gray-100 rounded-lg p-0.5">
+        <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
           <button
             class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-            :class="viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            :class="viewMode === 'kanban' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
             @click="viewMode = 'kanban'"
           >
             看板
           </button>
           <button
             class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-            :class="viewMode === 'table' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            :class="viewMode === 'table' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
             @click="viewMode = 'table'"
           >
             列表
@@ -75,8 +75,8 @@
     </UModal>
 
     <!-- Batch Actions -->
-    <div v-if="selectedRowsData.length > 0" class="bg-crystal-50 rounded-xl border border-crystal-100 p-3 flex items-center justify-between">
-      <span class="text-sm text-crystal-700">已选择 {{ selectedRowsData.length }} 项</span>
+    <div v-if="selectedRowsData.length > 0" class="bg-crystal-50 dark:bg-crystal-950 rounded-xl border border-crystal-100 dark:border-crystal-800 p-3 flex items-center justify-between">
+      <span class="text-sm text-crystal-700 dark:text-crystal-300">已选择 {{ selectedRowsData.length }} 项</span>
       <div class="flex items-center space-x-2">
         <UDropdownMenu :items="batchAssignItems" :content="{ align: 'end' as const }">
           <UButton size="xs" color="primary" variant="outline">批量分配</UButton>
@@ -89,14 +89,14 @@
 
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-20">
-      <div class="text-sm text-gray-400">加载中...</div>
+      <div class="text-sm text-gray-400 dark:text-gray-500">加载中...</div>
     </div>
 
     <!-- Kanban View -->
     <ProjectsKanbanBoard v-else-if="viewMode === 'kanban'" :issues="issues" @update:status="onStatusChange" />
 
     <!-- Table View -->
-    <div v-else class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+    <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
       <UTable
         v-model:row-selection="rowSelection"
         :data="issues"
@@ -116,10 +116,10 @@
           />
         </template>
         <template #id-cell="{ row }">
-          <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 hover:text-crystal-700 font-medium">{{ row.original.id }}</NuxtLink>
+          <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 dark:text-crystal-400 hover:text-crystal-700 dark:hover:text-crystal-300 font-medium">{{ row.original.id }}</NuxtLink>
         </template>
         <template #title-cell="{ row }">
-          <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-gray-900 hover:text-crystal-600 line-clamp-1">{{ row.original.title }}</NuxtLink>
+          <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-gray-900 dark:text-gray-100 hover:text-crystal-600 line-clamp-1">{{ row.original.title }}</NuxtLink>
         </template>
         <template #priority-cell="{ row }">
           <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="xs">{{ row.original.priority }}</UBadge>
@@ -149,11 +149,11 @@
           {{ row.original.resolution_hours ? row.original.resolution_hours + 'h' : '-' }}
         </template>
       </UTable>
-      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-50">
-        <span class="text-xs text-gray-400">共 {{ totalCount }} 条</span>
+      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-50 dark:border-gray-800">
+        <span class="text-xs text-gray-400 dark:text-gray-500">共 {{ totalCount }} 条</span>
         <div class="flex items-center space-x-2">
           <UButton size="xs" variant="ghost" color="neutral" :disabled="page <= 1" @click="page--">上一页</UButton>
-          <span class="text-xs text-gray-500">{{ page }} / {{ totalPages }}</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">{{ page }} / {{ totalPages }}</span>
           <UButton size="xs" variant="ghost" color="neutral" :disabled="page >= totalPages" @click="page++">下一页</UButton>
         </div>
       </div>
@@ -165,8 +165,12 @@
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
+const { settings, update: updateSettings } = useUserSettings()
 
-const viewMode = ref<'kanban' | 'table'>('table')
+const viewMode = computed({
+  get: () => settings.value.issues_view_mode,
+  set: (v: 'kanban' | 'table') => updateSettings('issues_view_mode', v),
+})
 const page = ref(1)
 const pageSize = 15
 const rowSelection = ref<Record<string, boolean>>({})
@@ -375,6 +379,9 @@ onMounted(async () => {
   font-weight: 600;
   color: #111827;
 }
+:root.dark .modal-header h3 {
+  color: #f3f4f6;
+}
 .modal-body {
   display: flex;
   flex-direction: column;
@@ -389,6 +396,9 @@ onMounted(async () => {
   font-size: 0.8125rem;
   font-weight: 500;
   color: #374151;
+}
+:root.dark .form-row label {
+  color: #9ca3af;
 }
 .form-row :deep(input),
 .form-row :deep(textarea),
@@ -409,5 +419,8 @@ onMounted(async () => {
   margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid #f3f4f6;
+}
+:root.dark .modal-footer {
+  border-top-color: #374151;
 }
 </style>

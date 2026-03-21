@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-900">项目概览</h1>
+    <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">项目概览</h1>
 
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-20">
-      <div class="text-sm text-gray-400">加载中...</div>
+      <div class="text-sm text-gray-400 dark:text-gray-500">加载中...</div>
     </div>
 
     <template v-else>
@@ -14,35 +14,35 @@
           v-for="p in activeProjects"
           :key="p.id"
           :to="`/app/projects/${p.id}`"
-          class="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm hover:border-crystal-200 transition-all flex items-center gap-4 group"
+          class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-4 hover:shadow-sm hover:border-crystal-200 dark:hover:border-crystal-700 transition-all flex items-center gap-4 group"
         >
-          <div class="w-10 h-10 rounded-lg bg-crystal-50 flex items-center justify-center flex-shrink-0 group-hover:bg-crystal-100 transition-colors">
+          <div class="w-10 h-10 rounded-lg bg-crystal-50 dark:bg-crystal-950 flex items-center justify-center flex-shrink-0 group-hover:bg-crystal-100 dark:hover:bg-crystal-900 transition-colors">
             <UIcon name="i-heroicons-folder-open" class="w-5 h-5 text-crystal-500" />
           </div>
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-gray-900 truncate">{{ p.name }}</p>
-            <div class="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{{ p.name }}</p>
+            <div class="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               <span>{{ p.member_count }} 成员</span>
               <span>{{ p.issue_count }} Issues</span>
               <span v-if="p.estimated_completion">预计 {{ p.estimated_completion.slice(0, 10) }}</span>
             </div>
           </div>
-          <UIcon name="i-heroicons-chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-crystal-400 flex-shrink-0" />
+          <UIcon name="i-heroicons-chevron-right" class="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-crystal-400 flex-shrink-0" />
         </NuxtLink>
       </div>
 
       <!-- Stat Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardStatCard label="总 Issue 数" :value="stats.total" icon="i-heroicons-bug-ant" icon-bg="bg-crystal-50" icon-color="text-crystal-500" />
-        <DashboardStatCard label="待处理" :value="stats.pending" icon="i-heroicons-clock" icon-bg="bg-amber-50" icon-color="text-amber-500" />
-        <DashboardStatCard label="进行中" :value="stats.in_progress" icon="i-heroicons-arrow-path" icon-bg="bg-blue-50" icon-color="text-blue-500" />
-        <DashboardStatCard label="本周已解决" :value="stats.resolved_this_week" icon="i-heroicons-check-circle" icon-bg="bg-emerald-50" icon-color="text-emerald-500" />
+        <DashboardStatCard label="总 Issue 数" :value="stats.total" icon="i-heroicons-bug-ant" icon-bg="bg-crystal-50 dark:bg-crystal-950" icon-color="text-crystal-500" />
+        <DashboardStatCard label="待处理" :value="stats.pending" icon="i-heroicons-clock" icon-bg="bg-amber-50 dark:bg-amber-950" icon-color="text-amber-500" />
+        <DashboardStatCard label="进行中" :value="stats.in_progress" icon="i-heroicons-arrow-path" icon-bg="bg-blue-50 dark:bg-blue-950" icon-color="text-blue-500" />
+        <DashboardStatCard label="本周已解决" :value="stats.resolved_this_week" icon="i-heroicons-check-circle" icon-bg="bg-emerald-50 dark:bg-emerald-950" icon-color="text-emerald-500" />
       </div>
 
       <!-- Charts -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-5">
-          <h3 class="text-sm font-semibold text-gray-900 mb-4">30 日 Issue 趋势</h3>
+        <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">30 日 Issue 趋势</h3>
           <ChartsLineChart
             :x-data="trendDates"
             :series="[
@@ -52,41 +52,41 @@
             :height="280"
           />
         </div>
-        <div class="bg-white rounded-xl border border-gray-100 p-5">
-          <h3 class="text-sm font-semibold text-gray-900 mb-4">优先级分布</h3>
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">优先级分布</h3>
           <ChartsPieChart :data="pieData" :height="280" />
         </div>
       </div>
 
       <!-- Developer Leaderboard -->
-      <div class="bg-white rounded-xl border border-gray-100 p-5">
-        <h3 class="text-sm font-semibold text-gray-900 mb-4">开发者排行榜（本月解决数）</h3>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">开发者排行榜（本月解决数）</h3>
         <div v-if="topDevs.length" class="space-y-3">
           <div v-for="(dev, idx) in topDevs" :key="dev.user_id" class="flex items-center">
-            <span class="w-6 text-sm font-medium" :class="idx < 3 ? 'text-crystal-500' : 'text-gray-400'">{{ idx + 1 }}</span>
-            <div class="w-8 h-8 rounded-full bg-crystal-100 flex items-center justify-center ml-2">
-              <span class="text-crystal-600 text-xs font-medium">{{ dev.user_name.slice(0, 1) }}</span>
+            <span class="w-6 text-sm font-medium" :class="idx < 3 ? 'text-crystal-500' : 'text-gray-400 dark:text-gray-500'">{{ idx + 1 }}</span>
+            <div class="w-8 h-8 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center ml-2">
+              <span class="text-crystal-600 dark:text-crystal-400 text-xs font-medium">{{ dev.user_name.slice(0, 1) }}</span>
             </div>
-            <span class="ml-3 text-sm text-gray-700 flex-1">{{ dev.user_name }}</span>
-            <span class="text-sm font-semibold text-gray-900">{{ dev.monthly_resolved_count }}</span>
+            <span class="ml-3 text-sm text-gray-700 dark:text-gray-300 flex-1">{{ dev.user_name }}</span>
+            <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ dev.monthly_resolved_count }}</span>
           </div>
         </div>
-        <div v-else class="text-sm text-gray-400">暂无数据</div>
+        <div v-else class="text-sm text-gray-400 dark:text-gray-500">暂无数据</div>
       </div>
 
       <!-- Recent Activity -->
-      <div class="bg-white rounded-xl border border-gray-100 p-5">
-        <h3 class="text-sm font-semibold text-gray-900 mb-4">最近动态</h3>
-        <div v-if="recentActivity.length" class="divide-y divide-gray-50">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">最近动态</h3>
+        <div v-if="recentActivity.length" class="divide-y divide-gray-50 dark:divide-gray-800">
           <div v-for="item in recentActivity" :key="item.id" class="flex items-center py-3 first:pt-0 last:pb-0">
-            <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-              <UIcon :name="item.icon" class="w-4 h-4 text-gray-400" />
+            <div class="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+              <UIcon :name="item.icon" class="w-4 h-4 text-gray-400 dark:text-gray-500" />
             </div>
-            <span class="ml-3 text-sm text-gray-700 flex-1">{{ item.message }}</span>
-            <span class="text-xs text-gray-400 ml-4 whitespace-nowrap">{{ item.time }}</span>
+            <span class="ml-3 text-sm text-gray-700 dark:text-gray-300 flex-1">{{ item.message }}</span>
+            <span class="text-xs text-gray-400 dark:text-gray-500 ml-4 whitespace-nowrap">{{ item.time }}</span>
           </div>
         </div>
-        <div v-else class="text-sm text-gray-400">暂无动态</div>
+        <div v-else class="text-sm text-gray-400 dark:text-gray-500">暂无动态</div>
       </div>
     </template>
   </div>

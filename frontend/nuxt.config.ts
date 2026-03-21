@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   devServer: { port: 3004 },
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
-  colorMode: { preference: 'light' },
+  colorMode: { preference: 'light', fallback: 'light' },
   app: {
     baseURL: '/',
     head: {

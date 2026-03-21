@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-gray-50/50">
+  <div class="flex h-screen bg-gray-50/50 dark:bg-gray-950">
     <AppSidebar />
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       <AppHeader />

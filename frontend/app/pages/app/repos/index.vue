@@ -1,29 +1,29 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-gray-900">GitHub 仓库</h1>
+      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">GitHub 仓库</h1>
       <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">添加仓库</UButton>
     </div>
 
     <div v-if="loading" class="flex items-center justify-center py-20">
-      <div class="text-sm text-gray-400">加载中...</div>
+      <div class="text-sm text-gray-400 dark:text-gray-500">加载中...</div>
     </div>
     <template v-else>
       <div v-if="repos.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <NuxtLink v-for="repo in repos" :key="repo.id" :to="`/app/repos/${repo.id}`" class="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow block">
+        <NuxtLink v-for="repo in repos" :key="repo.id" :to="`/app/repos/${repo.id}`" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 hover:shadow-sm transition-shadow block">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="font-semibold text-gray-900">{{ repo.full_name }}</h3>
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100">{{ repo.full_name }}</h3>
             <UBadge :color="repo.status === '在线' ? 'success' : 'neutral'" variant="subtle" size="xs">{{ repo.status }}</UBadge>
           </div>
-          <p class="text-sm text-gray-500 mb-3">{{ repo.description }}</p>
-          <div class="flex items-center text-xs text-gray-400 space-x-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{{ repo.description }}</p>
+          <div class="flex items-center text-xs text-gray-400 dark:text-gray-500 space-x-4">
             <span class="flex items-center"><UIcon name="i-heroicons-code-bracket" class="w-3.5 h-3.5 mr-1" />{{ repo.language }}</span>
             <span class="flex items-center"><UIcon name="i-heroicons-star" class="w-3.5 h-3.5 mr-1" />{{ repo.stars }}</span>
             <span>绑定于 {{ repo.connected_at?.slice(0, 10) }}</span>
           </div>
         </NuxtLink>
       </div>
-      <div v-else class="text-center py-20 text-sm text-gray-400">暂无绑定仓库</div>
+      <div v-else class="text-center py-20 text-sm text-gray-400 dark:text-gray-500">暂无绑定仓库</div>
     </template>
 
     <!-- Create Modal -->
@@ -129,9 +129,11 @@ onMounted(fetchRepos)
 .modal-form { padding: 1.5rem 2rem; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
 .modal-header h3 { font-size: 1.125rem; font-weight: 600; color: #111827; }
+:root.dark .modal-header h3 { color: #f3f4f6; }
 .modal-body { display: flex; flex-direction: column; gap: 1rem; }
 .form-row { display: flex; flex-direction: column; gap: 0.375rem; }
 .form-row label { font-size: 0.8125rem; font-weight: 500; color: #374151; }
+:root.dark .form-row label { color: #9ca3af; }
 .form-row :deep(input),
 .form-row :deep(textarea),
 .form-row :deep(select),
@@ -139,4 +141,5 @@ onMounted(fetchRepos)
 .form-row :deep([data-part="trigger"]) { width: 100% !important; }
 .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f3f4f6; }
+:root.dark .modal-footer { border-top-color: #374151; }
 </style>
