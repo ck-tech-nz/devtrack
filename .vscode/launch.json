@@ -2,7 +2,16 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Nuxt: Dev Server",
+      "name": "Django",
+      "type": "debugpy",
+      "request": "launch",
+      "args": ["runserver"],
+      "django": true,
+      "autoStartBrowser": false,
+      "program": "${workspaceFolder}/backend/manage.py"
+    },
+    {
+      "name": "Nuxt",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npx",
@@ -14,13 +23,6 @@
         "uriFormat": "http://localhost:%s",
         "action": "openExternally"
       }
-    },
-    {
-      "name": "Nuxt: Debug Client (Chrome)",
-      "type": "chrome",
-      "request": "launch",
-      "url": "http://localhost:3004",
-      "webRoot": "${workspaceFolder}/frontend"
     }
   ]
 }

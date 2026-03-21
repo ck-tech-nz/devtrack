@@ -87,3 +87,4 @@ PostgreSQL. Default local connection: `127.0.0.1:25432`, database `devtrack`. Co
 - `FullDjangoModelPermissions` in `apps/permissions.py` enforces `view_*` on GET (unlike default DRF which allows unauthenticated reads)
 - User groups are defined in `setup_groups` management command — run after migrations
 - Frontend language is Chinese (zh-hans)
+- create skills in ENGLISH, but code comments and UI text in CHINESE
