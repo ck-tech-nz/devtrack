@@ -69,9 +69,11 @@ function transferItems(direction: 'left' | 'right', items: string[]) {
   if (direction === 'right') {
     items.forEach(i => current.add(i))
     leftHighlighted.value.clear()
+    leftLastClicked.value = -1
   } else {
     items.forEach(i => current.delete(i))
     rightHighlighted.value.clear()
+    rightLastClicked.value = -1
   }
   emit('update:modelValue', [...current])
 }
