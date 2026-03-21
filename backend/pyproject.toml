@@ -9,6 +9,7 @@ dependencies = [
     "django-solo>=2.3,<3.0",
     "django-filter>=24.0,<25.0",
     "psycopg[binary]>=3.2,<4.0",
+    "django-page-perms",
 ]
 
 [dependency-groups]
@@ -18,3 +19,6 @@ dev = [
     "factory-boy>=3.3,<4.0",
     "faker>=30.0,<40.0",
 ]
+
+[tool.uv.sources]
+django-page-perms = { path = "../packages/django-page-perms", editable = true }

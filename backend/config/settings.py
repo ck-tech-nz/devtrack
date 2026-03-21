@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.issues",
     "apps.repos",
+    # Packages
+    "page_perms",
 ]
 
 MIDDLEWARE = [
@@ -103,3 +105,22 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Page permissions configuration
+PAGE_PERMS = {
+    "PROTECTED_PATHS": ["/app/permissions"],
+    "SEED_ROUTES": [
+        {"path": "/app/issues", "label": "问题跟踪", "icon": "i-heroicons-bug-ant", "permission": "issues.view_issue", "sort_order": 0},
+        {"path": "/app/dashboard", "label": "项目概览", "icon": "i-heroicons-squares-2x2", "permission": "issues.view_dashboard", "sort_order": 1},
+        {"path": "/app/projects", "label": "项目管理", "icon": "i-heroicons-folder-open", "permission": "projects.view_project", "sort_order": 2},
+        {"path": "/app/repos", "label": "GitHub 仓库", "icon": "i-heroicons-code-bracket", "permission": "repos.view_repo", "sort_order": 3, "meta": {"serviceKey": "github"}},
+        {"path": "/app/ai-insights", "label": "AI 洞察", "icon": "i-heroicons-cpu-chip", "permission": None, "sort_order": 4, "meta": {"serviceKey": "ai"}},
+        {"path": "/app/permissions", "label": "权限管理", "icon": "i-heroicons-shield-check", "permission": None, "sort_order": 99, "meta": {"superuserOnly": True}},
+    ],
+    "SEED_GROUPS": {
+        "管理员": {"apps": ["projects", "issues", "settings", "repos"]},
+        "开发者": {"permissions": ["view_project", "view_issue", "add_issue", "change_issue", "view_activity", "view_dashboard"]},
+        "产品经理": {"inherit": "开发者", "permissions": ["add_project", "change_project", "manage_project_members"]},
+        "只读成员": {"permissions_startswith": ["view_"]},
+    },
+}
