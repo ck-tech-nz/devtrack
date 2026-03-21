@@ -550,10 +550,9 @@ class PageRouteViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == "list":
             config = get_config()
-            perm_class = config.get("ROUTE_LIST_PERMISSION", "IsAuthenticated")
-            if perm_class == "IsAuthenticated":
-                return [IsAuthenticated()]
-            # Allow custom permission classes via dotted path if needed
+            perm_name = config.get("ROUTE_LIST_PERMISSION", "IsAuthenticated")
+            if perm_name == "IsSuperUser":
+                return [IsSuperUser()]
             return [IsAuthenticated()]
         return [IsSuperUser()]
 
@@ -1056,10 +1055,8 @@ class TestPermissionList:
         assert response.status_code == 200
         assert len(response.data) > 0
 
-    def test_regular_user_cannot_list(self, api_client):
-        user = UserFactory()
-        api_client.force_authenticate(user=user)
-        response = api_client.get("/api/page-perms/permissions/")
+    def test_regular_user_cannot_list(self, regular_client):
+        response = regular_client.get("/api/page-perms/permissions/")
         assert response.status_code == 403
 
     def test_permissions_have_source_field(self, superuser_client):
@@ -1119,10 +1116,8 @@ class TestGroupList:
         assert response.status_code == 200
         assert any(g["name"] == "TestGroup" for g in response.data)
 
-    def test_regular_user_cannot_list(self, api_client):
-        user = UserFactory()
-        api_client.force_authenticate(user=user)
-        response = api_client.get("/api/page-perms/groups/")
+    def test_regular_user_cannot_list(self, regular_client):
+        response = regular_client.get("/api/page-perms/groups/")
         assert response.status_code == 403
 
 
@@ -1573,7 +1568,16 @@ git commit -m "refactor(frontend): switch auth middleware to API-driven route pe
 
 - [ ] **Step 1: Create the management page**
 
-This is a single page with three tabs: 页面路由映射, 组-权限分配, 权限列表. Since this is a large component, create it with all three tabs. The page is only visible to superusers (controlled by the meta.superuserOnly in the route config and a client-side guard).
+This is a single page with three tabs: 页面路由映射, 组-权限分配, 权限列表. The page is only visible to superusers.
+
+> **IMPORTANT: Nuxt UI v3 API.** This project uses `@nuxt/ui` v3. The template below shows the intended structure and logic, but **component APIs must be adapted to v3**:
+> - `UModal` → use `v-model:open` (not `v-model`)
+> - `UTable` → use `:data` (not `:rows`), slot names use `#<column>-cell` pattern
+> - `UFormGroup` → use `UFormField`
+> - `UToggle` → use `USwitch`
+> - `UTabs` → check v3 API for items/slots pattern
+>
+> **Reference:** See `frontend/app/pages/app/issues/index.vue` for working v3 patterns in this codebase. The implementer MUST cross-reference that file and adapt the template below accordingly.
 
 ```vue
 <!-- frontend/app/pages/app/permissions.vue -->
@@ -1859,8 +1863,6 @@ onMounted(async () => {
 })
 </script>
 ```
-
-Note: The exact Nuxt UI component API may need adjustment during implementation based on the specific version of Nuxt UI in use (v2 vs v3 have different APIs for UTabs, UTable, etc.). The implementer should check which version is installed and adapt accordingly.
 
 - [ ] **Step 2: Commit**
 
