@@ -139,7 +139,7 @@
       </template>
 
       <!-- Create/Edit Route Modal -->
-      <UModal v-model:open="showRouteModal" :title="editingRoute ? '编辑路由' : '新建路由'" :ui="{ width: 'sm:max-w-lg' }">
+      <UModal v-model:open="showRouteModal" :title="editingRoute ? '编辑路由' : '新建路由'" :ui="{ width: 'sm:max-w-2xl' }">
         <template #content>
           <div class="modal-form">
             <div class="modal-header">
@@ -176,11 +176,11 @@
                 <div class="form-row">
                   <label>状态</label>
                   <div class="flex items-center gap-4 pt-1.5">
-                    <label class="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                    <label class="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer whitespace-nowrap">
                       <input v-model="routeForm.is_active" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                       启用
                     </label>
-                    <label class="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                    <label class="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer whitespace-nowrap">
                       <input v-model="routeForm.show_in_nav" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                       显示在导航
                     </label>
