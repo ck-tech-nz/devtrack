@@ -45,10 +45,12 @@ modelValue: string[]    // Currently selected items (v-model)
 - Center buttons:
   - `→` moves highlighted available items to selected
   - `←` moves highlighted selected items to available
+- Double-click an item to transfer it to the other panel
 - Bottom actions:
-  - "Choose all →" under left panel: moves all currently **filtered** available items to selected
-  - "← Remove all" under right panel: moves all currently **filtered** selected items back to available
-- Emits `update:modelValue` on every change (arrow click or choose/remove all)
+  - "Choose all N →" under left panel: moves all currently **filtered** available items to selected (show count N)
+  - "← Remove all N" under right panel: moves all currently **filtered** selected items back to available (show count N)
+- Empty panels display centered muted text: `无匹配项` when filter matches nothing, or no text when simply empty
+- Emits `update:modelValue` on every change (arrow click, double-click, or choose/remove all)
 
 **Styling:**
 - Bordered panels with light header bars matching Django admin aesthetic
