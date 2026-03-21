@@ -14,7 +14,7 @@ DevTrack is a project management and issue tracking platform. Django REST Framew
 uv run python manage.py runserver          # Start dev server on :8000
 uv run python manage.py migrate            # Apply migrations
 uv run python manage.py makemigrations     # Generate migrations
-uv run python manage.py setup_groups       # Sync permission groups (管理员/开发者/产品经理/只读成员)
+uv run python manage.py sync_page_perms    # Sync page routes + permission groups from PAGE_PERMS config
 uv run python manage.py createsuperuser    # Create admin user
 uv sync                                    # Install dependencies
 uv sync --dev                              # Install with dev dependencies
@@ -85,6 +85,6 @@ PostgreSQL. Default local connection: `127.0.0.1:25432`, database `devtrack`. Co
 - Issue numbers are auto-incremented integers, displayed as `ISS-001`
 - `SiteSettings` is a singleton (django-solo) for labels, priorities, and issue statuses
 - `FullDjangoModelPermissions` in `apps/permissions.py` enforces `view_*` on GET (unlike default DRF which allows unauthenticated reads)
-- User groups are defined in `setup_groups` management command — run after migrations
+- User groups are defined in `sync_page_perms` management command — run after migrations
 - Frontend language is Chinese (zh-hans)
 - create skills in ENGLISH, but code comments and UI text in CHINESE
