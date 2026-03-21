@@ -2,51 +2,34 @@ export interface NavItem {
   label: string
   icon: string
   to?: string
-  children?: NavItem[]
-  serviceKey?: 'github' | 'ai'
   permission?: string
+  meta?: Record<string, any>
 }
 
 export const useNavigation = () => {
   const { can, user } = useAuth()
+  const { routes, loaded } = usePagePerms()
 
-  const navItems: NavItem[] = [
-    {
-      label: '问题跟踪',
-      icon: 'i-heroicons-bug-ant',
-      to: '/app/issues',
-      permission: 'issues.view_issue',
-    },
-    {
-      label: '项目概览',
-      icon: 'i-heroicons-squares-2x2',
-      to: '/app/dashboard',
-      permission: 'issues.view_dashboard',
-    },
-    {
-      label: '项目管理',
-      icon: 'i-heroicons-folder-open',
-      to: '/app/projects',
-      permission: 'projects.view_project',
-    },
-    {
-      label: 'GitHub 仓库',
-      icon: 'i-heroicons-code-bracket',
-      to: '/app/repos',
-      serviceKey: 'github',
-      permission: 'repos.view_repo',
-    },
-    {
-      label: 'AI 洞察',
-      icon: 'i-heroicons-cpu-chip',
-      to: '/app/ai-insights',
-      serviceKey: 'ai',
-    },
-  ]
+  const navItems = computed<NavItem[]>(() => {
+    if (!loaded.value) return []
+    return routes.value
+      .filter(r => r.show_in_nav && r.is_active)
+      .map(r => ({
+        label: r.label,
+        icon: r.icon,
+        to: r.path,
+        permission: r.permission ?? undefined,
+        meta: r.meta,
+      }))
+  })
 
   const filteredNavItems = computed(() => {
     if (!user.value) return []
-    return navItems.filter(item => !item.permission || can(item.permission))
+    return navItems.value.filter(item => {
+      if (item.meta?.superuserOnly && !user.value?.is_superuser) return false
+      if (item.permission && !can(item.permission)) return false
+      return true
+    })
   })
 
   const route = useRoute()
@@ -56,27 +39,19 @@ export const useNavigation = () => {
     const path = route.path
     const crumbs: { label: string; to?: string }[] = [{ label: '首页', to: '/app/dashboard' }]
 
-    for (const item of navItems) {
+    for (const item of navItems.value) {
       if (item.to === path) {
         crumbs.push({ label: item.label })
         return crumbs
       }
     }
 
-    if (path.startsWith('/app/projects/')) {
-      crumbs.push({ label: '项目管理', to: '/app/projects' })
-      crumbs.push({ label: '项目详情' })
-      return crumbs
-    }
-    if (path.startsWith('/app/issues/')) {
-      crumbs.push({ label: '问题跟踪', to: '/app/issues' })
-      crumbs.push({ label: 'Issue 详情' })
-      return crumbs
-    }
-    if (path.startsWith('/app/repos/')) {
-      crumbs.push({ label: 'GitHub 仓库', to: '/app/repos' })
-      crumbs.push({ label: '仓库详情' })
-      return crumbs
+    for (const item of navItems.value) {
+      if (item.to && path.startsWith(item.to + '/')) {
+        crumbs.push({ label: item.label, to: item.to })
+        crumbs.push({ label: '详情' })
+        return crumbs
+      }
     }
 
     return crumbs
