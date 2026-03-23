@@ -8,6 +8,10 @@ class Issue(models.Model):
     )
     title = models.CharField(max_length=200, verbose_name="标题")
     description = models.TextField(blank=True, verbose_name="描述")
+    github_issues = models.ManyToManyField(
+        "repos.GitHubIssue", blank=True, related_name="devtrack_issues",
+        verbose_name="关联 GitHub Issues",
+    )
     priority = models.CharField(max_length=10, verbose_name="优先级")
     status = models.CharField(max_length=20, verbose_name="状态")
     labels = models.JSONField(default=list, verbose_name="标签", blank=True)
@@ -29,8 +33,8 @@ class Issue(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True, verbose_name="解决时间")
 
     class Meta:
-        verbose_name = "Issue"
-        verbose_name_plural = "Issues"
+        verbose_name = "问题"
+        verbose_name_plural = "问题"
         ordering = ["-created_at"]
         permissions = [
             ("batch_update_issue", "Can batch update issues"),

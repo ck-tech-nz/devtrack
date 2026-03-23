@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 产品需求文档
+    url: https://github.com/chunkai-meng/drmp-v1/blob/main/docs/PRD.md
+    about: 查看产品需求文档
+  - name: API 文档
+    url: https://github.com/chunkai-meng/drmp-v1/blob/main/docs/api-documentation.md
+    about: 查看 API 接口文档

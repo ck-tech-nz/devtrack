@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 from apps.settings.models import SiteSettings
+from apps.repos.serializers import GitHubIssueBriefSerializer
 from .models import Issue, Activity
 
 
@@ -14,10 +15,22 @@ class ActivitySerializer(serializers.ModelSerializer):
         fields = ["id", "user_name", "action", "issue_title", "issue_id", "detail", "created_at"]
 
 
+class GitHubIssueLinkSerializer(serializers.ModelSerializer):
+    """列表页用的轻量序列化，只返回构建链接需要的字段。"""
+    repo_full_name = serializers.CharField(source="repo.full_name", read_only=True)
+
+    class Meta:
+        from apps.repos.models import GitHubIssue
+        model = GitHubIssue
+        fields = ["id", "github_id", "repo_full_name", "title", "state"]
+        read_only_fields = fields
+
+
 class IssueListSerializer(serializers.ModelSerializer):
     reporter_name = serializers.CharField(source="reporter.name", read_only=True, default=None)
     assignee_name = serializers.CharField(source="assignee.name", read_only=True, default=None)
     resolution_hours = serializers.SerializerMethodField()
+    github_issues = GitHubIssueLinkSerializer(many=True, read_only=True)
 
     class Meta:
         model = Issue
@@ -25,7 +38,7 @@ class IssueListSerializer(serializers.ModelSerializer):
             "id", "project", "title", "priority",
             "status", "labels", "reporter", "reporter_name",
             "assignee", "assignee_name", "remark", "cause", "solution",
-            "resolution_hours", "created_at", "updated_at",
+            "resolution_hours", "created_at", "updated_at", "github_issues",
         ]
 
     def get_resolution_hours(self, obj):
@@ -36,10 +49,12 @@ class IssueListSerializer(serializers.ModelSerializer):
 
 
 class IssueDetailSerializer(IssueListSerializer):
+    github_issues = GitHubIssueBriefSerializer(many=True, read_only=True)
+
     class Meta(IssueListSerializer.Meta):
         fields = IssueListSerializer.Meta.fields + [
             "description", "estimated_completion",
-            "actual_hours", "resolved_at",
+            "actual_hours", "resolved_at", "github_issues",
         ]
 
 

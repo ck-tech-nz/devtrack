@@ -4,7 +4,7 @@ const apiBase = process.env.NUXT_API_BASE || 'http://localhost:8000'
 export default defineNuxtConfig({
   ssr: false,
   devtools: { enabled: false },
-  devServer: { port: 3004 },
+  devServer: { port: 3000 },
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
   colorMode: { preference: 'light', fallback: 'light' },

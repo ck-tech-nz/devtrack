@@ -8,4 +8,6 @@ urlpatterns = [
     path("issues/", include("apps.issues.urls")),
     path("dashboard/", include("apps.issues.dashboard_urls")),
     path("repos/", include("apps.repos.urls")),
+    path("ai/", include("apps.ai.urls")),
+    path("page-perms/", include("page_perms.urls")),
 ]

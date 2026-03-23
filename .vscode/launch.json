@@ -5,13 +5,13 @@
       "name": "Django",
       "type": "debugpy",
       "request": "launch",
-      "args": ["runserver"],
+      "args": ["runserver", "0.0.0.0:8100"],
       "django": true,
       "autoStartBrowser": false,
       "program": "${workspaceFolder}/backend/manage.py"
     },
     {
-      "name": "Nuxt",
+      "name": "Vue",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npx",

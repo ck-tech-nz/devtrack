@@ -4,7 +4,9 @@ from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
 from apps.projects.models import Project, ProjectMember
 from apps.issues.models import Issue, Activity
-from apps.repos.models import Repo
+from apps.repos.models import Repo, GitHubIssue
+from apps.ai.models import LLMConfig, Prompt, Analysis
+from django.utils import timezone as tz
 
 fake = Faker("zh_CN")
 User = get_user_model()
@@ -84,3 +86,57 @@ class RepoFactory(factory.django.DjangoModelFactory):
     language = factory.Iterator(["Python", "TypeScript", "Go", "Java"])
     stars = factory.LazyFunction(lambda: fake.random_int(0, 500))
     status = "在线"
+
+
+class GitHubIssueFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = GitHubIssue
+
+    repo = factory.SubFactory(RepoFactory)
+    github_id = factory.Sequence(lambda n: n + 1)
+    title = factory.LazyFunction(lambda: fake.sentence())
+    body = factory.LazyFunction(lambda: fake.paragraph())
+    state = "open"
+    labels = factory.LazyFunction(lambda: [fake.word()])
+    assignees = factory.LazyFunction(lambda: [fake.user_name()])
+    github_created_at = factory.LazyFunction(tz.now)
+    github_updated_at = factory.LazyFunction(tz.now)
+    synced_at = factory.LazyFunction(tz.now)
+
+
+class LLMConfigFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = LLMConfig
+
+    name = factory.Sequence(lambda n: f"LLM Config {n}")
+    api_key = "sk-test-key"
+    base_url = ""
+    supports_json_mode = True
+    is_default = False
+    is_active = True
+
+
+class PromptFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Prompt
+
+    slug = factory.Sequence(lambda n: f"analysis_type_{n}")
+    name = factory.Sequence(lambda n: f"Prompt {n}")
+    system_prompt = "You are a helpful assistant. Return JSON only."
+    user_prompt_template = "Analyze: {total_issues} total issues."
+    llm_model = "gpt-4o"
+    temperature = 0.3
+    llm_config = None
+    is_active = True
+
+
+class AnalysisFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Analysis
+
+    analysis_type = "team_insights"
+    triggered_by = "page_open"
+    status = "pending"
+    data_hash = ""
+    input_context = factory.LazyFunction(dict)
+    prompt_snapshot = factory.LazyFunction(dict)

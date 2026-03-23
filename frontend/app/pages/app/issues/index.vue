@@ -93,7 +93,34 @@
     </div>
 
     <!-- Kanban View -->
-    <ProjectsKanbanBoard v-else-if="viewMode === 'kanban'" :issues="issues" @update:status="onStatusChange" />
+    <SharedKanbanBoard
+      v-else-if="viewMode === 'kanban'"
+      :columns="kanbanColumns"
+      :item-key="(item: any) => item.id"
+      @drop="onKanbanDrop"
+    >
+      <template #card="{ item }">
+        <NuxtLink :to="`/app/issues/${item.id}`" class="block">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs text-gray-400 dark:text-gray-500">#{{ item.id }}</span>
+            <UBadge
+              :color="item.priority === 'P0' ? 'error' : item.priority === 'P1' ? 'warning' : item.priority === 'P2' ? 'warning' : 'neutral'"
+              variant="subtle"
+              size="xs"
+            >
+              {{ item.priority }}
+            </UBadge>
+          </div>
+          <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2">{{ item.title }}</p>
+          <div class="mt-2 flex items-center">
+            <div class="w-5 h-5 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center">
+              <span class="text-crystal-600 dark:text-crystal-400 text-[10px] font-medium">{{ (item.assignee_name || '?').slice(0, 1) }}</span>
+            </div>
+            <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500">{{ item.assignee_name || '-' }}</span>
+          </div>
+        </NuxtLink>
+      </template>
+    </SharedKanbanBoard>
 
     <!-- Table View -->
     <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -147,6 +174,17 @@
         </template>
         <template #resolution_hours-cell="{ row }">
           {{ row.original.resolution_hours ? row.original.resolution_hours + 'h' : '-' }}
+        </template>
+        <template #github_issues-cell="{ row }">
+          <div v-if="row.original.github_issues?.length" class="flex flex-wrap gap-1">
+            <NuxtLink
+              v-for="gh in row.original.github_issues"
+              :key="gh.id"
+              :to="`/app/repos/${gh.repo}/issues/${gh.id}`"
+              class="text-xs text-crystal-500 dark:text-crystal-400 hover:underline"
+            >{{ gh.repo_full_name }}#{{ gh.github_id }}</NuxtLink>
+          </div>
+          <span v-else class="text-gray-300 dark:text-gray-600">-</span>
         </template>
       </UTable>
       <div class="flex items-center justify-between px-4 py-3 border-t border-gray-50 dark:border-gray-800">
@@ -251,6 +289,7 @@ const columns = [
   { accessorKey: 'solution', header: '解决方案' },
   { accessorKey: 'created_at', header: '创建时间' },
   { accessorKey: 'resolution_hours', header: '解决耗时' },
+  { accessorKey: 'github_issues', header: 'GitHub Issues' },
 ]
 
 async function onStatusChange({ issueId, newStatus }: { issueId: number, newStatus: string }) {
@@ -269,6 +308,16 @@ async function onStatusChange({ issueId, newStatus }: { issueId: number, newStat
     console.error('Failed to update issue status:', e)
     issue.status = oldStatus
   }
+}
+
+const kanbanColumns = computed(() => [
+  { key: '待处理', label: '待处理', items: issues.value.filter(i => i.status === '待处理') },
+  { key: '进行中', label: '进行中', items: issues.value.filter(i => i.status === '进行中') },
+  { key: '已解决', label: '已解决', items: issues.value.filter(i => i.status === '已解决') },
+])
+
+function onKanbanDrop({ itemId, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
+  onStatusChange({ issueId: itemId as number, newStatus: toColumn })
 }
 
 async function inlineUpdate(issueId: string, field: string, value: string) {

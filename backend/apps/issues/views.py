@@ -10,6 +10,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models import Count, Avg, F
 from django.db.models.functions import TruncDate
+from apps.repos.models import Repo, GitHubIssue
+from apps.repos.services import GitHubSyncService
+from apps.repos.serializers import GitHubIssueBriefSerializer
 from .models import Issue, Activity
 from .serializers import (
     IssueListSerializer, IssueDetailSerializer,
@@ -21,7 +24,7 @@ User = get_user_model()
 
 
 class IssueListCreateView(generics.ListCreateAPIView):
-    queryset = Issue.objects.select_related("reporter", "assignee")
+    queryset = Issue.objects.select_related("reporter", "assignee").prefetch_related("github_issues__repo")
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["priority", "status", "assignee", "project"]
@@ -169,3 +172,87 @@ class DashboardRecentActivityView(APIView):
     def get(self, request):
         activities = Activity.objects.select_related("user", "issue")[:20]
         return Response(ActivitySerializer(activities, many=True).data)
+
+
+class IssueGitHubCreateView(APIView):
+    """根据 DevTrack Issue 在 GitHub 上创建 issue 并自动关联。"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        repo_id = request.data.get("repo")
+        if not repo_id:
+            return Response({"detail": "请指定仓库"}, status=status.HTTP_400_BAD_REQUEST)
+
+        repo = Repo.objects.filter(pk=repo_id).first()
+        if not repo or not repo.github_token:
+            return Response({"detail": "仓库不存在或未配置 Token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        body = f"来自 DevTrack #{issue.pk}: {issue.title}\n\n{issue.description}"
+        try:
+            svc = GitHubSyncService()
+            gh_issue = svc.create_issue(repo, issue.title, body)
+        except Exception as e:
+            return Response({"detail": f"GitHub 创建失败: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+
+        issue.github_issues.add(gh_issue)
+        return Response(GitHubIssueBriefSerializer(gh_issue).data, status=status.HTTP_201_CREATED)
+
+
+class IssueGitHubLinkView(APIView):
+    """关联/解除关联已有的 GitHub Issue。"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        gh_ids = request.data.get("github_issue_ids", [])
+        gh_issues = GitHubIssue.objects.filter(id__in=gh_ids)
+        issue.github_issues.add(*gh_issues)
+        return Response({"linked": len(gh_issues)})
+
+    def delete(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        gh_ids = request.data.get("github_issue_ids", [])
+        gh_issues = GitHubIssue.objects.filter(id__in=gh_ids)
+        issue.github_issues.remove(*gh_issues)
+        return Response({"unlinked": len(gh_issues)})
+
+
+class IssueCloseWithGitHubView(APIView):
+    """关闭 DevTrack Issue，同时关闭关联的 GitHub Issues。"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        old_status = issue.status
+        issue.status = "已关闭"
+        issue.save(update_fields=["status"])
+
+        Activity.objects.create(
+            user=request.user, issue=issue, action="closed",
+            detail=f"状态从 {old_status} 改为 已关闭",
+        )
+
+        # 关闭关联的 GitHub Issues
+        svc = GitHubSyncService()
+        errors = []
+        for gh_issue in issue.github_issues.filter(state=GitHubIssue.STATE_OPEN):
+            try:
+                svc.close_issue(gh_issue)
+            except Exception as e:
+                errors.append(f"#{gh_issue.github_id}: {e}")
+
+        result = {"detail": "已关闭", "github_closed": issue.github_issues.count() - len(errors)}
+        if errors:
+            result["github_errors"] = errors
+        return Response(result)
