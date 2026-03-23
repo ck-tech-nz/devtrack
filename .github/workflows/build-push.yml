@@ -11,7 +11,7 @@ on:
 env:
   REGISTRY: registry.aimenu.tech
   REGISTRY_USERNAME: ck
-  PROJECT_NAME: devtracker
+  PROJECT_NAME: devtrack
 
 jobs:
   build-backend:
