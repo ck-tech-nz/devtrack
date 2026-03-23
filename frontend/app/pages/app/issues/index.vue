@@ -20,16 +20,16 @@
             列表
           </button>
         </div>
-        <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建 Issue</UButton>
+        <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建问题</UButton>
       </div>
     </div>
 
     <!-- Create Issue Modal -->
-    <UModal v-model:open="showCreateModal" title="新建 Issue" :ui="{ width: 'sm:max-w-2xl' }">
+    <UModal v-model:open="showCreateModal" title="新建问题" :ui="{ width: 'sm:max-w-2xl' }">
       <template #content>
         <div class="modal-form">
           <div class="modal-header">
-            <h3>新建 Issue</h3>
+            <h3>新建问题</h3>
             <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showCreateModal = false" />
           </div>
           <div class="modal-body">
@@ -39,7 +39,7 @@
             </div>
             <div class="form-row">
               <label>标题 <span class="text-red-400">*</span></label>
-              <UInput v-model="newIssue.title" placeholder="输入 Issue 标题" />
+              <UInput v-model="newIssue.title" placeholder="输入问题标题" />
             </div>
             <div class="form-row">
               <label>描述</label>
