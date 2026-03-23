@@ -408,7 +408,7 @@ onMounted(async () => {
     api<any>('/api/settings/').catch(() => ({ labels: [] })),
     api<any>('/api/projects/').catch(() => ({ results: [] })),
   ])
-  users.value = usersData || []
+  users.value = usersData?.results || usersData || []
   labelOptions.value = settingsData?.labels || []
   projects.value = projectsData?.results || projectsData || []
 })

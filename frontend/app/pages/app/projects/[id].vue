@@ -203,7 +203,7 @@ onMounted(async () => {
     ])
     project.value = projectData
     projectIssues.value = issuesData.results || issuesData || []
-    users.value = usersData || []
+    users.value = usersData?.results || usersData || []
   } catch (e) {
     console.error('Failed to load project:', e)
   } finally {

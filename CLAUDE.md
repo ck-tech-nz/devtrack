@@ -78,6 +78,15 @@ When adding a new page backed by a Django model, add the permission to both `nav
 
 PostgreSQL. Default local connection: `127.0.0.1:25432`, database `devtrack`. Configurable via env vars `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 
+## Deployment
+
+Push to `env/test` or `env/prod` branch triggers CI (`.github/workflows/build-push.yml`) which builds and pushes both backend and frontend Docker images.
+
+```bash
+git push origin main:env/test     # Deploy to test (builds both frontend + backend)
+git push origin main:env/prod     # Deploy to production
+```
+
 ## Key Conventions
 
 - Backend uses `uv` as package manager (not pip)

@@ -443,9 +443,9 @@ onMounted(async () => {
     api<any[]>('/api/repos/').catch(() => []),
   ])
   issue.value = issueData
-  users.value = usersData || []
+  users.value = usersData?.results || usersData || []
   labelItems.value = settingsData?.labels || []
-  repos.value = reposData || []
+  repos.value = reposData?.results || reposData || []
   if (issueData) populateForm(issueData)
   loading.value = false
   // 异步加载 GitHub Issues 列表（用于关联弹窗）
