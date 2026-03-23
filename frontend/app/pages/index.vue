@@ -45,7 +45,7 @@ async function handleLogin() {
     })
     setTokens(data.access, data.refresh)
     await fetchMe()
-    await navigateTo('/app/dashboard')
+    await navigateTo('/app/issues')
   } catch (e: any) {
     error.value = '用户名或密码错误'
   } finally {

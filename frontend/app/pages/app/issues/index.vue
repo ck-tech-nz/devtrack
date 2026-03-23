@@ -1,5 +1,6 @@
 <template>
   <div class="space-y-6">
+    <MyPendingTasks />
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
       <div class="flex items-center space-x-3">

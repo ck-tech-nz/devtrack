@@ -37,7 +37,7 @@ export const useNavigation = () => {
 
   const breadcrumbs = computed(() => {
     const path = route.path
-    const crumbs: { label: string; to?: string }[] = [{ label: '首页', to: '/app/dashboard' }]
+    const crumbs: { label: string; to?: string }[] = [{ label: '首页', to: '/app/issues' }]
 
     for (const item of navItems.value) {
       if (item.to === path) {
