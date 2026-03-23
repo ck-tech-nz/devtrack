@@ -3,10 +3,8 @@ name: Build and Push Services
 on:
   push:
     branches:
-      - backend/env/test
-      - backend/env/prod
-      - frontend/env/test
-      - frontend/env/prod
+      - env/test
+      - env/prod
 
 env:
   REGISTRY: registry.aimenu.tech
@@ -14,9 +12,8 @@ env:
   PROJECT_NAME: devtrack
 
 jobs:
-  build-backend:
+  build:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/backend/env/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -27,20 +24,20 @@ jobs:
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-          if [[ "$BRANCH_NAME" == "backend/env/prod" ]]; then
+          if [[ "$BRANCH_NAME" == "env/prod" ]]; then
             echo "env=prod" >> $GITHUB_OUTPUT
-            echo "image_name=backend-prod" >> $GITHUB_OUTPUT
           else
             echo "env=test" >> $GITHUB_OUTPUT
-            echo "image_name=backend-test" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate VERSION file
+      - name: Generate VERSION files
         run: |
           SHORT_SHA=${GITHUB_SHA:0:7}
           BUILD_DATE=$(date +'%Y-%m-%d-%H:%M:%S')
-          echo "${BUILD_DATE}-${SHORT_SHA}" > backend/VERSION
-          cat backend/VERSION
+          VERSION="${BUILD_DATE}-${SHORT_SHA}"
+          echo "$VERSION" > backend/VERSION
+          echo "$VERSION" > frontend/VERSION
+          echo "VERSION=$VERSION"
 
       - name: Login to Docker Registry
         uses: docker/login-action@v4
@@ -54,7 +51,8 @@ jobs:
           DOCKER_BUILDKIT: 1
         run: |
           SHORT_SHA=${GITHUB_SHA:0:7}
-          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/${{ steps.set-env.outputs.image_name }}"
+          ENV=${{ steps.set-env.outputs.env }}
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/backend-${ENV}"
 
           docker build \
             -f backend/Dockerfile \
@@ -64,56 +62,13 @@ jobs:
 
           docker push ${IMAGE_NAME} --all-tags
 
-      - name: Summary
-        run: |
-          SHORT_SHA=${GITHUB_SHA:0:7}
-          echo "✅ Backend service built and pushed successfully"
-          echo "   Environment: ${{ steps.set-env.outputs.env }}"
-          echo "   Branch: ${{ steps.set-env.outputs.branch }}"
-          echo "   Image: ${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/${{ steps.set-env.outputs.image_name }}"
-          echo "   Tags: latest, ${SHORT_SHA}"
-
-  build-frontend:
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/frontend/env/')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set environment based on branch
-        id: set-env
-        run: |
-          BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
-          if [[ "$BRANCH_NAME" == "frontend/env/prod" ]]; then
-            echo "env=prod" >> $GITHUB_OUTPUT
-            echo "image_name=frontend-prod" >> $GITHUB_OUTPUT
-          else
-            echo "env=test" >> $GITHUB_OUTPUT
-            echo "image_name=frontend-test" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate VERSION file
-        run: |
-          SHORT_SHA=${GITHUB_SHA:0:7}
-          BUILD_DATE=$(date +'%Y-%m-%d-%H:%M:%S')
-          echo "${BUILD_DATE}-${SHORT_SHA}" > frontend/VERSION
-          cat frontend/VERSION
-
-      - name: Login to Docker Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ env.REGISTRY_USERNAME }}
-          password: ${{ secrets.ARTIFACT_REGISTRY_PRIVATE_KEY }}
-
       - name: Build and push Frontend image
         env:
           DOCKER_BUILDKIT: 1
         run: |
           SHORT_SHA=${GITHUB_SHA:0:7}
-          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/${{ steps.set-env.outputs.image_name }}"
+          ENV=${{ steps.set-env.outputs.env }}
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/frontend-${ENV}"
 
           docker build \
             -t ${IMAGE_NAME}:latest \
@@ -125,31 +80,27 @@ jobs:
       - name: Summary
         run: |
           SHORT_SHA=${GITHUB_SHA:0:7}
-          echo "✅ Frontend service built and pushed successfully"
-          echo "   Environment: ${{ steps.set-env.outputs.env }}"
-          echo "   Branch: ${{ steps.set-env.outputs.branch }}"
-          echo "   Image: ${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/${{ steps.set-env.outputs.image_name }}"
-          echo "   Tags: latest, ${SHORT_SHA}"
+          ENV=${{ steps.set-env.outputs.env }}
+          echo "✅ Build and push completed"
+          echo "   Environment: ${ENV}"
+          echo "   Backend:  ${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/backend-${ENV}:${SHORT_SHA}"
+          echo "   Frontend: ${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/frontend-${ENV}:${SHORT_SHA}"
 
   notify:
-    needs: [build-backend, build-frontend]
+    needs: [build]
     runs-on: ubuntu-latest
-    if: always() && (needs.build-backend.result != 'skipped' || needs.build-frontend.result != 'skipped')
+    if: always()
     steps:
       - name: Notify success
-        if: |
-          needs.build-backend.result != 'failure' && needs.build-frontend.result != 'failure'
+        if: needs.build.result == 'success'
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          SERVICE=$(echo $BRANCH_NAME | cut -d'/' -f1)
-          ENV_NAME=$(echo $BRANCH_NAME | cut -d'/' -f3)
-          curl "https://api.day.app/6T7AMV3JFUQLkYtRE6h7mF/GitHub/${{ env.PROJECT_NAME }}%20${SERVICE}%20%5B${ENV_NAME}%5D%20build%20success"
+          ENV_NAME=$(echo $BRANCH_NAME | cut -d'/' -f2)
+          curl "https://api.day.app/6T7AMV3JFUQLkYtRE6h7mF/GitHub/${{ env.PROJECT_NAME }}%20%5B${ENV_NAME}%5D%20build%20success"
 
       - name: Notify failure
-        if: |
-          needs.build-backend.result == 'failure' || needs.build-frontend.result == 'failure'
+        if: needs.build.result == 'failure'
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          SERVICE=$(echo $BRANCH_NAME | cut -d'/' -f1)
-          ENV_NAME=$(echo $BRANCH_NAME | cut -d'/' -f3)
-          curl "https://api.day.app/6T7AMV3JFUQLkYtRE6h7mF/GitHub/${{ env.PROJECT_NAME }}%20${SERVICE}%20%5B${ENV_NAME}%5D%20build%20FAILED"
+          ENV_NAME=$(echo $BRANCH_NAME | cut -d'/' -f2)
+          curl "https://api.day.app/6T7AMV3JFUQLkYtRE6h7mF/GitHub/${{ env.PROJECT_NAME }}%20%5B${ENV_NAME}%5D%20build%20FAILED"

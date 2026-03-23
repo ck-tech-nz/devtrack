@@ -9,7 +9,7 @@ services:
       - traefik-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.devtrack-backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.devtrack-backend.rule=Host(`devtrakr.matrixai.xin`) && PathPrefix(`/api`)"
       - "traefik.http.routers.devtrack-backend.entrypoints=web"
       - "traefik.http.services.devtrack-backend.loadbalancer.server.port=8000"
     command: >
@@ -27,10 +27,9 @@ services:
       - backend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.devtrack-frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.devtrack-frontend.rule=Host(`devtrakr.matrixai.xin`)"
       - "traefik.http.routers.devtrack-frontend.entrypoints=web"
       - "traefik.http.services.devtrack-frontend.loadbalancer.server.port=3000"
-      - "traefik.http.routers.devtrack-frontend.priority=1"
 
 networks:
   db-network:
