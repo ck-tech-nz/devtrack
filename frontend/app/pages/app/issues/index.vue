@@ -146,7 +146,7 @@
           <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 dark:text-crystal-400 hover:text-crystal-700 dark:hover:text-crystal-300 font-medium">{{ row.original.id }}</NuxtLink>
         </template>
         <template #title-cell="{ row }">
-          <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-gray-900 dark:text-gray-100 hover:text-crystal-600 line-clamp-1">{{ row.original.title }}</NuxtLink>
+          <EditableCell :value="row.original.title" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
         </template>
         <template #priority-cell="{ row }">
           <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="xs">{{ row.original.priority }}</UBadge>
@@ -182,7 +182,7 @@
               :key="gh.id"
               :to="`/app/repos/${gh.repo}/issues/${gh.id}`"
               class="text-xs text-crystal-500 dark:text-crystal-400 hover:underline"
-            >{{ gh.repo_full_name }}#{{ gh.github_id }}</NuxtLink>
+            >#{{ gh.github_id }}</NuxtLink>
           </div>
           <span v-else class="text-gray-300 dark:text-gray-600">-</span>
         </template>
