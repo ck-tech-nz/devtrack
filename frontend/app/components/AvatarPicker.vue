@@ -9,7 +9,7 @@
         v-for="avatar in avatarList"
         :key="avatar.id"
         type="button"
-        class="relative group rounded-full overflow-hidden transition-all"
+        class="relative group w-14 h-14 rounded-full overflow-hidden transition-all flex-shrink-0"
         :class="modelValue === avatar.id ? 'ring-3 ring-crystal-500 scale-110' : 'ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-crystal-300'"
         @click="$emit('update:modelValue', avatar.id)"
       >
