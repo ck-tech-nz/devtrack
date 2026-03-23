@@ -1,0 +1,11 @@
+**/.git
+**/__pycache__
+**/.venv
+**/node_modules
+**/.nuxt
+**/.output
+**/.env
+**/*.pyc
+frontend/
+docs/
+.github/

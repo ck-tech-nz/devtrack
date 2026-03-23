@@ -57,9 +57,10 @@ jobs:
           IMAGE_NAME="${{ env.REGISTRY }}/${{ env.PROJECT_NAME }}/${{ steps.set-env.outputs.image_name }}"
 
           docker build \
+            -f backend/Dockerfile \
             -t ${IMAGE_NAME}:latest \
             -t ${IMAGE_NAME}:${SHORT_SHA} \
-            ./backend
+            .
 
           docker push ${IMAGE_NAME} --all-tags
 
