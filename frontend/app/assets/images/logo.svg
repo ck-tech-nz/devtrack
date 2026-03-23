@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon: stylized fast-forward track mark -->
+  <g transform="translate(8, 8)">
+    <!-- Outer rounded square -->
+    <rect x="0" y="0" width="64" height="64" rx="14" fill="url(#grad)"/>
+    <!-- Fast-forward arrows representing speed & iteration -->
+    <path d="M18 18 L36 32 L18 46Z" fill="white" opacity="0.9"/>
+    <path d="M32 18 L50 32 L32 46Z" fill="white" opacity="0.6"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="88" y="36" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="32" font-weight="700" fill="#f8fafc" letter-spacing="-0.5">
+    <tspan fill="#1e293b">Dev</tspan><tspan fill="#6366f1">Trakr</tspan>
+  </text>
+  <!-- Tagline -->
+  <text x="88" y="58" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#94a3b8" letter-spacing="0.5">
+    Ship faster, track smarter
+  </text>
+</svg>

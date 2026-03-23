@@ -1,10 +1,8 @@
 <template>
   <div class="w-full max-w-sm">
     <div class="text-center mb-8">
-      <div class="w-14 h-14 rounded-2xl bg-crystal-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-crystal-200">
-        <span class="text-white font-bold text-2xl">D</span>
-      </div>
-      <h1 class="text-2xl font-semibold text-gray-900">DevTrack</h1>
+      <img src="~/assets/images/logo-icon.svg" alt="DevTrakr" class="w-14 h-14 mx-auto mb-4" />
+      <h1 class="text-2xl font-semibold text-gray-900">DevTrakr</h1>
       <p class="text-sm text-gray-400 mt-1">项目管理平台</p>
     </div>
 
@@ -22,7 +20,7 @@
       </div>
     </form>
 
-    <p class="text-center text-xs text-gray-400 mt-6">&copy; 2026 DevTrack 项目管理平台</p>
+    <p class="text-center text-xs text-gray-400 mt-6">&copy; 2026 DevTrakr 项目管理平台</p>
   </div>
 </template>
 

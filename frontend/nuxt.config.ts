@@ -11,7 +11,10 @@ export default defineNuxtConfig({
   app: {
     baseURL: '/',
     head: {
-      title: 'DevTrack - 项目管理平台',
+      title: 'DevTrakr - 项目管理平台',
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+      ],
     },
   },
   routeRules: {

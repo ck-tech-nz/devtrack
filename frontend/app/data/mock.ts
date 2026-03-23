@@ -37,7 +37,7 @@ export const projects = [
   },
   {
     id: 'p2',
-    name: 'DevTrack 项目管理工具',
+    name: 'DevTrakr 项目管理工具',
     description: '内部开发团队使用的项目管理和问题追踪工具',
     status: '进行中',
     remark: '第一版基本完成，后续迭代增加 GitHub 集成和 AI 分析功能',

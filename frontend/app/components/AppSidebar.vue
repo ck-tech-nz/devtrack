@@ -6,11 +6,9 @@
     @mouseleave="autoCollapse && (expanded = false)"
   >
     <div class="h-16 flex items-center px-4 border-b border-gray-50 dark:border-gray-800">
-      <div class="w-8 h-8 rounded-lg bg-crystal-500 flex items-center justify-center flex-shrink-0">
-        <span class="text-white font-bold text-sm">D</span>
-      </div>
+      <img src="~/assets/images/logo-icon.svg" alt="DevTrakr" class="w-8 h-8 flex-shrink-0" />
       <transition name="fade">
-        <span v-if="expanded" class="ml-3 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">DevTrack</span>
+        <span v-if="expanded" class="ml-3 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">DevTrakr</span>
       </transition>
     </div>
 
