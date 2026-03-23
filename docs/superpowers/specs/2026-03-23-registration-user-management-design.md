@@ -57,6 +57,7 @@ Add self-service registration with admin approval, an admin user management modu
 
 ### Backend
 
+- Change `UserListView` permission class from `IsAuthenticated` to `FullDjangoModelPermissions` (enforces `users.view_user`)
 - Expand `UserListView` to return additional fields: `is_active`, `date_joined`, `groups`
 - New serializer: `AdminUserSerializer` with fields: `id, username, name, email, avatar, github_id, is_active, date_joined, groups`
 - Keep existing `UserSerializer` for non-admin contexts
@@ -76,10 +77,10 @@ Add self-service registration with admin approval, an admin user management modu
 ### Backend
 
 - Upgrade `UserDetailView` from `RetrieveAPIView` to `RetrieveUpdateAPIView`
+- Change permission class from `IsAuthenticated` to `FullDjangoModelPermissions` (enforces `users.view_user` for GET, `users.change_user` for PATCH)
 - Uses `AdminUserSerializer` for reads
 - New `AdminUserUpdateSerializer` for writes: allows updating `name, email, avatar, is_active, groups`
 - `groups` field accepts list of group names, resolves to Group objects
-- Permission: `users.change_user` (enforced by `FullDjangoModelPermissions`)
 
 ## 4. Profile Page (`/app/profile`)
 
@@ -137,7 +138,8 @@ Add self-service registration with admin approval, an admin user management modu
 
 ### User model change
 
-- The existing `avatar` field (URLField) stores the avatar identifier string (e.g., `terminal-hacker`) instead of a URL
+- Change `avatar` field from `URLField` to `CharField(max_length=50, blank=True)` to store identifier strings (e.g., `terminal-hacker`) instead of URLs
+- This requires a database migration
 - Frontend maps identifier → imported SVG asset for rendering
 - A shared composable `useAvatars()` provides the avatar list and a helper to resolve identifier → component/URL
 
@@ -206,10 +208,6 @@ User clicks avatar dropdown → "个人资料" → /app/profile
 | `frontend/app/components/AvatarPicker.vue` | Reusable avatar grid picker |
 | `frontend/app/composables/useAvatars.ts` | Avatar list & helpers |
 | `frontend/app/assets/images/avatars/*.svg` | 20 SVG avatar files |
-| `backend/apps/users/serializers.py` | Add RegisterSerializer, AdminUserSerializer, AdminUserUpdateSerializer |
-| `backend/apps/users/views.py` | Add RegisterView, ChangePasswordView, update UserDetailView |
-| `backend/apps/users/auth_urls.py` | Add register and change-password routes |
-
 ## 9. Files to Modify
 
 | File | Change |
@@ -218,6 +216,9 @@ User clicks avatar dropdown → "个人资料" → /app/profile
 | `frontend/app/components/AppHeader.vue` | Add "个人资料" to user dropdown menu |
 | `frontend/app/middleware/auth.global.ts` | Allow `/register` path without auth |
 | `backend/config/settings.py` | Add `/app/users` to SEED_ROUTES, add `users` to admin group apps |
+| `backend/apps/users/models.py` | Change `avatar` from `URLField` to `CharField(max_length=50)` |
+| `backend/apps/users/serializers.py` | Add RegisterSerializer, AdminUserSerializer, AdminUserUpdateSerializer |
+| `backend/apps/users/views.py` | Add RegisterView, ChangePasswordView; upgrade UserDetailView to RetrieveUpdateAPIView; change permission classes to FullDjangoModelPermissions on UserListView and UserDetailView |
 | `backend/apps/users/urls.py` | Keep existing, UserDetailView now supports PATCH |
 
 ## 10. Testing
