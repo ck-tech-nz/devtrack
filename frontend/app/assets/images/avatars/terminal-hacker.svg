@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="12" fill="#1a1a2e"/>
+  <rect x="12" y="15" width="76" height="55" rx="6" fill="#0d0d1a" stroke="#00ff41" stroke-width="2"/>
+  <text x="20" y="35" font-family="monospace" font-size="8" fill="#00ff41">$ hack --all</text>
+  <text x="20" y="47" font-family="monospace" font-size="8" fill="#00ff41">root@dev:~#</text>
+  <text x="20" y="59" font-family="monospace" font-size="8" fill="#00ff41" opacity="0.7">█</text>
+  <rect x="20" y="75" width="60" height="4" rx="2" fill="#333"/>
+  <rect x="20" y="75" width="38" height="4" rx="2" fill="#00ff41"/>
+  <text x="50" y="92" font-family="monospace" font-size="7" fill="#00ff41" text-anchor="middle" opacity="0.6">&gt;_</text>
+</svg>

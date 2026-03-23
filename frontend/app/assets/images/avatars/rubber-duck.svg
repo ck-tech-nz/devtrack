@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="12" fill="#42a5f5"/>
+  <!-- Water -->
+  <path d="M0 70 Q15 65 30 70 Q45 75 60 70 Q75 65 90 70 L100 70 L100 100 L0 100 Z" fill="#1e88e5"/>
+  <path d="M0 78 Q20 73 40 78 Q60 83 80 78 L100 78 L100 100 L0 100 Z" fill="#1565c0"/>
+  <!-- Duck body -->
+  <ellipse cx="50" cy="62" rx="26" ry="16" fill="#ffd600"/>
+  <!-- Duck wing -->
+  <ellipse cx="38" cy="60" rx="10" ry="8" fill="#ffab00" transform="rotate(-10, 38, 60)"/>
+  <!-- Duck head -->
+  <circle cx="65" cy="40" r="16" fill="#ffd600"/>
+  <!-- Eye -->
+  <circle cx="70" cy="37" r="4" fill="white"/>
+  <circle cx="71" cy="37" r="2.5" fill="#1a1a2e"/>
+  <circle cx="72" cy="36" r="1" fill="white"/>
+  <!-- Beak -->
+  <ellipse cx="82" cy="43" rx="8" ry="4" fill="#ff6d00"/>
+  <line x1="74" y1="43" x2="88" y2="43" stroke="#e65100" stroke-width="0.8"/>
+  <!-- Blush -->
+  <ellipse cx="62" cy="47" rx="4" ry="2.5" fill="#ffab91" opacity="0.5"/>
+  <!-- Hair tuft -->
+  <path d="M60 26 Q65 20 62 25 Q68 18 64 24" stroke="#ffab00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Debug text -->
+  <text x="50" y="95" font-family="monospace" font-weight="bold" font-size="9" fill="white" text-anchor="middle">debug!</text>
+</svg>

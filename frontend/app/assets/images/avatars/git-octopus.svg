@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="12" fill="#f05033"/>
+  <!-- Head -->
+  <ellipse cx="50" cy="38" rx="25" ry="22" fill="#ff7b5e"/>
+  <!-- Eyes -->
+  <circle cx="42" cy="34" r="6" fill="white"/>
+  <circle cx="58" cy="34" r="6" fill="white"/>
+  <circle cx="43" cy="35" r="3.5" fill="#1a1a2e"/>
+  <circle cx="59" cy="35" r="3.5" fill="#1a1a2e"/>
+  <circle cx="44" cy="34" r="1.5" fill="white"/>
+  <circle cx="60" cy="34" r="1.5" fill="white"/>
+  <!-- Mouth -->
+  <path d="M44 46 Q50 51 56 46" stroke="#c0392b" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Tentacles -->
+  <path d="M32 55 Q20 65 12 80" stroke="#ff7b5e" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M38 58 Q28 72 18 88" stroke="#ff7b5e" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M50 60 Q50 75 50 92" stroke="#ff7b5e" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M62 58 Q72 72 82 88" stroke="#ff7b5e" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M68 55 Q80 65 88 80" stroke="#ff7b5e" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- Git branch dots on tentacles -->
+  <circle cx="12" cy="80" r="3" fill="#ffd700"/>
+  <circle cx="18" cy="88" r="3" fill="#4fc3f7"/>
+  <circle cx="50" cy="92" r="3" fill="#2ecc71"/>
+  <circle cx="82" cy="88" r="3" fill="#e74c3c"/>
+  <circle cx="88" cy="80" r="3" fill="#9b59b6"/>
+</svg>

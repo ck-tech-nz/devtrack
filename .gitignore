@@ -4,7 +4,7 @@ node_modules/
 dist/
 .DS_Store
 *.log
-
+.superpowers/
 .env
 
 # Python / Backend
@@ -13,3 +13,4 @@ __pycache__/
 .venv/
 *.egg-info/
 db.sqlite3
+.pytest_cache/

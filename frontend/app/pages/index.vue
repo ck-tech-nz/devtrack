@@ -8,6 +8,9 @@
 
     <form class="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8" @submit.prevent="handleLogin">
       <h2 class="text-lg font-semibold text-gray-900 mb-6">登录</h2>
+      <div v-if="registered" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+        注册成功，请等待管理员审批后登录
+      </div>
       <div class="space-y-4">
         <UFormField label="用户名">
           <UInput v-model="username" placeholder="请输入用户名" icon="i-heroicons-user" size="lg" class="w-full" />
@@ -20,12 +23,19 @@
       </div>
     </form>
 
+    <p class="text-center text-sm text-gray-500 mt-4">
+      还没有账号？
+      <NuxtLink to="/register" class="text-crystal-500 hover:text-crystal-700 font-medium">去注册</NuxtLink>
+    </p>
     <p class="text-center text-xs text-gray-400 mt-6">&copy; 2026 DevTrakr 项目管理平台</p>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
+
+const route = useRoute()
+const registered = computed(() => route.query.registered === '1')
 
 const username = ref('admin')
 const password = ref('')

@@ -24,7 +24,8 @@
 
       <UDropdownMenu :items="userMenuItems" :content="{ align: 'end' as const }">
         <button class="flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-2 py-1.5 transition-colors">
-          <div class="w-8 h-8 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center">
+          <img v-if="user?.avatar" :src="resolveAvatarUrl(user.avatar)" class="w-8 h-8 rounded-full" />
+          <div v-else class="w-8 h-8 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center">
             <span class="text-crystal-600 dark:text-crystal-400 text-sm font-medium">{{ displayInitial }}</span>
           </div>
           <span class="text-sm text-gray-700 dark:text-gray-300 font-medium hidden sm:inline">{{ displayName }}</span>
@@ -39,6 +40,7 @@
 const { breadcrumbs } = useNavigation()
 const { user, logout } = useAuth()
 const { settings, update } = useUserSettings()
+const { resolveAvatarUrl } = useAvatars()
 
 const displayName = computed(() => user.value?.name || '用户')
 const displayInitial = computed(() => (user.value?.name || '?').slice(0, 1))
@@ -56,6 +58,11 @@ function cycleTheme() {
 }
 
 const userMenuItems = [
+  [{
+    label: '个人资料',
+    icon: 'i-heroicons-user-circle',
+    onSelect: () => navigateTo('/app/profile'),
+  }],
   [{
     label: '退出登录',
     icon: 'i-heroicons-arrow-right-on-rectangle',

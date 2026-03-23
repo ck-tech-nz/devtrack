@@ -1,5 +1,5 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (to.path === '/' || to.path === '/login') return
+  if (to.path === '/' || to.path === '/login' || to.path === '/register') return
   if (to.path === '/app/forbidden') return
 
   const { getToken } = useApi()

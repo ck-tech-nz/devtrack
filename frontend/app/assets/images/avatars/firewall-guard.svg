@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="12" fill="#1a237e"/>
+  <!-- Shield shape -->
+  <path d="M50 10 L80 28 L80 55 Q80 78 50 92 Q20 78 20 55 L20 28 Z" fill="#1565c0" stroke="#42a5f5" stroke-width="2"/>
+  <!-- Inner shield -->
+  <path d="M50 20 L70 33 L70 53 Q70 70 50 80 Q30 70 30 53 L30 33 Z" fill="#0d47a1"/>
+  <!-- Checkmark -->
+  <path d="M38 52 L47 61 L65 38" stroke="#76ff03" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Brick pattern on sides -->
+  <rect x="5" y="30" width="12" height="8" rx="1" fill="#ef5350" opacity="0.6"/>
+  <rect x="5" y="40" width="12" height="8" rx="1" fill="#ef5350" opacity="0.5"/>
+  <rect x="5" y="50" width="12" height="8" rx="1" fill="#ef5350" opacity="0.4"/>
+  <rect x="83" y="30" width="12" height="8" rx="1" fill="#ef5350" opacity="0.6"/>
+  <rect x="83" y="40" width="12" height="8" rx="1" fill="#ef5350" opacity="0.5"/>
+  <rect x="83" y="50" width="12" height="8" rx="1" fill="#ef5350" opacity="0.4"/>
+</svg>

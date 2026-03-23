@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="12" fill="#1a1a2e"/>
+  <!-- Stars -->
+  <circle cx="15" cy="15" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="85" cy="12" r="1" fill="white" opacity="0.4"/>
+  <circle cx="78" cy="28" r="1.5" fill="white" opacity="0.5"/>
+  <circle cx="20" cy="80" r="1" fill="white" opacity="0.3"/>
+  <circle cx="88" cy="75" r="1" fill="white" opacity="0.5"/>
+  <!-- Alien head -->
+  <ellipse cx="50" cy="50" rx="26" ry="30" fill="#4caf50"/>
+  <!-- Big eyes -->
+  <ellipse cx="38" cy="42" rx="10" ry="12" fill="#1a1a2e"/>
+  <ellipse cx="62" cy="42" rx="10" ry="12" fill="#1a1a2e"/>
+  <ellipse cx="39" cy="43" rx="5" ry="6" fill="#76ff03"/>
+  <ellipse cx="63" cy="43" rx="5" ry="6" fill="#76ff03"/>
+  <circle cx="40" cy="41" r="2.5" fill="white" opacity="0.7"/>
+  <circle cx="64" cy="41" r="2.5" fill="white" opacity="0.7"/>
+  <!-- Mouth -->
+  <ellipse cx="50" cy="62" rx="5" ry="3" fill="#2e7d32"/>
+  <!-- Antenna -->
+  <line x1="50" y1="20" x2="50" y2="10" stroke="#4caf50" stroke-width="2"/>
+  <circle cx="50" cy="8" r="3" fill="#76ff03"/>
+  <!-- 404 text -->
+  <text x="50" y="90" font-family="monospace" font-weight="bold" font-size="14" fill="#ff5252" text-anchor="middle">404</text>
+</svg>
