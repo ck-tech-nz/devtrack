@@ -70,7 +70,7 @@ const sizePresets = {
   large: {
     height: 58,
     itemWidth: 100,
-    thumbHeight: 52,
+    thumbHeight: 44,
     bezelWidth: 10,
     bazelWidthBg: 25,
     glassThickness: 110,
@@ -98,7 +98,7 @@ const dimensions = computed(() => sizePresets[props.size])
 const sliderHeight = computed(() => dimensions.value.height)
 const itemWidth = computed(() => props.itemWidthOverride > 0 ? props.itemWidthOverride : dimensions.value.itemWidth)
 const sliderWidth = computed(() => itemWidth.value * props.items.length)
-const thumbWidth = computed(() => itemWidth.value - 4) // Slightly smaller than item
+const thumbWidth = computed(() => itemWidth.value - 16)
 const thumbHeight = computed(() => dimensions.value.thumbHeight)
 const thumbRadius = computed(() => thumbHeight.value / 2)
 const bezelWidth = computed(() => dimensions.value.bezelWidth)
