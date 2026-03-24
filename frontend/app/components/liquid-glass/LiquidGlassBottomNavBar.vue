@@ -15,6 +15,7 @@ const props = withDefaults(defineProps<{
   items: NavItem[]
   size?: 'small' | 'medium' | 'large' | 'XL'
   disabled?: boolean
+  itemWidthOverride?: number
   // Glass customization props
   specularOpacity?: number
   specularSaturation?: number
@@ -26,6 +27,7 @@ const props = withDefaults(defineProps<{
   modelValue: '',
   size: 'medium',
   disabled: false,
+  itemWidthOverride: 0,
   specularOpacity: 0.4,
   specularSaturation: 10,
   blur: 0, // Default blur
@@ -66,16 +68,16 @@ const sizePresets = {
     thumbScaleY: 1.1,
   },
   large: {
-    height: 67,
+    height: 72,
     itemWidth: 100,
-    thumbHeight: 62,
+    thumbHeight: 66,
     bezelWidth: 13,
     bazelWidthBg: 30,
     glassThickness: 120,
-    fontSize: '0.675rem',
+    fontSize: '0.65rem',
     iconSize: 24,
-    thumbScale: 1.3,
-    thumbScaleY: 1.1,
+    thumbScale: 1.25,
+    thumbScaleY: 1.08,
   },
   XL: {
     height: 80,
@@ -94,7 +96,7 @@ const sizePresets = {
 // Computed dimensions
 const dimensions = computed(() => sizePresets[props.size])
 const sliderHeight = computed(() => dimensions.value.height)
-const itemWidth = computed(() => dimensions.value.itemWidth)
+const itemWidth = computed(() => props.itemWidthOverride > 0 ? props.itemWidthOverride : dimensions.value.itemWidth)
 const sliderWidth = computed(() => itemWidth.value * props.items.length)
 const thumbWidth = computed(() => itemWidth.value - 4) // Slightly smaller than item
 const thumbHeight = computed(() => dimensions.value.thumbHeight)
@@ -451,12 +453,12 @@ onUnmounted(() => {
               
               <!-- Thumb Body -->
               <div class="absolute inset-0"
-                   :class="{ 'bg-[var(--glass-rgb)]/[var(--glass-bg-alpha)]': !isActive }"
                    :style="{
                       borderRadius: `${thumbRadius}px`,
-                      backdropFilter: `url(#${filterId})`,
-
-                      transition: 'background-color 0.1s ease, box-shadow 0.1s ease',
+                      backdropFilter: isActive ? `url(#${filterId})` : 'none',
+                      backgroundColor: isActive ? undefined : 'rgba(0,0,0,0.06)',
+                      boxShadow: isActive ? undefined : '0 1px 4px rgba(0,0,0,0.04)',
+                      transition: 'background-color 0.15s ease, box-shadow 0.15s ease, backdrop-filter 0.15s ease',
                    }"
               ></div>
         </div>
@@ -477,7 +479,7 @@ onUnmounted(() => {
             :style="{
                width: `${itemWidth}px`,
                height: '100%',
-               opacity: !hasSelection ? 0.85 : (internalValue === item.id ? 1 : 0.7),
+               opacity: !hasSelection ? 0.85 : (internalValue === item.id ? 1 : 0.85),
                transform: internalValue === item.id && hasSelection ? 'scale(1.05)' : 'scale(1)',
             }"
          >
@@ -489,10 +491,14 @@ onUnmounted(() => {
                 width: `${dimensions.iconSize}px`, 
                 height: `${dimensions.iconSize}px`,
                }" 
-               class="mb-1 transition-colors"
+               class="mb-1.5 transition-colors"
             >
             </div>
-             <span class="font-medium leading-none text-center truncate transition-colors text-gray-600 dark:text-gray-200" :style="{ fontSize: dimensions.fontSize, color: internalValue === item.id ? `${props.color}` : undefined }">{{ item.label }}</span>
+             <span
+               class="leading-none text-center truncate transition-colors"
+               :class="internalValue === item.id ? 'font-semibold' : 'font-medium text-gray-500 dark:text-gray-400'"
+               :style="{ fontSize: dimensions.fontSize, color: internalValue === item.id ? `${props.color}` : undefined }"
+             >{{ item.label }}</span>
          </div>
       </div>
     </div>

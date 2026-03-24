@@ -1,10 +1,11 @@
 <template>
-  <div class="fixed bottom-0 left-0 right-0 z-40 md:hidden flex justify-center" style="padding-bottom: env(safe-area-inset-bottom)">
+  <div class="fixed bottom-0 left-0 right-0 z-40 md:hidden flex justify-center px-3" style="padding-bottom: env(safe-area-inset-bottom)">
     <ClientOnly>
       <LiquidGlassBottomNavBar
         v-model="selectedTabId"
         :items="tabItems"
-        size="medium"
+        size="large"
+        :item-width-override="dynamicItemWidth"
         :always-show-glass="false"
         :specular-opacity="0.4"
         :specular-saturation="10"
@@ -23,6 +24,14 @@ import type { NavItem } from '~/composables/useNavigation'
 
 const router = useRouter()
 const { filteredNavItems, currentPath } = useNavigation()
+
+// 动态计算每个 tab 宽度，使导航栏接近全屏宽度
+const screenWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 393)
+onMounted(() => {
+  const onResize = () => { screenWidth.value = window.innerWidth }
+  window.addEventListener('resize', onResize)
+  onUnmounted(() => window.removeEventListener('resize', onResize))
+})
 
 const primaryRoutes = ['/app/issues', '/app/dashboard', '/app/repos']
 
@@ -47,6 +56,13 @@ const tabItems = computed(() => [
   })),
   { id: '_more', label: '更多' },
 ])
+
+// 24px = 左右 px-3 padding
+const dynamicItemWidth = computed(() => {
+  const availableWidth = screenWidth.value - 24
+  const count = tabItems.value.length
+  return Math.floor(availableWidth / count)
+})
 
 const moreOpen = ref(false)
 
