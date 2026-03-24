@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.issues",
     "apps.repos",
     "apps.ai",
+    "apps.tools",
     # Packages
     "page_perms",
 ]
@@ -126,6 +127,17 @@ STORAGES = {
     },
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Upload size limit — set higher than 5MB so Django doesn't reject before the view's own check runs
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
+# MinIO / S3 storage
+MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "127.0.0.1:9000")
+MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "")
+MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "")
+MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "devtrack-uploads")
+MINIO_USE_SSL = os.environ.get("MINIO_USE_SSL", "False").lower() in ("true", "1")
+MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "http://127.0.0.1:9000/devtrack-uploads")
 
 # Page permissions configuration
 PAGE_PERMS = {
