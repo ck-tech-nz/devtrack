@@ -27,7 +27,7 @@
       <button
         class="flex flex-col items-center justify-center min-w-[64px] h-[44px] gap-0.5"
         :class="moreOpen ? 'text-crystal-600 dark:text-crystal-400' : 'text-gray-400 dark:text-gray-500'"
-        @click="moreOpen = true"
+        @click="($event.currentTarget as HTMLElement)?.blur(); moreOpen = true"
       >
         <div
           class="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
