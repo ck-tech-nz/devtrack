@@ -12,7 +12,7 @@
         </NuxtLink>
         <h1 class="text-2xl font-semibold">
           <span class="text-gray-900 dark:text-gray-100">{{ issue.title }}</span>
-          <span class="text-gray-400 dark:text-gray-500 font-normal">#{{ issue.id }}</span>
+          <span class="text-gray-400 dark:text-gray-500 font-normal ml-2">#{{ issue.id }}</span>
         </h1>
       </div>
       <div class="flex items-center space-x-2">
