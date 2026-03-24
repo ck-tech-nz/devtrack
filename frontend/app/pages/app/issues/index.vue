@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-6">
     <MyPendingTasks />
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
-      <div class="flex items-center space-x-3">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
+      <div class="flex items-center justify-between md:justify-end space-x-3">
         <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
           <button
             class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
@@ -20,7 +20,9 @@
             列表
           </button>
         </div>
-        <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">新建问题</UButton>
+        <UButton icon="i-heroicons-plus" size="sm" @click="showCreateModal = true">
+          <span class="hidden md:inline">新建问题</span>
+        </UButton>
       </div>
     </div>
 
@@ -76,7 +78,7 @@
     </UModal>
 
     <!-- Batch Actions -->
-    <div v-if="selectedRowsData.length > 0" class="bg-crystal-50 dark:bg-crystal-950 rounded-xl border border-crystal-100 dark:border-crystal-800 p-3 flex items-center justify-between">
+    <div v-if="selectedRowsData.length > 0" class="hidden md:flex bg-crystal-50 dark:bg-crystal-950 rounded-xl border border-crystal-100 dark:border-crystal-800 p-3 items-center justify-between">
       <span class="text-sm text-crystal-700 dark:text-crystal-300">已选择 {{ selectedRowsData.length }} 项</span>
       <div class="flex items-center space-x-2">
         <UDropdownMenu :items="batchAssignItems" :content="{ align: 'end' as const }">
@@ -91,6 +93,19 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-20">
       <div class="text-sm text-gray-400 dark:text-gray-500">加载中...</div>
+    </div>
+
+    <!-- Mobile Card List -->
+    <div v-else-if="isMobile && viewMode === 'table'" class="space-y-2">
+      <IssueCard v-for="issue in issues" :key="issue.id" :issue="issue" />
+      <div class="flex items-center justify-between pt-2">
+        <span class="text-xs text-gray-400 dark:text-gray-500">共 {{ totalCount }} 条</span>
+        <div class="flex items-center space-x-2">
+          <UButton size="xs" variant="ghost" color="neutral" :disabled="page <= 1" @click="page--">上一页</UButton>
+          <span class="text-xs text-gray-500 dark:text-gray-400">{{ page }} / {{ totalPages }}</span>
+          <UButton size="xs" variant="ghost" color="neutral" :disabled="page >= totalPages" @click="page++">下一页</UButton>
+        </div>
+      </div>
     </div>
 
     <!-- Kanban View -->
@@ -204,6 +219,7 @@
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
+const { isMobile } = useMobile()
 const { settings, update: updateSettings } = useUserSettings()
 
 const viewMode = computed({
@@ -459,8 +475,13 @@ onMounted(async () => {
 }
 .form-grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1rem;
+}
+@media (min-width: 768px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 .modal-footer {
   display: flex;
