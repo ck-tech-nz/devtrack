@@ -1,6 +1,6 @@
 <template>
   <aside
-    class="h-screen bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 flex flex-col transition-all duration-300 ease-in-out flex-shrink-0 relative z-30"
+    class="h-screen bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 hidden md:flex flex-col transition-all duration-300 ease-in-out flex-shrink-0 relative z-30"
     :class="expanded ? 'w-60' : 'w-16'"
     @mouseenter="expanded = true"
     @mouseleave="autoCollapse && (expanded = false)"
