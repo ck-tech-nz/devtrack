@@ -1,5 +1,7 @@
 from django.urls import path, include
 
+from apps.settings.about_views import AboutView
+
 urlpatterns = [
     path("auth/", include("apps.users.auth_urls")),
     path("settings/", include("apps.settings.urls")),
@@ -10,4 +12,5 @@ urlpatterns = [
     path("repos/", include("apps.repos.urls")),
     path("ai/", include("apps.ai.urls")),
     path("page-perms/", include("page_perms.urls")),
+    path("about/", AboutView.as_view(), name="about"),
 ]

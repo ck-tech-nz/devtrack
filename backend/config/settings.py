@@ -138,6 +138,7 @@ PAGE_PERMS = {
         {"path": "/app/ai-insights", "label": "AI 洞察", "icon": "i-heroicons-cpu-chip", "permission": "ai.view_analysis", "sort_order": 4, "meta": {"serviceKey": "ai"}},
         {"path": "/app/users", "label": "用户管理", "icon": "i-heroicons-users", "permission": "users.view_user", "sort_order": 5},
         {"path": "/app/permissions", "label": "权限管理", "icon": "i-heroicons-shield-check", "permission": None, "sort_order": 99, "meta": {"superuserOnly": True}},
+        {"path": "/app/about", "label": "关于系统", "icon": "i-heroicons-information-circle", "permission": None, "sort_order": 100, "meta": {"superuserOnly": True}},
     ],
     "SEED_GROUPS": {
         "管理员": {"apps": ["projects", "issues", "settings", "repos", "ai", "users"]},

@@ -1,5 +1,33 @@
+import { readFileSync, existsSync } from 'node:fs'
+import { execSync } from 'node:child_process'
+import { resolve } from 'node:path'
+
 declare const process: { env: Record<string, string | undefined> }
 const apiBase = process.env.NUXT_API_BASE || 'http://localhost:8000'
+
+function getBuildInfo() {
+  const versionFile = resolve(__dirname, 'VERSION')
+  if (existsSync(versionFile)) {
+    const content = readFileSync(versionFile, 'utf-8').trim()
+    const parts = content.split('-')
+    if (parts.length >= 4) {
+      const gitHash = parts[parts.length - 1]
+      const buildDate = parts.slice(0, -1).join('-')
+      return { gitHash, buildDate }
+    }
+  }
+  try {
+    const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+    return { gitHash, buildDate: null }
+  } catch {
+    return { gitHash: null, buildDate: null }
+  }
+}
+
+const buildInfo = getBuildInfo()
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
+const nuxtVersion = pkg.dependencies?.nuxt?.replace(/^\^/, '') || ''
+const vueVersion = pkg.dependencies?.vue?.replace(/^\^/, '') || ''
 
 export default defineNuxtConfig({
   ssr: false,
@@ -8,6 +36,14 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
   colorMode: { preference: 'light', fallback: 'light' },
+  runtimeConfig: {
+    public: {
+      gitHash: buildInfo.gitHash || '',
+      buildDate: buildInfo.buildDate || '',
+      nuxtVersion,
+      vueVersion,
+    },
+  },
   app: {
     baseURL: '/',
     head: {

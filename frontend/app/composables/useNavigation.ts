@@ -38,6 +38,7 @@ export const useNavigation = () => {
   // 不在 navItems 中的独立页面
   const standalonePages: Record<string, string> = {
     '/app/profile': '个人资料',
+    '/app/about': '关于系统',
   }
 
   const breadcrumbs = computed(() => {
