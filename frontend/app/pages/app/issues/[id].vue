@@ -10,7 +10,10 @@
         <NuxtLink to="/app/issues" class="text-gray-400 dark:text-gray-500 hover:text-gray-600">
           <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
         </NuxtLink>
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">#{{ issue.id }}</h1>
+        <h1 class="text-2xl font-semibold">
+          <span class="text-gray-900 dark:text-gray-100">{{ issue.title }}</span>
+          <span class="text-gray-400 dark:text-gray-500 font-normal">#{{ issue.id }}</span>
+        </h1>
       </div>
       <div class="flex items-center space-x-2">
         <UButton v-if="hasChanges" color="primary" size="sm" :loading="saving" @click="saveAll">保存修改</UButton>
@@ -22,12 +25,6 @@
       <div class="lg:col-span-2 space-y-4">
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
           <div class="space-y-4">
-            <!-- 标题 -->
-            <div class="form-row">
-              <label>标题</label>
-              <UInput v-model="form.title" />
-            </div>
-
             <!-- 描述 -->
             <div class="form-row">
               <label>描述</label>
