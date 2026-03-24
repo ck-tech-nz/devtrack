@@ -1,6 +1,6 @@
 <template>
-  <header class="h-16 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-6 lg:px-8 flex-shrink-0">
-    <nav class="flex items-center space-x-2 text-sm">
+  <header class="h-16 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-3 md:px-6 lg:px-8 flex-shrink-0">
+    <nav class="hidden md:flex items-center space-x-2 text-sm">
       <template v-for="(crumb, idx) in breadcrumbs" :key="idx">
         <UIcon v-if="idx > 0" name="i-heroicons-chevron-right-20-solid" class="w-4 h-4 text-gray-300" />
         <NuxtLink v-if="crumb.to" :to="crumb.to" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
@@ -9,6 +9,9 @@
         <span v-else class="text-gray-900 dark:text-gray-100 font-medium">{{ crumb.label }}</span>
       </template>
     </nav>
+    <span class="md:hidden text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+      {{ breadcrumbs[breadcrumbs.length - 1]?.label || '' }}
+    </span>
 
     <div class="flex items-center space-x-3">
       <UButton
