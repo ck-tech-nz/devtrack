@@ -199,7 +199,8 @@ async function uploadFiles(files: File[]) {
 .markdown-body h2 { font-size: 1.25em; font-weight: 600; margin: 0.83em 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
 .markdown-body h3 { font-size: 1.1em; font-weight: 600; margin: 1em 0; }
 .markdown-body p { margin: 0.5em 0; line-height: 1.6; }
-.markdown-body ul, .markdown-body ol { margin: 0.5em 0; padding-left: 2em; }
+.markdown-body ul { margin: 0.5em 0; padding-left: 2em; list-style-type: disc; }
+.markdown-body ol { margin: 0.5em 0; padding-left: 2em; list-style-type: decimal; }
 .markdown-body li { margin: 0.25em 0; }
 .markdown-body code { background: #f3f4f6; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.875em; }
 .markdown-body pre { background: #f3f4f6; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; }
