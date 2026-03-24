@@ -11,11 +11,8 @@
           <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
         </NuxtLink>
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">#{{ issue.id }}</h1>
-        <UBadge :color="priorityColor(issue.priority)" variant="subtle">{{ issue.priority }}</UBadge>
-        <UBadge :color="statusColor(issue.status)" variant="subtle">{{ issue.status }}</UBadge>
       </div>
       <div class="flex items-center space-x-2">
-        <UButton v-for="action in statusActions" :key="action.label" variant="outline" color="neutral" size="sm" @click="action.handler">{{ action.label }}</UButton>
         <UButton v-if="hasChanges" color="primary" size="sm" :loading="saving" @click="saveAll">保存修改</UButton>
       </div>
     </div>
@@ -25,24 +22,75 @@
       <div class="lg:col-span-2 space-y-4">
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
           <div class="space-y-4">
+            <!-- 标题 -->
             <div class="form-row">
-              <label>标题</label>
-              <UInput v-model="form.title" />
+              <div class="flex items-center justify-between">
+                <label>标题</label>
+                <button v-if="!editingTitle" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" @click="startEditTitle">
+                  <UIcon name="i-heroicons-pencil" class="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div v-if="!editingTitle">
+                <h2 class="text-base font-medium text-gray-900 dark:text-gray-100">{{ issue.title }}</h2>
+              </div>
+              <div v-else class="space-y-2">
+                <UInput v-model="editTitleValue" autofocus />
+                <div class="flex items-center gap-2">
+                  <UButton size="xs" color="primary" :loading="savingTitle" @click="saveTitle">保存</UButton>
+                  <UButton size="xs" variant="outline" color="neutral" @click="cancelEditTitle">取消</UButton>
+                </div>
+              </div>
             </div>
+
+            <!-- 描述 -->
             <div class="form-row">
-              <label>描述</label>
-              <MarkdownEditor v-model="form.description" placeholder="添加描述..." />
-            </div>
-            <div class="form-grid-2">
-              <div class="form-row">
-                <label>优先级</label>
-                <USelect v-model="form.priority" :items="priorityItems" value-key="value" />
+              <div class="flex items-center justify-between">
+                <label>描述</label>
+                <button v-if="!editingDescription" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" @click="startEditDescription">
+                  <UIcon name="i-heroicons-pencil" class="w-3.5 h-3.5" />
+                </button>
               </div>
-              <div class="form-row">
-                <label>状态</label>
-                <USelect v-model="form.status" :items="statusItems" value-key="value" />
+              <div v-if="!editingDescription">
+                <div v-if="issue.description" class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100" v-html="renderedDescription" />
+                <p v-else class="text-sm text-gray-400 dark:text-gray-500 cursor-pointer hover:text-gray-500" @click="startEditDescription">点击编辑添加描述</p>
+              </div>
+              <div v-else class="space-y-2">
+                <MarkdownEditor v-model="editDescriptionValue" placeholder="添加描述..." />
+                <div class="flex items-center gap-2">
+                  <UButton size="xs" color="primary" :loading="savingDescription" @click="saveDescription">保存</UButton>
+                  <UButton size="xs" variant="outline" color="neutral" @click="cancelEditDescription">取消</UButton>
+                </div>
               </div>
             </div>
+
+            <!-- 优先级 -->
+            <div class="form-row">
+              <label>优先级</label>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  v-for="p in priorityItems"
+                  :key="p.value"
+                  class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                  :class="issue.priority === p.value ? p.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                  @click="updateField('priority', p.value)"
+                >{{ p.label }}</button>
+              </div>
+            </div>
+
+            <!-- 状态 -->
+            <div class="form-row">
+              <label>状态</label>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  v-for="s in statusItems"
+                  :key="s.value"
+                  class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                  :class="issue.status === s.value ? s.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                  @click="handleStatusClick(s.value)"
+                >{{ s.label }}</button>
+              </div>
+            </div>
+
             <div class="form-grid-2">
               <div class="form-row">
                 <label>负责人</label>
@@ -209,11 +257,15 @@
 </template>
 
 <script setup lang="ts">
+import MarkdownIt from 'markdown-it'
+
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
 const route = useRoute()
 const { isOnline } = useServiceStatus()
+
+const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
 const loading = ref(true)
 const saving = ref(false)
@@ -222,6 +274,16 @@ const users = ref<any[]>([])
 const labelItems = ref<string[]>([])
 const repos = ref<any[]>([])
 const allGHIssues = ref<any[]>([])
+
+// 标题编辑状态
+const editingTitle = ref(false)
+const editTitleValue = ref('')
+const savingTitle = ref(false)
+
+// 描述编辑状态
+const editingDescription = ref(false)
+const editDescriptionValue = ref('')
+const savingDescription = ref(false)
 
 // GitHub 创建
 const showCreateGH = ref(false)
@@ -247,11 +309,12 @@ const availableGHIssues = computed(() => {
   })
 })
 
+const renderedDescription = computed(() => {
+  if (!issue.value?.description) return ''
+  return md.render(issue.value.description)
+})
+
 const form = ref({
-  title: '',
-  description: '',
-  priority: 'P2',
-  status: '待处理',
   labels: [] as string[],
   assignee: '_none',
   remark: '',
@@ -262,16 +325,16 @@ const form = ref({
 })
 
 const priorityItems = [
-  { label: 'P0', value: 'P0' },
-  { label: 'P1', value: 'P1' },
-  { label: 'P2', value: 'P2' },
-  { label: 'P3', value: 'P3' },
+  { label: 'P0', value: 'P0', activeClass: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+  { label: 'P1', value: 'P1', activeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' },
+  { label: 'P2', value: 'P2', activeClass: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
+  { label: 'P3', value: 'P3', activeClass: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
 ]
 const statusItems = [
-  { label: '待处理', value: '待处理' },
-  { label: '进行中', value: '进行中' },
-  { label: '已解决', value: '已解决' },
-  { label: '已关闭', value: '已关闭' },
+  { label: '待处理', value: '待处理', activeClass: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
+  { label: '进行中', value: '进行中', activeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
+  { label: '已解决', value: '已解决', activeClass: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
+  { label: '已关闭', value: '已关闭', activeClass: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
 ]
 const assigneeItems = computed(() => [
   { label: '无', value: '_none' },
@@ -284,10 +347,6 @@ const hasChanges = computed(() => JSON.stringify(form.value) !== originalForm.va
 
 function populateForm(data: any) {
   form.value = {
-    title: data.title || '',
-    description: data.description || '',
-    priority: data.priority || 'P2',
-    status: data.status || '待处理',
     labels: data.labels || [],
     assignee: data.assignee ? String(data.assignee) : '_none',
     remark: data.remark || '',
@@ -321,24 +380,86 @@ async function saveAll() {
   }
 }
 
-function priorityColor(p: string) {
-  return p === 'P0' ? 'error' : p === 'P1' ? 'warning' : p === 'P2' ? 'warning' : 'neutral'
-}
-function statusColor(s: string) {
-  return s === '待处理' ? 'warning' : s === '进行中' ? 'info' : s === '已解决' ? 'success' : 'neutral'
-}
-
-async function updateStatus(newStatus: string) {
+// 立即 PATCH 单个字段（优先级/状态胶囊按钮使用）
+async function updateField(field: string, value: string) {
   if (!issue.value) return
   try {
     await api(`/api/issues/${issue.value.id}/`, {
       method: 'PATCH',
-      body: { status: newStatus },
+      body: { [field]: value },
     })
     issue.value = await api<any>(`/api/issues/${route.params.id}/`)
     populateForm(issue.value)
   } catch (e) {
-    console.error('Status update failed:', e)
+    console.error(`Update ${field} failed:`, e)
+  }
+}
+
+// 状态胶囊点击处理（已解决 -> 已关闭 时检查 GitHub）
+function handleStatusClick(newStatus: string) {
+  if (newStatus === '已关闭') {
+    const hasOpenGH = issue.value?.github_issues?.some((gh: any) => gh.state === 'open')
+    if (hasOpenGH) {
+      closeWithGitHub()
+      return
+    }
+  }
+  updateField('status', newStatus)
+}
+
+// 标题编辑
+function startEditTitle() {
+  editTitleValue.value = issue.value?.title || ''
+  editingTitle.value = true
+}
+
+function cancelEditTitle() {
+  editingTitle.value = false
+  editTitleValue.value = ''
+}
+
+async function saveTitle() {
+  if (!issue.value) return
+  savingTitle.value = true
+  try {
+    await api(`/api/issues/${issue.value.id}/`, {
+      method: 'PATCH',
+      body: { title: editTitleValue.value },
+    })
+    issue.value = await api<any>(`/api/issues/${route.params.id}/`)
+    editingTitle.value = false
+  } catch (e) {
+    console.error('Save title failed:', e)
+  } finally {
+    savingTitle.value = false
+  }
+}
+
+// 描述编辑
+function startEditDescription() {
+  editDescriptionValue.value = issue.value?.description || ''
+  editingDescription.value = true
+}
+
+function cancelEditDescription() {
+  editingDescription.value = false
+  editDescriptionValue.value = ''
+}
+
+async function saveDescription() {
+  if (!issue.value) return
+  savingDescription.value = true
+  try {
+    await api(`/api/issues/${issue.value.id}/`, {
+      method: 'PATCH',
+      body: { description: editDescriptionValue.value },
+    })
+    issue.value = await api<any>(`/api/issues/${route.params.id}/`)
+    editingDescription.value = false
+  } catch (e) {
+    console.error('Save description failed:', e)
+  } finally {
+    savingDescription.value = false
   }
 }
 
@@ -352,23 +473,6 @@ async function closeWithGitHub() {
     console.error('Close failed:', e)
   }
 }
-
-const statusActions = computed(() => {
-  if (!issue.value) return []
-  const s = issue.value.status
-  const actions: { label: string; handler: () => void }[] = []
-  if (s === '待处理') actions.push({ label: '开始处理', handler: () => updateStatus('进行中') })
-  if (s === '进行中') actions.push({ label: '标记已解决', handler: () => updateStatus('已解决') })
-  if (s === '已解决') {
-    const hasOpenGH = issue.value.github_issues?.some((gh: any) => gh.state === 'open')
-    if (hasOpenGH) {
-      actions.push({ label: '关闭（含 GitHub）', handler: closeWithGitHub })
-    } else {
-      actions.push({ label: '关闭', handler: () => updateStatus('已关闭') })
-    }
-  }
-  return actions
-})
 
 function toggleGHSelection(id: number) {
   const idx = ghSelectedIds.value.indexOf(id)
