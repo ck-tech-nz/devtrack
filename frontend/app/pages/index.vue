@@ -37,7 +37,7 @@ definePageMeta({ layout: 'auth' })
 const route = useRoute()
 const registered = computed(() => route.query.registered === '1')
 
-const username = ref('admin')
+const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
