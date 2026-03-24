@@ -11,7 +11,7 @@
         :specular-saturation="10"
         :base-refraction="-0.4"
         color="#7c3aed"
-        class="mb-1.5"
+        class="mb-3"
       />
     </ClientOnly>
     <MobileMoreSheet v-model:open="moreOpen" :items="moreNavItems" />
@@ -53,8 +53,9 @@ const tabItems = computed(() => [
   ...primaryTabs.value.map(tab => ({
     id: tab.to!,
     label: tab.label,
+    icon: tab.icon,
   })),
-  { id: '_more', label: '更多' },
+  { id: '_more', label: '更多', icon: 'i-heroicons-ellipsis-horizontal' },
 ])
 
 // 24px = 左右 px-3 padding

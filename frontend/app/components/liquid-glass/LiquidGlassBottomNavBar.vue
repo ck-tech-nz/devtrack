@@ -6,7 +6,7 @@ import Filter from '~/components/liquid-glass/Filter.vue'
 interface NavItem {
   id: string
   label: string
-  icon?: string // SVG path content
+  icon?: string // SVG path content or iconify class name (e.g. "i-heroicons-xxx")
 }
 
 // Props
@@ -68,14 +68,14 @@ const sizePresets = {
     thumbScaleY: 1.1,
   },
   large: {
-    height: 72,
+    height: 58,
     itemWidth: 100,
-    thumbHeight: 66,
-    bezelWidth: 13,
-    bazelWidthBg: 30,
-    glassThickness: 120,
-    fontSize: '0.65rem',
-    iconSize: 24,
+    thumbHeight: 52,
+    bezelWidth: 10,
+    bazelWidthBg: 25,
+    glassThickness: 110,
+    fontSize: '0.6rem',
+    iconSize: 20,
     thumbScale: 1.25,
     thumbScaleY: 1.08,
   },
@@ -453,11 +453,10 @@ onUnmounted(() => {
               
               <!-- Thumb Body -->
               <div class="absolute inset-0"
+                   :class="!isActive ? 'bg-black/6 dark:bg-white/10 shadow-sm' : ''"
                    :style="{
                       borderRadius: `${thumbRadius}px`,
                       backdropFilter: isActive ? `url(#${filterId})` : 'none',
-                      backgroundColor: isActive ? undefined : 'rgba(0,0,0,0.06)',
-                      boxShadow: isActive ? undefined : '0 1px 4px rgba(0,0,0,0.04)',
                       transition: 'background-color 0.15s ease, box-shadow 0.15s ease, backdrop-filter 0.15s ease',
                    }"
               ></div>
@@ -483,17 +482,16 @@ onUnmounted(() => {
                transform: internalValue === item.id && hasSelection ? 'scale(1.05)' : 'scale(1)',
             }"
          >
-             <div 
-               v-if="item.icon" 
-               v-html="item.icon" 
-               :style="{ 
+             <UIcon
+               v-if="item.icon"
+               :name="item.icon"
+               :style="{
                 color: internalValue === item.id ? `${props.color}` : undefined,
-                width: `${dimensions.iconSize}px`, 
+                width: `${dimensions.iconSize}px`,
                 height: `${dimensions.iconSize}px`,
-               }" 
-               class="mb-1.5 transition-colors"
-            >
-            </div>
+               }"
+               class="mb-1 transition-colors"
+             />
              <span
                class="leading-none text-center truncate transition-colors"
                :class="internalValue === item.id ? 'font-semibold' : 'font-medium text-gray-500 dark:text-gray-400'"
