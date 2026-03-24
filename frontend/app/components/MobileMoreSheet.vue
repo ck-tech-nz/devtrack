@@ -1,9 +1,13 @@
 <template>
   <UDrawer
     :open="open"
+    title="更多"
+    description="导航菜单"
     :ui="{
       content: 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-[20px] backdrop-saturate-[180%]',
       overlay: 'bg-black/30',
+      title: 'sr-only',
+      description: 'sr-only',
     }"
     @update:open="$emit('update:open', $event)"
   >
