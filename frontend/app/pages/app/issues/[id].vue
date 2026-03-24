@@ -34,7 +34,7 @@
             <!-- 描述 -->
             <div class="form-row">
               <label>描述</label>
-              <MarkdownEditor v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" />
+              <MarkdownEditor ref="descriptionEditor" v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" />
             </div>
 
             <!-- 优先级 & 状态 -->
@@ -244,6 +244,7 @@ const users = ref<any[]>([])
 const labelItems = ref<string[]>([])
 const repos = ref<any[]>([])
 const allGHIssues = ref<any[]>([])
+const descriptionEditor = ref<{ setMode: (m: 'edit' | 'preview') => void } | null>(null)
 
 const isNewIssue = computed(() => !issue.value?.description && !issue.value?.title)
 
@@ -334,6 +335,7 @@ async function saveAll() {
     })
     issue.value = await api<any>(`/api/issues/${route.params.id}/`)
     populateForm(issue.value)
+    descriptionEditor.value?.setMode('preview')
   } catch (e) {
     console.error('Save failed:', e)
   } finally {

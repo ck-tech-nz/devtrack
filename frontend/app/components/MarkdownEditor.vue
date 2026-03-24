@@ -91,6 +91,7 @@ const { api } = useApi()
 const toast = useToast()
 
 const mode = ref<'edit' | 'preview'>(props.defaultMode || 'edit')
+defineExpose({ setMode: (m: 'edit' | 'preview') => { mode.value = m } })
 const isDragging = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
