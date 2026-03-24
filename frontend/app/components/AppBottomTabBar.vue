@@ -52,7 +52,7 @@ const moreOpen = ref(false)
 
 const currentRealTab = computed(() => {
   const match = primaryTabs.value.find(t => t.to && (currentPath.value === t.to || currentPath.value.startsWith(t.to + '/')))
-  return match?.to || primaryRoutes[0]
+  return match?.to || ''
 })
 
 // Prevent re-entrancy when resetting after "更多" tap

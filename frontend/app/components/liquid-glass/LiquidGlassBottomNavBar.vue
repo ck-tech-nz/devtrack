@@ -115,6 +115,7 @@ const THUMB_ACTIVE_SCALE_Y = dimensions.value.thumbScaleY
 // Internal state
 const internalValue = ref(props.modelValue)
 const selectedIndex = computed(() => props.items.findIndex(item => item.id === internalValue.value))
+const hasSelection = computed(() => selectedIndex.value !== -1)
 const pointerDown = ref(0)
 const initialPointerX = ref(0)
 const initialThumbX = ref(0) // Thumb position at start of drag
@@ -317,14 +318,10 @@ const handlePointerUp = (e: PointerEvent | TouchEvent | MouseEvent) => {
   let index = Math.floor(thumbCenter / itemWidth.value)
   index = Math.max(0, Math.min(index, props.items.length - 1))
   
-  if (Math.abs(clientX - initialPointerX.value) < 5) {
-      // Click logic handled by item logic mostly, 
-      // but if we clicked/dragged slightly and released on an item
-      // we settle there.
-  }
-  
+  const isClick = Math.abs(clientX - initialPointerX.value) < 5
+
   const newItem = props.items[index]
-  if (newItem && newItem.id !== internalValue.value) {
+  if (newItem && (isClick || newItem.id !== internalValue.value)) {
     internalValue.value = newItem.id
     emit('update:modelValue', newItem.id)
   }
@@ -421,14 +418,15 @@ onUnmounted(() => {
 
      <!-- The Glass/White Thumb (Z-Index 40: Above Click Targets, Below Text) -->
       <div
-        class="absolute cursor-pointer transition-transform duration-[100ms] ease-out z-40"
+        class="absolute cursor-pointer transition-all duration-[100ms] ease-out z-40"
         :style="{
           height: `${thumbHeight}px`,
           width: `${thumbWidth}px`,
-          transform: `translateX(${currentThumbX}px) translateY(-50%) scale(${thumbScale}) scaleY(${thumbScaleY})`,
+          transform: `translateX(${currentThumbX}px) translateY(-50%) scale(${hasSelection ? thumbScale : 0}) scaleY(${hasSelection ? thumbScaleY : 0})`,
+          opacity: hasSelection ? 1 : 0,
           top: `${sliderHeight / 2}px`,
-          left: 0, 
-          pointerEvents: 'auto', 
+          left: 0,
+          pointerEvents: hasSelection ? 'auto' : 'none',
         }"
         @mousedown="handlePointerDown"
         @touchstart.stop="handlePointerDown" 
@@ -479,8 +477,8 @@ onUnmounted(() => {
             :style="{
                width: `${itemWidth}px`,
                height: '100%',
-               opacity: internalValue === item.id ? 1 : 0.7,
-               transform: internalValue === item.id ? 'scale(1.05)' : 'scale(1)',
+               opacity: !hasSelection ? 0.85 : (internalValue === item.id ? 1 : 0.7),
+               transform: internalValue === item.id && hasSelection ? 'scale(1.05)' : 'scale(1)',
             }"
          >
              <div 

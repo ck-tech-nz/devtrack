@@ -35,9 +35,20 @@ export const useNavigation = () => {
   const route = useRoute()
   const currentPath = computed(() => route.path)
 
+  // 不在 navItems 中的独立页面
+  const standalonePages: Record<string, string> = {
+    '/app/profile': '个人资料',
+  }
+
   const breadcrumbs = computed(() => {
     const path = route.path
     const crumbs: { label: string; to?: string }[] = [{ label: '首页', to: '/app/issues' }]
+
+    // 独立页面直接返回页面标题，不显示"首页"面包屑
+    const standaloneName = standalonePages[path]
+    if (standaloneName) {
+      return [{ label: standaloneName }]
+    }
 
     for (const item of navItems.value) {
       if (item.to === path) {
