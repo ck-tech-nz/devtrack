@@ -25,6 +25,12 @@
       <div class="lg:col-span-2 space-y-4">
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
           <div class="space-y-4">
+            <!-- 标题 -->
+            <div class="form-row">
+              <label>标题</label>
+              <UInput v-model="form.title" />
+            </div>
+
             <!-- 描述 -->
             <div class="form-row">
               <label>描述</label>
