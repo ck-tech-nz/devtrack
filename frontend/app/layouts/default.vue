@@ -8,6 +8,7 @@
       </main>
     </div>
   </div>
+  <AppBottomTabBar />
 </template>
 
 <script setup lang="ts">
