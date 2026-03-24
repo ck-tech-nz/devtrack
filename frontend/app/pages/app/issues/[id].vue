@@ -462,7 +462,10 @@ onMounted(async () => {
 .form-row :deep(select),
 .form-row :deep(button[role="combobox"]),
 .form-row :deep([data-part="trigger"]) { width: 100% !important; }
-.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 768px) {
+  .form-grid-2 { grid-template-columns: 1fr 1fr; }
+}
 .modal-form { padding: 1.5rem 2rem; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
 .modal-header h3 { font-size: 1.125rem; font-weight: 600; color: #111827; }
