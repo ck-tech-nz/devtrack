@@ -76,8 +76,8 @@ const sizePresets = {
     glassThickness: 110,
     fontSize: '0.6rem',
     iconSize: 20,
-    thumbScale: 1.25,
-    thumbScaleY: 1.08,
+    thumbScale: 1.38,
+    thumbScaleY: 1.18,
   },
   XL: {
     height: 80,
