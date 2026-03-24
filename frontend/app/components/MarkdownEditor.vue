@@ -76,6 +76,7 @@ import MarkdownIt from 'markdown-it'
 const props = defineProps<{
   modelValue: string
   placeholder?: string
+  defaultMode?: 'edit' | 'preview'
 }>()
 
 const emit = defineEmits<{
@@ -85,7 +86,7 @@ const emit = defineEmits<{
 const { api } = useApi()
 const toast = useToast()
 
-const mode = ref<'edit' | 'preview'>('edit')
+const mode = ref<'edit' | 'preview'>(props.defaultMode || 'edit')
 const isDragging = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)

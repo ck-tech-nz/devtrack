@@ -24,70 +24,41 @@
           <div class="space-y-4">
             <!-- 标题 -->
             <div class="form-row">
-              <div class="flex items-center justify-between">
-                <label>标题</label>
-                <button v-if="!editingTitle" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" @click="startEditTitle">
-                  <UIcon name="i-heroicons-pencil" class="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div v-if="!editingTitle">
-                <h2 class="text-base font-medium text-gray-900 dark:text-gray-100">{{ issue.title }}</h2>
-              </div>
-              <div v-else class="space-y-2">
-                <UInput v-model="editTitleValue" autofocus />
-                <div class="flex items-center gap-2">
-                  <UButton size="xs" color="primary" :loading="savingTitle" @click="saveTitle">保存</UButton>
-                  <UButton size="xs" variant="outline" color="neutral" @click="cancelEditTitle">取消</UButton>
-                </div>
-              </div>
+              <label>标题</label>
+              <UInput v-model="form.title" />
             </div>
 
             <!-- 描述 -->
             <div class="form-row">
-              <div class="flex items-center justify-between">
-                <label>描述</label>
-                <button v-if="!editingDescription" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" @click="startEditDescription">
-                  <UIcon name="i-heroicons-pencil" class="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div v-if="!editingDescription">
-                <div v-if="issue.description" class="prose prose-sm dark:prose-invert max-w-none text-gray-900 dark:text-gray-100" v-html="renderedDescription" />
-                <p v-else class="text-sm text-gray-400 dark:text-gray-500 cursor-pointer hover:text-gray-500" @click="startEditDescription">点击编辑添加描述</p>
-              </div>
-              <div v-else class="space-y-2">
-                <MarkdownEditor v-model="editDescriptionValue" placeholder="添加描述..." />
-                <div class="flex items-center gap-2">
-                  <UButton size="xs" color="primary" :loading="savingDescription" @click="saveDescription">保存</UButton>
-                  <UButton size="xs" variant="outline" color="neutral" @click="cancelEditDescription">取消</UButton>
+              <label>描述</label>
+              <MarkdownEditor v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" />
+            </div>
+
+            <!-- 优先级 & 状态 -->
+            <div class="form-grid-2">
+              <div class="form-row">
+                <label>优先级</label>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button
+                    v-for="p in priorityItems"
+                    :key="p.value"
+                    class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                    :class="issue.priority === p.value ? p.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                    @click="updateField('priority', p.value)"
+                  >{{ p.label }}</button>
                 </div>
               </div>
-            </div>
-
-            <!-- 优先级 -->
-            <div class="form-row">
-              <label>优先级</label>
-              <div class="flex items-center gap-2 flex-wrap">
-                <button
-                  v-for="p in priorityItems"
-                  :key="p.value"
-                  class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                  :class="issue.priority === p.value ? p.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
-                  @click="updateField('priority', p.value)"
-                >{{ p.label }}</button>
-              </div>
-            </div>
-
-            <!-- 状态 -->
-            <div class="form-row">
-              <label>状态</label>
-              <div class="flex items-center gap-2 flex-wrap">
-                <button
-                  v-for="s in statusItems"
-                  :key="s.value"
-                  class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                  :class="issue.status === s.value ? s.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
-                  @click="handleStatusClick(s.value)"
-                >{{ s.label }}</button>
+              <div class="form-row">
+                <label>状态</label>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button
+                    v-for="s in statusItems"
+                    :key="s.value"
+                    class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                    :class="issue.status === s.value ? s.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                    @click="handleStatusClick(s.value)"
+                  >{{ s.label }}</button>
+                </div>
               </div>
             </div>
 
@@ -257,15 +228,11 @@
 </template>
 
 <script setup lang="ts">
-import MarkdownIt from 'markdown-it'
-
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
 const route = useRoute()
 const { isOnline } = useServiceStatus()
-
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
 const loading = ref(true)
 const saving = ref(false)
@@ -275,15 +242,7 @@ const labelItems = ref<string[]>([])
 const repos = ref<any[]>([])
 const allGHIssues = ref<any[]>([])
 
-// 标题编辑状态
-const editingTitle = ref(false)
-const editTitleValue = ref('')
-const savingTitle = ref(false)
-
-// 描述编辑状态
-const editingDescription = ref(false)
-const editDescriptionValue = ref('')
-const savingDescription = ref(false)
+const isNewIssue = computed(() => !issue.value?.description && !issue.value?.title)
 
 // GitHub 创建
 const showCreateGH = ref(false)
@@ -309,12 +268,9 @@ const availableGHIssues = computed(() => {
   })
 })
 
-const renderedDescription = computed(() => {
-  if (!issue.value?.description) return ''
-  return md.render(issue.value.description)
-})
-
 const form = ref({
+  title: '',
+  description: '',
   labels: [] as string[],
   assignee: '_none',
   remark: '',
@@ -347,6 +303,8 @@ const hasChanges = computed(() => JSON.stringify(form.value) !== originalForm.va
 
 function populateForm(data: any) {
   form.value = {
+    title: data.title || '',
+    description: data.description || '',
     labels: data.labels || [],
     assignee: data.assignee ? String(data.assignee) : '_none',
     remark: data.remark || '',
@@ -405,62 +363,6 @@ function handleStatusClick(newStatus: string) {
     }
   }
   updateField('status', newStatus)
-}
-
-// 标题编辑
-function startEditTitle() {
-  editTitleValue.value = issue.value?.title || ''
-  editingTitle.value = true
-}
-
-function cancelEditTitle() {
-  editingTitle.value = false
-  editTitleValue.value = ''
-}
-
-async function saveTitle() {
-  if (!issue.value) return
-  savingTitle.value = true
-  try {
-    await api(`/api/issues/${issue.value.id}/`, {
-      method: 'PATCH',
-      body: { title: editTitleValue.value },
-    })
-    issue.value = await api<any>(`/api/issues/${route.params.id}/`)
-    editingTitle.value = false
-  } catch (e) {
-    console.error('Save title failed:', e)
-  } finally {
-    savingTitle.value = false
-  }
-}
-
-// 描述编辑
-function startEditDescription() {
-  editDescriptionValue.value = issue.value?.description || ''
-  editingDescription.value = true
-}
-
-function cancelEditDescription() {
-  editingDescription.value = false
-  editDescriptionValue.value = ''
-}
-
-async function saveDescription() {
-  if (!issue.value) return
-  savingDescription.value = true
-  try {
-    await api(`/api/issues/${issue.value.id}/`, {
-      method: 'PATCH',
-      body: { description: editDescriptionValue.value },
-    })
-    issue.value = await api<any>(`/api/issues/${route.params.id}/`)
-    editingDescription.value = false
-  } catch (e) {
-    console.error('Save description failed:', e)
-  } finally {
-    savingDescription.value = false
-  }
 }
 
 async function closeWithGitHub() {
