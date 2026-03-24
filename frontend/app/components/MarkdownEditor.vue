@@ -36,7 +36,7 @@
         ref="textareaRef"
         :value="modelValue"
         :placeholder="placeholder"
-        class="w-full min-h-[200px] p-4 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-y outline-none"
+        class="w-full min-h-[260px] p-4 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-y outline-none"
         @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
         @paste="handlePaste"
       />
@@ -64,7 +64,7 @@
     <!-- Preview mode -->
     <div
       v-show="mode === 'preview'"
-      class="markdown-body min-h-[200px] p-4 bg-white dark:bg-gray-900 text-sm"
+      class="markdown-body min-h-[260px] p-4 bg-white dark:bg-gray-900 text-sm"
       v-html="renderedHtml"
     />
   </div>
@@ -91,7 +91,7 @@ const isDragging = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
+const md = new MarkdownIt({ html: false, linkify: true })
 
 const renderedHtml = computed(() => {
   if (!props.modelValue) return '<p class="text-gray-400 dark:text-gray-500">无内容</p>'
