@@ -8,8 +8,8 @@
     @dragleave.prevent="isDragging = false"
     @drop.prevent="handleDrop"
   >
-    <!-- Tab bar -->
-    <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+    <!-- Tab bar + toolbar -->
+    <div class="flex items-center border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
       <button
         class="px-4 py-2 text-sm font-medium transition-colors"
         :class="mode === 'edit'
@@ -28,6 +28,17 @@
       >
         预览
       </button>
+
+      <!-- Formatting toolbar -->
+      <div v-show="mode === 'edit'" class="flex items-center gap-0.5 ml-auto pr-2">
+        <button v-for="btn in toolbarButtons" :key="btn.title" :title="btn.title" class="toolbar-btn" @click="btn.action">
+          <UIcon :name="btn.icon" class="w-4 h-4" />
+        </button>
+        <span class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
+        <button title="上传图片" class="toolbar-btn" @click="triggerFileInput">
+          <UIcon name="i-heroicons-photo" class="w-4 h-4" />
+        </button>
+      </div>
     </div>
 
     <!-- Edit mode -->
@@ -40,16 +51,9 @@
         @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
         @paste="handlePaste"
       />
-      <!-- Toolbar -->
+      <!-- Bottom bar -->
       <div class="flex items-center gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-        <button
-          class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-          @click="triggerFileInput"
-        >
-          <UIcon name="i-heroicons-photo" class="w-4 h-4" />
-          <span>添加图片</span>
-        </button>
-        <span class="text-xs text-gray-400 dark:text-gray-500">粘贴、拖放或点击上传图片</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">支持 Markdown 格式 · 粘贴、拖放或点击上传图片</span>
         <input
           ref="fileInputRef"
           type="file"
@@ -100,6 +104,132 @@ const renderedHtml = computed(() => {
 
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 const MAX_SIZE = 5 * 1024 * 1024
+
+// --- Toolbar ---
+
+const toolbarButtons = [
+  { title: '标题', icon: 'i-heroicons-h1', action: () => prefixLines('### ') },
+  { title: '粗体', icon: 'i-heroicons-bold', action: () => wrapSelection('**', '**') },
+  { title: '斜体', icon: 'i-heroicons-italic', action: () => wrapSelection('_', '_') },
+  { title: '引用', icon: 'i-heroicons-chat-bubble-bottom-center-text', action: () => prefixLines('> ') },
+  { title: '代码', icon: 'i-heroicons-code-bracket', action: () => insertCode() },
+  { title: '链接', icon: 'i-heroicons-link', action: () => insertLink() },
+  { title: '无序列表', icon: 'i-heroicons-list-bullet', action: () => prefixLines('- ') },
+  { title: '有序列表', icon: 'i-heroicons-numbered-list', action: () => prefixNumberedList() },
+  { title: '任务列表', icon: 'i-heroicons-check', action: () => prefixLines('- [ ] ') },
+]
+
+function getSelection(): { start: number; end: number; text: string } {
+  const ta = textareaRef.value
+  if (!ta) return { start: 0, end: 0, text: '' }
+  return {
+    start: ta.selectionStart,
+    end: ta.selectionEnd,
+    text: (props.modelValue || '').slice(ta.selectionStart, ta.selectionEnd),
+  }
+}
+
+function replaceRange(start: number, end: number, text: string, cursorPos?: number) {
+  const current = props.modelValue || ''
+  const newValue = current.slice(0, start) + text + current.slice(end)
+  emit('update:modelValue', newValue)
+  const pos = cursorPos ?? (start + text.length)
+  nextTick(() => {
+    const ta = textareaRef.value
+    if (ta) {
+      ta.selectionStart = ta.selectionEnd = pos
+      ta.focus()
+    }
+  })
+}
+
+function wrapSelection(before: string, after: string) {
+  const sel = getSelection()
+  if (sel.text) {
+    replaceRange(sel.start, sel.end, before + sel.text + after, sel.start + before.length + sel.text.length + after.length)
+  } else {
+    const placeholder = before === '**' ? '粗体文本' : before === '_' ? '斜体文本' : '文本'
+    replaceRange(sel.start, sel.end, before + placeholder + after, sel.start + before.length)
+    nextTick(() => {
+      const ta = textareaRef.value
+      if (ta) {
+        ta.selectionStart = sel.start + before.length
+        ta.selectionEnd = sel.start + before.length + placeholder.length
+        ta.focus()
+      }
+    })
+  }
+}
+
+function prefixLines(prefix: string) {
+  const sel = getSelection()
+  const current = props.modelValue || ''
+  if (sel.text) {
+    const prefixed = sel.text.split('\n').map(line => prefix + line).join('\n')
+    replaceRange(sel.start, sel.end, prefixed)
+  } else {
+    // Insert at line start or cursor
+    const beforeCursor = current.slice(0, sel.start)
+    const lineStart = beforeCursor.lastIndexOf('\n') + 1
+    const needsNewline = lineStart < sel.start && current.slice(lineStart, sel.start).trim() !== ''
+    const insert = needsNewline ? '\n' + prefix : prefix
+    replaceRange(sel.start, sel.start, insert)
+  }
+}
+
+function prefixNumberedList() {
+  const sel = getSelection()
+  const current = props.modelValue || ''
+  if (sel.text) {
+    const lines = sel.text.split('\n')
+    const prefixed = lines.map((line, i) => `${i + 1}. ${line}`).join('\n')
+    replaceRange(sel.start, sel.end, prefixed)
+  } else {
+    const beforeCursor = current.slice(0, sel.start)
+    const lineStart = beforeCursor.lastIndexOf('\n') + 1
+    const needsNewline = lineStart < sel.start && current.slice(lineStart, sel.start).trim() !== ''
+    const insert = needsNewline ? '\n1. ' : '1. '
+    replaceRange(sel.start, sel.start, insert)
+  }
+}
+
+function insertCode() {
+  const sel = getSelection()
+  if (sel.text && sel.text.includes('\n')) {
+    replaceRange(sel.start, sel.end, '```\n' + sel.text + '\n```')
+  } else if (sel.text) {
+    replaceRange(sel.start, sel.end, '`' + sel.text + '`')
+  } else {
+    replaceRange(sel.start, sel.end, '```\n\n```', sel.start + 4)
+  }
+}
+
+function insertLink() {
+  const sel = getSelection()
+  if (sel.text) {
+    replaceRange(sel.start, sel.end, '[' + sel.text + '](url)', sel.start + sel.text.length + 3)
+    nextTick(() => {
+      const ta = textareaRef.value
+      if (ta) {
+        ta.selectionStart = sel.start + sel.text.length + 3
+        ta.selectionEnd = sel.start + sel.text.length + 6
+        ta.focus()
+      }
+    })
+  } else {
+    replaceRange(sel.start, sel.end, '[链接文本](url)', sel.start + 1)
+    nextTick(() => {
+      const ta = textareaRef.value
+      if (ta) {
+        ta.selectionStart = sel.start + 1
+        ta.selectionEnd = sel.start + 5
+        ta.focus()
+      }
+    })
+  }
+}
+
+// --- File upload ---
 
 function triggerFileInput() {
   fileInputRef.value?.click()
@@ -194,6 +324,16 @@ async function uploadFiles(files: File[]) {
 </script>
 
 <style>
+/* Toolbar button */
+.toolbar-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 4px;
+  color: #6b7280; transition: all 0.15s;
+}
+.toolbar-btn:hover { background: #e5e7eb; color: #374151; }
+:root.dark .toolbar-btn { color: #9ca3af; }
+:root.dark .toolbar-btn:hover { background: #374151; color: #e5e7eb; }
+
 /* Markdown preview styles */
 .markdown-body h1 { font-size: 1.5em; font-weight: 700; margin: 0.67em 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
 .markdown-body h2 { font-size: 1.25em; font-weight: 600; margin: 0.83em 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
