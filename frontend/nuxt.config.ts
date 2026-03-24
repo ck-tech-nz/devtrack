@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 
 declare const process: { env: Record<string, string | undefined> }
 const apiBase = process.env.NUXT_API_BASE || 'http://localhost:8000'
+const minioBase = process.env.NUXT_MINIO_BASE || 'http://121.31.38.35:19000/devtrack-uploads'
 
 function getBuildInfo() {
   const versionFile = resolve(__dirname, 'VERSION')
@@ -58,11 +59,16 @@ export default defineNuxtConfig({
   },
   routeRules: {
     '/api/**': { proxy: `${apiBase}/api/**` },
+    '/uploads/**': { proxy: `${minioBase}/**` },
   },
   nitro: {
     devProxy: {
       '/api/': {
         target: `${apiBase}/api/`,
+        changeOrigin: true,
+      },
+      '/uploads/': {
+        target: `${minioBase}/`,
         changeOrigin: true,
       },
     },

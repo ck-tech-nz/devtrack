@@ -137,7 +137,7 @@ MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "")
 MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "")
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "devtrack-uploads")
 MINIO_USE_SSL = os.environ.get("MINIO_USE_SSL", "False").lower() in ("true", "1")
-MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "http://127.0.0.1:9000/devtrack-uploads")
+MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "/uploads")
 
 # Page permissions configuration
 PAGE_PERMS = {
