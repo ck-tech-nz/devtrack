@@ -54,13 +54,13 @@ const sizePresets = {
     thumbScaleY: 1.2,
   },
   medium: {
-    height: 54,
-    itemWidth: 80,
-    thumbHeight: 50,
+    height: 58,
+    itemWidth: 85,
+    thumbHeight: 52,
     bezelWidth: 8,
     bazelWidthBg: 30,
     glassThickness: 110,
-    fontSize: '0.57rem',
+    fontSize: '0.7rem',
     iconSize: 20,
     thumbScale: 1.3,
     thumbScaleY: 1.1,
@@ -405,8 +405,9 @@ onUnmounted(() => {
          class="absolute inset-0 bg-[var(--glass-rgb)]/[var(--glass-bg-alpha)]"
          :style="{
             borderRadius: `${sliderHeight / 2}px`,
-            backdropFilter: `url(#${bgFilterId})`,
-            boxShadow: `0 4px 20px rgba(0, 0, 0, 0.1)`,
+            backdropFilter: `url(#${bgFilterId}) blur(16px)`,
+            boxShadow: `0 4px 20px rgba(0, 0, 0, 0.12), inset 0 0.5px 0 rgba(255,255,255,0.5)`,
+            border: `0.5px solid rgba(0,0,0,0.08)`,
          }"
       ></div>
       
@@ -491,14 +492,14 @@ onUnmounted(() => {
                v-if="item.icon" 
                v-html="item.icon" 
                :style="{ 
-                color: internalValue === item.id ? `${props.color}` : 'white',
+                color: internalValue === item.id ? `${props.color}` : undefined,
                 width: `${dimensions.iconSize}px`, 
                 height: `${dimensions.iconSize}px`,
                }" 
                class="mb-1 transition-colors"
             >
             </div>
-             <span class="font-medium text-black dark:text-white leading-none text-center truncate transition-colors" :style="{ fontSize: dimensions.fontSize, color: internalValue === item.id ? `${props.color}` : 'white' }">{{ item.label }}</span>
+             <span class="font-medium leading-none text-center truncate transition-colors" :style="{ fontSize: dimensions.fontSize, color: internalValue === item.id ? `${props.color}` : undefined }">{{ item.label }}</span>
          </div>
       </div>
     </div>

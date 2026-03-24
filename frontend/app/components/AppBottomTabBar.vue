@@ -2,7 +2,7 @@
   <div class="fixed bottom-0 left-0 right-0 z-40 md:hidden flex justify-center" style="padding-bottom: env(safe-area-inset-bottom)">
     <ClientOnly>
       <LiquidGlassBottomNavBar
-        v-model="activeTabId"
+        v-model="selectedTabId"
         :items="tabItems"
         size="medium"
         :always-show-glass="false"
@@ -39,7 +39,6 @@ const moreNavItems = computed(() =>
   filteredNavItems.value.filter(item => item.to && !primaryRoutes.includes(item.to))
 )
 
-// Map nav items to LiquidGlassBottomNavBar format
 const tabItems = computed(() => [
   ...primaryTabs.value.map(tab => ({
     id: tab.to!,
@@ -48,22 +47,32 @@ const tabItems = computed(() => [
   { id: '_more', label: '更多' },
 ])
 
-// Track active tab
 const moreOpen = ref(false)
 
-const activeTabId = computed({
-  get: () => {
-    if (moreOpen.value) return '_more'
-    const match = primaryTabs.value.find(t => t.to && (currentPath.value === t.to || currentPath.value.startsWith(t.to + '/')))
-    return match?.to || primaryRoutes[0]
-  },
+// The actual tab id the liquid glass shows as active
+// Separate from route so we can intercept "更多"
+const lastRealTab = ref(primaryRoutes[0])
+
+// Get current real tab from route
+const currentRealTab = computed(() => {
+  const match = primaryTabs.value.find(t => t.to && (currentPath.value === t.to || currentPath.value.startsWith(t.to + '/')))
+  return match?.to || primaryRoutes[0]
+})
+
+// Keep lastRealTab in sync with route
+watch(currentRealTab, (v) => { lastRealTab.value = v }, { immediate: true })
+
+const selectedTabId = computed({
+  get: () => lastRealTab.value,
   set: (id: string) => {
     if (id === '_more') {
+      // Don't navigate, just open sheet. The pill will snap back to previous tab.
       moreOpen.value = true
-    } else {
-      moreOpen.value = false
-      router.push(id)
+      return
     }
+    moreOpen.value = false
+    lastRealTab.value = id
+    router.push(id)
   },
 })
 </script>
