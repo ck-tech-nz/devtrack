@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+:root {
+  --glass-rgb: #FFFFFF;
+  --glass-bg-alpha: 60%;
+}
+:root.dark {
+  --glass-rgb: #000000;
+}
+
 @theme {
   --color-crystal-50: #f5f3ff;
   --color-crystal-100: #ede9fe;
