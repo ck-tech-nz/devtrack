@@ -124,8 +124,16 @@ const initialThumbX = ref(0) // Thumb position at start of drag
 const currentThumbX = ref(0) // Current visual position (px)
 const isMounted = ref(false)
 
+// iOS Safari 不支持 backdrop-filter: url(#svgFilter)，需要 CSS fallback
+const useCssFallback = ref(false)
+
 onMounted(() => {
   isMounted.value = true
+  // 检测是否为移动端或不支持 SVG backdrop-filter 的浏览器
+  const ua = navigator.userAgent
+  const isIOS = /iPad|iPhone|iPod/.test(ua)
+  const isAndroid = /Android/.test(ua)
+  useCssFallback.value = isIOS || isAndroid
 })
 
 // Initialize position
@@ -400,7 +408,12 @@ onUnmounted(() => {
          class="absolute inset-0 bg-[var(--glass-rgb)]/[var(--glass-bg-alpha)]"
          :style="{
             borderRadius: `${sliderHeight / 2}px`,
-            backdropFilter: `url(#${bgFilterId}) blur(16px)`,
+            backdropFilter: useCssFallback
+              ? 'blur(16px) saturate(180%)'
+              : `url(#${bgFilterId}) blur(16px)`,
+            WebkitBackdropFilter: useCssFallback
+              ? 'blur(16px) saturate(180%)'
+              : undefined,
             boxShadow: `0 4px 20px rgba(0, 0, 0, 0.12), inset 0 0.5px 0 rgba(255,255,255,0.5)`,
             border: `0.5px solid rgba(0,0,0,0.08)`,
          }"
@@ -456,7 +469,12 @@ onUnmounted(() => {
                    :class="!isActive ? 'bg-black/6 dark:bg-white/10 shadow-sm' : ''"
                    :style="{
                       borderRadius: `${thumbRadius}px`,
-                      backdropFilter: isActive ? `url(#${filterId})` : 'none',
+                      backdropFilter: isActive
+                        ? (useCssFallback ? 'blur(12px) saturate(150%) brightness(1.05)' : `url(#${filterId})`)
+                        : 'none',
+                      WebkitBackdropFilter: isActive && useCssFallback
+                        ? 'blur(12px) saturate(150%) brightness(1.05)'
+                        : undefined,
                       transition: 'background-color 0.15s ease, box-shadow 0.15s ease, backdrop-filter 0.15s ease',
                    }"
               ></div>
