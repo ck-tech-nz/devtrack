@@ -219,6 +219,7 @@
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
+const { user } = useAuth()
 const { isMobile } = useMobile()
 const { settings, update: updateSettings } = useUserSettings()
 
@@ -241,6 +242,7 @@ const projects = ref<any[]>([])
 const showCreateModal = ref(false)
 const creating = ref(false)
 const createError = ref('')
+const defaultAssignee = computed(() => user.value?.id ? String(user.value.id) : '_none')
 const newIssue = ref({
   project: '',
   title: '',
@@ -248,7 +250,7 @@ const newIssue = ref({
   priority: 'P2',
   status: '待处理',
   labels: [] as string[],
-  assignee: '_none',
+  assignee: defaultAssignee.value,
 })
 
 const projectOptions = computed(() => projects.value.map(p => ({ label: p.name, value: String(p.id) })))
@@ -275,7 +277,7 @@ async function handleCreateIssue() {
     if (newIssue.value.assignee && newIssue.value.assignee !== '_none') body.assignee = newIssue.value.assignee
     await api('/api/issues/', { method: 'POST', body, format: 'json' })
     showCreateModal.value = false
-    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: '_none' }
+    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value }
     await fetchIssues()
   } catch (e: any) {
     createError.value = formatApiError(e, '创建失败，请重试')
