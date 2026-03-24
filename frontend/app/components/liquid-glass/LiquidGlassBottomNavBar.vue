@@ -480,12 +480,11 @@ onUnmounted(() => {
             v-for="item in items" 
             :key="item.id"
             class="flex flex-col items-center justify-center transition-all duration-100"
-            :style="{ 
-               width: `${itemWidth}px`, 
+            :style="{
+               width: `${itemWidth}px`,
                height: '100%',
-               opacity: internalValue === item.id ? 1 : 0.6,
+               opacity: internalValue === item.id ? 1 : 0.7,
                transform: internalValue === item.id ? 'scale(1.05)' : 'scale(1)',
-               mixBlendMode: internalValue === item.id ? 'normal' : 'normal',
             }"
          >
              <div 
@@ -499,7 +498,7 @@ onUnmounted(() => {
                class="mb-1 transition-colors"
             >
             </div>
-             <span class="font-medium leading-none text-center truncate transition-colors" :style="{ fontSize: dimensions.fontSize, color: internalValue === item.id ? `${props.color}` : undefined }">{{ item.label }}</span>
+             <span class="font-medium leading-none text-center truncate transition-colors text-gray-600 dark:text-gray-200" :style="{ fontSize: dimensions.fontSize, color: internalValue === item.id ? `${props.color}` : undefined }">{{ item.label }}</span>
          </div>
       </div>
     </div>
