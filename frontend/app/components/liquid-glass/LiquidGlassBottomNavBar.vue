@@ -339,19 +339,15 @@ const handlePointerUp = (e: PointerEvent | TouchEvent | MouseEvent) => {
 }
 
 const handleItemClick = (item: NavItem) => {
-    // If clicking on an item that is NOT currently selected (and thus not covered by thumb),
-    // we just switch to it.
-    if (internalValue.value !== item.id) {
-        internalValue.value = item.id
-        emit('update:modelValue', item.id)
-        
-        // Show glass effect briefly when clicking items
-        if (hideGlassTimeout) clearTimeout(hideGlassTimeout)
-        glassVisible.value = true
-        hideGlassTimeout = setTimeout(() => {
-          glassVisible.value = false
-        }, 280)
-    }
+    internalValue.value = item.id
+    emit('update:modelValue', item.id)
+
+    // Show glass effect briefly when clicking items
+    if (hideGlassTimeout) clearTimeout(hideGlassTimeout)
+    glassVisible.value = true
+    hideGlassTimeout = setTimeout(() => {
+      glassVisible.value = false
+    }, 280)
 }
 
 onUnmounted(() => {
