@@ -31,7 +31,7 @@
             </div>
             <div class="form-row">
               <label>描述</label>
-              <UTextarea v-model="form.description" :rows="5" />
+              <MarkdownEditor v-model="form.description" placeholder="添加描述..." />
             </div>
             <div class="form-grid-2">
               <div class="form-row">
