@@ -121,7 +121,7 @@ const toolbarButtons = [
   { title: '链接', icon: 'i-heroicons-link', action: () => insertLink() },
   { title: '无序列表', icon: 'i-heroicons-list-bullet', action: () => prefixLines('- ') },
   { title: '有序列表', icon: 'i-heroicons-numbered-list', action: () => prefixNumberedList() },
-  { title: '任务列表', icon: 'i-heroicons-check', action: () => prefixLines('- [ ] ') },
+  { title: '任务列表', icon: 'i-heroicons-clipboard-document-check', action: () => prefixLines('- [ ] ') },
 ]
 
 function getSelection(): { start: number; end: number; text: string } {

@@ -31,7 +31,7 @@
     </div>
 
     <!-- Create Issue Modal -->
-    <UModal v-model:open="showCreateModal" title="新建问题" :ui="{ width: 'sm:max-w-2xl' }">
+    <UModal v-model:open="showCreateModal" title="新建问题" :ui="{ content: 'sm:max-w-[960px]' }">
       <template #content>
         <div class="modal-form">
           <div class="modal-header">
@@ -49,7 +49,7 @@
             </div>
             <div class="form-row">
               <label>描述</label>
-              <UTextarea v-model="newIssue.description" placeholder="详细描述问题" :rows="4" />
+              <MarkdownEditor v-model="newIssue.description" placeholder="详细描述问题" />
             </div>
             <div class="form-grid-2">
               <div class="form-row">
