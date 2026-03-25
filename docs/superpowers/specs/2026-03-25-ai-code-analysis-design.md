@@ -43,14 +43,16 @@ Manual button ──────────►  IssueAnalysisService
                                  │
                                  ▼
                           subprocess: opencode in repo directory
-                          (cwd=/data/repos/{org}/{name}/)
+                          (cwd=settings.REPO_CLONE_DIR/{org}/{name}/)
                                  │
                                  ▼
                           Parse structured JSON response
                                  │
                                  ▼
-                          Append to Issue.cause / .solution / .remark
-                          (AI decides which field, marked with attribution)
+                          Validate target_field ∈ {cause, solution, remark}
+                                 │
+                                 ▼
+                          Append to Issue field with AI attribution
 ```
 
 ### Components
@@ -58,11 +60,11 @@ Manual button ──────────►  IssueAnalysisService
 ```
 backend/
 ├── apps/repos/
-│   ├── models.py          # Repo: +clone_status, +current_branch, +cloned_at
-│   │                      #        +local_path (computed property)
+│   ├── models.py          # Repo: +clone_status, +clone_error, +current_branch, +cloned_at
+│   │                      #        +local_path (computed property with path validation)
 │   └── services.py        # +RepoCloneService (clone/pull/log/branch)
 ├── apps/projects/
-│   └── models.py          # Project: +repos M2M to Repo
+│   └── models.py          # Project: migrate linked_repos JSONField → repos M2M
 ├── apps/issues/
 │   ├── models.py          # Issue: +repo FK (nullable)
 │   ├── views.py           # +IssueAIAnalyzeView
@@ -86,21 +88,33 @@ frontend/
 # New fields
 clone_status = CharField(max_length=20, default="not_cloned")
     # choices: not_cloned, cloning, cloned, failed
+clone_error = TextField(blank=True, verbose_name="克隆错误信息")
 current_branch = CharField(max_length=100, blank=True)
 cloned_at = DateTimeField(null=True, blank=True)
 
-# Computed property
+# Computed property with path validation
 @property
 def local_path(self) -> str:
-    # e.g. /data/repos/myorg/myrepo/
-    return f"/data/repos/{self.full_name}/"
+    import re
+    if not re.match(r'^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$', self.full_name):
+        raise ValueError(f"Invalid repo full_name: {self.full_name}")
+    return os.path.join(settings.REPO_CLONE_DIR, self.full_name)
 ```
 
-### Project (extend existing)
+Add `REPO_CLONE_DIR = "/data/repos"` to Django settings (configurable per environment).
+
+### Project (migrate existing field)
+
+The existing `linked_repos = JSONField(default=list)` must be **migrated** to a proper M2M:
 
 ```python
-repos = ManyToManyField("repos.Repo", blank=True, related_name="projects")
+# Remove: linked_repos = JSONField(default=list)
+# Add:
+repos = ManyToManyField("repos.Repo", blank=True, related_name="projects",
+                        verbose_name="关联仓库")
 ```
+
+**Data migration:** Convert existing `linked_repos` JSON arrays (repo IDs) into M2M relationships, then remove the old field. This requires a 3-step migration: add M2M → data migration → remove JSONField.
 
 ### Issue (extend existing)
 
@@ -130,6 +144,13 @@ class TriggerType(models.TextChoices):
     AUTO = "auto", "自动触发"
 ```
 
+### Serializer Changes
+
+- **IssueDetailSerializer / IssueCreateUpdateSerializer:** Add `repo` FK field
+- **RepoSerializer:** Add `clone_status`, `clone_error`, `current_branch`, `cloned_at` fields
+- **AnalysisResponseSerializer:** Add `issue` FK field
+- **ProjectSerializer:** Update to use M2M `repos` instead of `linked_repos`
+
 ---
 
 ## Repo Clone Service
@@ -138,27 +159,32 @@ New class `RepoCloneService` in `apps/repos/services.py`:
 
 ```python
 class RepoCloneService:
-    BASE_DIR = "/data/repos"
-
     def clone_or_pull(self, repo: Repo, branch: str = None) -> None:
         """Clone if not exists, pull if exists. Optionally switch branch."""
-        # - Set repo.clone_status = "cloning"
+        # - Set repo.clone_status = "cloning", repo.clone_error = ""
+        # - Auth via GIT_ASKPASS environment variable (avoids token in URL/process args):
+        #     Write temp script: #!/bin/sh\necho "{token}"
+        #     Set env GIT_ASKPASS=<temp_script>, GIT_USERNAME=x-access-token
+        #     Clean up temp script after operation
         # - If local_path not exists: git clone <url> <local_path>
-        # - If exists: git -C <local_path> pull
+        # - If exists: git -C <local_path> fetch && git -C <local_path> reset --hard origin/<branch>
         # - If branch: git -C <local_path> checkout <branch>
         # - Update repo.clone_status, current_branch, cloned_at
-        # - On error: clone_status = "failed"
+        # - On error: clone_status = "failed", clone_error = str(error)
+        # - Ensure /data/repos/ directory has 0700 permissions
 
     def get_log(self, repo: Repo, limit: int = 50) -> list[dict]:
         """Return recent commits as [{hash, author, date, message}]."""
-        # git -C <local_path> log --format='{"hash":"%H","author":"%an","date":"%aI","message":"%s"}' -n <limit>
+        # Use git log with null-byte delimiters to avoid JSON escaping issues:
+        # git -C <local_path> log --format='%H%x00%an%x00%aI%x00%s' -n <limit>
+        # Parse each line by splitting on \x00, assemble dict in Python
 
     def get_branches(self, repo: Repo) -> list[str]:
         """Return list of remote branch names."""
         # git -C <local_path> branch -r --format='%(refname:short)'
 ```
 
-Git authentication: uses `repo.github_token` via URL embedding (`https://x-access-token:{token}@github.com/{full_name}.git`) — same pattern as existing GitHub sync.
+**Git authentication:** Uses `GIT_ASKPASS` environment variable with a temporary script, avoiding token exposure in URLs, `.git/config`, or process argument lists.
 
 Docker: add `git` to backend Dockerfile (`apt-get install -y git`).
 
@@ -171,9 +197,14 @@ Docker: add `git` to backend Dockerfile (`apt-get install -y git`).
 New module `apps/ai/opencode.py`:
 
 ```python
+OPENCODE_VERSION = "x.y.z"  # Pin specific version
+
 class OpenCodeRunner:
     def __init__(self, llm_config: LLMConfig):
         self.llm_config = llm_config
+
+    def check_health(self) -> bool:
+        """Verify opencode binary exists and is the expected version."""
 
     def generate_config(self, repo_path: str) -> dict:
         """Generate opencode.json content for the repo directory."""
@@ -184,7 +215,7 @@ class OpenCodeRunner:
         """
         1. Write temporary opencode.json to repo_path
         2. subprocess.run opencode with prompt, cwd=repo_path
-        3. Capture stdout, clean up config
+        3. Capture stdout, clean up config (even on error, via try/finally)
         4. Return raw response
         """
 ```
@@ -212,12 +243,26 @@ LLMConfig → opencode.json:
 }
 ```
 
-### IssueAnalysisService
+### Dockerfile
+
+```dockerfile
+# Pin opencode version
+RUN curl -fsSL https://opencode.ai/install | OPENCODE_VERSION=x.y.z bash
+```
+
+---
+
+## IssueAnalysisService
 
 New class in `apps/ai/services.py`:
 
 ```python
+# Module-level thread pool
+_executor = ThreadPoolExecutor(max_workers=2)
+
 class IssueAnalysisService:
+    ALLOWED_FIELDS = {"cause", "solution", "remark"}
+
     def analyze(self, issue: Issue, triggered_by: str, user=None) -> Analysis:
         """
         1. Validate: issue.repo exists and clone_status == "cloned"
@@ -229,17 +274,44 @@ class IssueAnalysisService:
         5. Create Analysis record (status=running, issue=issue)
         6. Run OpenCodeRunner in repo directory
         7. Parse JSON response: {target_field, content}
-        8. Append to issue field with AI attribution
-        9. Update Analysis status
+        8. Validate target_field against ALLOWED_FIELDS allowlist
+        9. Append to issue field with AI attribution
+        10. Update Analysis status
         """
+
+    def analyze_async(self, issue: Issue, triggered_by: str, user=None) -> Analysis:
+        """Submit analyze() to ThreadPoolExecutor, return Analysis immediately."""
+        analysis = Analysis.objects.create(
+            analysis_type="issue_code_analysis",
+            issue=issue,
+            triggered_by=triggered_by,
+            triggered_by_user=user if triggered_by == "manual" else None,
+            status=Analysis.Status.RUNNING,
+        )
+        _executor.submit(self._run_analysis, analysis.id)
+        return analysis
 
     def _append_ai_content(self, issue: Issue, field: str, content: str):
         """Append AI analysis to the specified field with attribution."""
+        if field not in self.ALLOWED_FIELDS:
+            raise ValueError(f"Invalid target field: {field}")
         timestamp = timezone.now().strftime("%Y-%m-%d %H:%M")
         block = f"\n\n---\n🤖 AI 分析 | {timestamp}\n{content}"
-        current = getattr(issue, field)
-        setattr(issue, field, current + block)
-        issue.save(update_fields=[field, "updated_at"])
+        # Use select_for_update to prevent concurrent edit conflicts
+        with transaction.atomic():
+            issue = Issue.objects.select_for_update().get(pk=issue.pk)
+            current = getattr(issue, field)
+            setattr(issue, field, current + block)
+            issue.save(update_fields=[field, "updated_at"])
+
+    @classmethod
+    def cleanup_stale_analyses(cls):
+        """Called on startup: mark stuck running analyses as failed."""
+        cutoff = timezone.now() - timedelta(minutes=10)
+        Analysis.objects.filter(
+            status=Analysis.Status.RUNNING,
+            created_at__lt=cutoff,
+        ).update(status=Analysis.Status.FAILED, error_message="进程异常终止")
 ```
 
 ### Prompt Template
@@ -261,13 +333,13 @@ Managed via existing Django admin Prompt interface.
 
 ### New Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/repos/{id}/clone/` | POST | Clone/pull repo. Body: `{"branch": "dev"}` (optional) |
-| `/api/repos/{id}/git-log/` | GET | Commit list. Query: `?limit=50` |
-| `/api/repos/{id}/branches/` | GET | List remote branches |
-| `/api/issues/{id}/ai-analyze/` | POST | Trigger AI code analysis |
-| `/api/ai/analysis/{id}/status/` | GET | Poll analysis status |
+| Endpoint | Method | Permission | Description |
+|----------|--------|------------|-------------|
+| `/api/repos/{id}/clone/` | POST | `repos.change_repo` | Clone/pull repo. Body: `{"branch": "dev"}` (optional) |
+| `/api/repos/{id}/git-log/` | GET | `repos.view_repo` | Commit list. Query: `?limit=50` |
+| `/api/repos/{id}/branches/` | GET | `repos.view_repo` | List remote branches |
+| `/api/issues/{id}/ai-analyze/` | POST | `ai.add_analysis` | Trigger AI code analysis |
+| `/api/ai/analysis/{id}/status/` | GET | `ai.view_analysis` | Poll analysis status |
 
 ### Response Formats
 
@@ -280,8 +352,7 @@ Managed via existing Django admin Prompt interface.
 **Git Log:**
 ```json
 [
-  {"hash": "abc123", "author": "dev", "date": "2026-03-25T10:00:00+08:00", "message": "fix login bug"},
-  ...
+  {"hash": "abc123", "author": "dev", "date": "2026-03-25T10:00:00+08:00", "message": "fix login bug"}
 ]
 ```
 
@@ -315,6 +386,8 @@ Managed via existing Django admin Prompt interface.
 - Frontend polls status endpoint until done, then refreshes data
 - opencode subprocess timeout: 120 seconds
 - Clone subprocess timeout: 300 seconds (large repos)
+- **Startup cleanup:** `IssueAnalysisService.cleanup_stale_analyses()` called in `AppConfig.ready()` to mark stuck `running` records older than 10 minutes as `failed`
+- **Note:** Under Gunicorn with N workers, each worker gets its own thread pool. Keep worker count low (2-4) to bound total concurrency.
 
 ---
 
@@ -327,15 +400,21 @@ def trigger_ai_analysis(sender, instance, created, update_fields, **kwargs):
     if created:
         # New issue — trigger if repo is linked and cloned
         _maybe_analyze(instance, triggered_by="auto")
-    elif update_fields and "description" in update_fields:
-        # Description changed — re-analyze
-        _maybe_analyze(instance, triggered_by="auto")
+    elif update_fields is None or "description" in (update_fields or []):
+        # Description changed (update_fields=None means full save, also triggers)
+        # Skip if this save was from AI appending to cause/solution/remark
+        if update_fields and not (set(update_fields) & {"cause", "solution", "remark"}):
+            _maybe_analyze(instance, triggered_by="auto")
+        elif update_fields is None:
+            _maybe_analyze(instance, triggered_by="auto")
 
 def _maybe_analyze(issue, triggered_by):
     if not issue.repo or issue.repo.clone_status != "cloned":
         return
     IssueAnalysisService().analyze_async(issue, triggered_by=triggered_by)
 ```
+
+**Loop prevention:** The signal skips when `update_fields` contains only AI-written fields (`cause`, `solution`, `remark`). The `_append_ai_content` method always uses `save(update_fields=[field, "updated_at"])` with explicit fields, so it won't re-trigger.
 
 ---
 
@@ -349,7 +428,10 @@ def _maybe_analyze(issue, triggered_by):
 | opencode process timeout (120s) | Analysis.status = failed, error stored |
 | opencode returns non-JSON | raw_response saved, status = failed |
 | LLM API key invalid / quota exceeded | Error captured in error_message |
-| Git clone fails (auth, network) | Repo.clone_status = failed, error logged |
+| Git clone fails (auth, network) | Repo.clone_status = failed, clone_error populated |
+| AI returns invalid target_field | Rejected, Analysis marked failed |
+| Process crash / restart | Startup cleanup marks stuck analyses as failed |
+| opencode binary missing/wrong version | Health check fails, 503 returned |
 
 ---
 
@@ -384,9 +466,18 @@ Frontend rendering:
 
 ### Repo Detail Page (`repos/[id].vue`)
 - "同步代码" button → triggers clone/pull
-- Clone status badge (not_cloned / cloning / cloned / failed)
+- Clone status badge (not_cloned / cloning / cloned / failed) with error message on failed
 - Branch switcher dropdown
 - New "提交记录" tab with git log list (hash, author, date, message)
+
+---
+
+## Security Considerations
+
+- **Git tokens:** Never embedded in URLs or process args. Use `GIT_ASKPASS` with temporary scripts, cleaned up after each operation.
+- **Repo directory permissions:** `/data/repos/` set to 0700, accessible only by the Django process user.
+- **Path validation:** `Repo.full_name` validated against `^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$` before computing `local_path`.
+- **Field allowlist:** `_append_ai_content` only writes to `cause`, `solution`, `remark` — never `description`, `status`, or other fields.
 
 ---
 
@@ -394,8 +485,9 @@ Frontend rendering:
 
 ### Backend
 - `git` binary in Docker image
-- `opencode` binary in Docker image (installed via `curl -fsSL https://opencode.ai/install | bash`)
+- `opencode` binary in Docker image (version-pinned in Dockerfile)
 - No new Python packages (subprocess calls only)
+- New Django setting: `REPO_CLONE_DIR = "/data/repos"` (configurable per environment)
 
 ### Frontend
 - No new packages
@@ -405,11 +497,11 @@ Frontend rendering:
 ## Testing Strategy
 
 ### Backend Tests
-- `test_repo_clone_service.py` — mock subprocess, test clone/pull/log/branches
-- `test_opencode_runner.py` — mock subprocess, test config generation, response parsing
-- `test_issue_analysis_service.py` — mock OpenCodeRunner, test field appending, duplicate prevention, error handling
+- `test_repo_clone_service.py` — mock subprocess, test clone/pull/log/branches, token handling, path validation
+- `test_opencode_runner.py` — mock subprocess, test config generation, response parsing, health check
+- `test_issue_analysis_service.py` — mock OpenCodeRunner, test field appending, duplicate prevention, field allowlist validation, concurrent edit safety, stale cleanup
 - `test_issue_analysis_views.py` — test API endpoints, permission checks, validation
-- `test_signals.py` — test auto-trigger on create/update, skip when no repo
+- `test_signals.py` — test auto-trigger on create/update, skip when no repo, loop prevention
 
 ### Frontend
 - Component tests for AI content rendering
