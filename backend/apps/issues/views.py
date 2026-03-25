@@ -42,6 +42,9 @@ class IssueListCreateView(generics.ListCreateAPIView):
         labels = self.request.query_params.get("labels")
         if labels:
             qs = qs.filter(labels__contains=[labels])
+        exclude_statuses = self.request.query_params.get("exclude_statuses")
+        if exclude_statuses:
+            qs = qs.exclude(status__in=exclude_statuses.split(","))
         return qs
 
 

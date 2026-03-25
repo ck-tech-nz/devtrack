@@ -4,6 +4,10 @@
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
       <div class="flex items-center justify-between md:justify-end space-x-3">
+        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+          <USwitch v-model="showCompleted" size="xs" />
+          <span class="text-xs text-gray-500 dark:text-gray-400">查看已完成</span>
+        </label>
         <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
           <button
             class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
@@ -227,6 +231,7 @@ const viewMode = computed({
   get: () => settings.value.issues_view_mode,
   set: (v: 'kanban' | 'table') => updateSettings('issues_view_mode', v),
 })
+const showCompleted = ref(false)
 const page = ref(1)
 const pageSize = 15
 const rowSelection = ref<Record<string, boolean>>({})
@@ -378,6 +383,9 @@ async function fetchIssues() {
     const params = new URLSearchParams()
     params.set('page', String(page.value))
     params.set('page_size', String(pageSize))
+    if (!showCompleted.value) {
+      params.set('exclude_statuses', '已解决,已关闭')
+    }
 
     const data = await api<any>(`/api/issues/?${params.toString()}`)
     issues.value = data.results || data || []
@@ -415,6 +423,12 @@ const batchPriorityItems = [['P0', 'P1', 'P2', 'P3'].map(p => ({
 }))]
 
 watch(page, () => {
+  rowSelection.value = {}
+  fetchIssues()
+})
+
+watch(showCompleted, () => {
+  page.value = 1
   rowSelection.value = {}
   fetchIssues()
 })

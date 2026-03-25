@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
+import taskLists from 'markdown-it-task-lists'
 
 const props = defineProps<{
   modelValue: string
@@ -96,11 +97,14 @@ const isDragging = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-const md = new MarkdownIt({ html: false, linkify: true })
+const md = new MarkdownIt({ html: false, linkify: true }).use(taskLists, { enabled: true })
 
 const renderedHtml = computed(() => {
   if (!props.modelValue) return '<p class="text-gray-400 dark:text-gray-500">无内容</p>'
+  // Replace native checkboxes with CSS-only spans (Tailwind preflight kills native checkbox appearance)
   return md.render(props.modelValue)
+    .replace(/<input class="task-list-item-checkbox" checked=""type="checkbox">/g, '<span class="md-checkbox md-checked"></span>')
+    .replace(/<input class="task-list-item-checkbox"type="checkbox">/g, '<span class="md-checkbox"></span>')
 })
 
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
@@ -354,6 +358,33 @@ async function uploadFiles(files: File[]) {
 .markdown-body table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
 .markdown-body th, .markdown-body td { border: 1px solid #d1d5db; padding: 0.5em 0.75em; text-align: left; }
 .markdown-body th { background: #f9fafb; font-weight: 600; }
+
+/* Task list (todo) styles */
+.markdown-body ul.contains-task-list { padding-left: 1.5em; list-style: none; margin: 0.5em 0; }
+.markdown-body .task-list-item { list-style: none; }
+.markdown-body .md-checkbox {
+  display: inline-block;
+  width: 0.95em; height: 0.95em;
+  border: 1.5px solid #9ca3af;
+  border-radius: 3px;
+  margin-right: 0.4em;
+  vertical-align: middle;
+  position: relative;
+  top: -0.05em;
+}
+.markdown-body .md-checkbox.md-checked {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+.markdown-body .md-checkbox.md-checked::after {
+  content: '';
+  position: absolute;
+  left: 2.5px; top: 0.5px;
+  width: 4px; height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
 
 /* Dark mode */
 :root.dark .markdown-body code { background: #1f2937; }
