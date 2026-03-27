@@ -41,56 +41,6 @@
               <MarkdownEditor ref="descriptionEditor" v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" @upload-complete="handleUploadComplete" />
             </div>
 
-            <!-- 优先级 & 状态 -->
-            <div class="form-grid-2">
-              <div class="form-row">
-                <label>优先级</label>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <button
-                    v-for="p in priorityItems"
-                    :key="p.value"
-                    class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    :class="issue.priority === p.value ? p.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
-                    @click="updateField('priority', p.value)"
-                  >{{ p.label }}</button>
-                </div>
-              </div>
-              <div class="form-row">
-                <label>状态</label>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <button
-                    v-for="s in statusItems"
-                    :key="s.value"
-                    class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    :class="issue.status === s.value ? s.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
-                    @click="handleStatusClick(s.value)"
-                  >{{ s.label }}</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-grid-2">
-              <div class="form-row">
-                <label>负责人</label>
-                <USelect v-model="form.assignee" :items="assigneeItems" placeholder="选择负责人" value-key="value" @update:model-value="(v: string) => autoSave('assignee', v)" />
-              </div>
-              <div class="form-row">
-                <label>求助</label>
-                <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" @update:model-value="(v: string[]) => autoSave('helpers', v)" />
-              </div>
-            </div>
-            <div v-if="labelItems.length" class="form-row">
-              <label>标签</label>
-              <div class="flex items-center gap-2 flex-wrap">
-                <button
-                  v-for="lbl in labelItems"
-                  :key="lbl"
-                  class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                  :class="form.labels.includes(lbl) ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
-                  @click="toggleLabel(lbl)"
-                >{{ lbl }}</button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -183,6 +133,54 @@
             </div>
           </div>
           <p v-else-if="!aiAnalyzing && issue.repo && issueRepo?.clone_status === 'cloned'" class="text-sm text-gray-400 dark:text-gray-500">暂无分析记录</p>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-4">
+          <!-- 优先级 & 状态 -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-gray-400 dark:text-gray-500">优先级</label>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                v-for="p in priorityItems"
+                :key="p.value"
+                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                :class="issue.priority === p.value ? p.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                @click="updateField('priority', p.value)"
+              >{{ p.label }}</button>
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-gray-400 dark:text-gray-500">状态</label>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                v-for="s in statusItems"
+                :key="s.value"
+                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                :class="issue.status === s.value ? s.activeClass : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                @click="handleStatusClick(s.value)"
+              >{{ s.label }}</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="text-gray-400 dark:text-gray-500">负责人</label>
+            <USelect v-model="form.assignee" :items="assigneeItems" placeholder="选择负责人" value-key="value" @update:model-value="(v: string) => autoSave('assignee', v)" />
+          </div>
+          <div class="form-row">
+            <label class="text-gray-400 dark:text-gray-500">求助</label>
+            <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" @update:model-value="(v: string[]) => autoSave('helpers', v)" />
+          </div>
+          <div v-if="labelItems.length" class="space-y-1.5">
+            <label class="text-xs font-medium text-gray-400 dark:text-gray-500">标签</label>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                v-for="lbl in labelItems"
+                :key="lbl"
+                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                :class="form.labels.includes(lbl) ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                @click="toggleLabel(lbl)"
+              >{{ lbl }}</button>
+            </div>
+          </div>
         </div>
 
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
