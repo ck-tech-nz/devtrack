@@ -3,12 +3,20 @@ import shutil
 import subprocess
 
 
+def _opencode_bin() -> str | None:
+    """Return the opencode binary path from OPENCODE_PATH env var, or locate it in PATH."""
+    path = os.environ.get("OPENCODE_PATH", "").strip()
+    if path:
+        return path if os.path.isfile(path) else None
+    return shutil.which("opencode")
+
+
 class OpenCodeRunner:
     def __init__(self, llm_config):
         self.llm_config = llm_config
 
     def check_health(self) -> bool:
-        return shutil.which("opencode") is not None
+        return _opencode_bin() is not None
 
     def _get_model_id(self, model: str) -> str:
         """Map LLMConfig name to opencode provider/model format."""
@@ -40,8 +48,14 @@ class OpenCodeRunner:
         model_id = self._get_model_id(model)
         env = self._get_env()
 
+        bin_path = _opencode_bin()
+        if not bin_path:
+            raise FileNotFoundError(
+                "opencode 未安装。请设置 OPENCODE_PATH 环境变量指向 opencode 可执行文件路径。"
+            )
+
         result = subprocess.run(
-            ["opencode", "run", "--format", "json", "--model", model_id, prompt],
+            [bin_path, "run", "--format", "json", "--model", model_id, prompt],
             cwd=repo_path,
             capture_output=True,
             text=True,
