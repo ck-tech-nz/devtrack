@@ -133,6 +133,36 @@
           </div>
         </div>
 
+        <!-- 附件图片 -->
+        <div v-if="attachments.length" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">附件图片</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <div
+              v-for="att in attachments"
+              :key="att.id"
+              class="relative group rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800"
+            >
+              <img
+                :src="att.file_url"
+                :alt="att.file_name"
+                class="w-full h-20 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                :title="att.file_name"
+                @click="insertAttachmentToDescription(att)"
+              />
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-1">
+                <button
+                  class="text-white text-xs bg-primary-600 hover:bg-primary-700 rounded px-1.5 py-0.5"
+                  @click.stop="insertAttachmentToDescription(att)"
+                >插入</button>
+                <button
+                  class="text-white text-xs bg-red-600 hover:bg-red-700 rounded px-1.5 py-0.5"
+                  @click.stop="deleteAttachment(att.id)"
+                >删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">关联仓库</h3>
           <div v-if="issueRepo" class="flex items-center gap-2">
@@ -631,6 +661,27 @@ async function checkRunningAnalysis() {
   } catch {
     // No running analysis endpoint or no analysis — that's fine
   }
+}
+
+// 附件（仅图片）
+const attachments = computed(() =>
+  ((issue.value as any)?.attachments ?? []).filter((a: any) => a.mime_type?.startsWith('image/'))
+)
+
+async function deleteAttachment(id: string) {
+  const { api } = useApi()
+  try {
+    await api(`/api/tools/attachments/${id}/`, { method: 'DELETE' })
+    if (issue.value) {
+      (issue.value as any).attachments = (issue.value as any).attachments.filter((a: any) => a.id !== id)
+    }
+  } catch {
+    // 删除失败静默处理
+  }
+}
+
+function insertAttachmentToDescription(attachment: any) {
+  form.value.description = (form.value.description || '') + `\n![${attachment.file_name}](${attachment.file_url})`
 }
 </script>
 
