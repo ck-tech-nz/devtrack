@@ -32,6 +32,12 @@ class Issue(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="assigned_issues", verbose_name="负责人",
     )
+    helpers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="helped_issues",
+        verbose_name="协助人",
+    )
     remark = models.TextField(blank=True, verbose_name="备注")
     estimated_completion = models.DateField(null=True, blank=True, verbose_name="预计完成")
     actual_hours = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name="实际工时")
