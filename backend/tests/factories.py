@@ -6,6 +6,7 @@ from apps.projects.models import Project, ProjectMember
 from apps.issues.models import Issue, Activity
 from apps.repos.models import Repo, GitHubIssue
 from apps.ai.models import LLMConfig, Prompt, Analysis
+from apps.tools.models import Attachment
 from django.utils import timezone as tz
 
 fake = Faker("zh_CN")
@@ -142,9 +143,6 @@ class AnalysisFactory(factory.django.DjangoModelFactory):
     data_hash = ""
     input_context = factory.LazyFunction(dict)
     prompt_snapshot = factory.LazyFunction(dict)
-
-
-from apps.tools.models import Attachment
 
 
 class AttachmentFactory(factory.django.DjangoModelFactory):

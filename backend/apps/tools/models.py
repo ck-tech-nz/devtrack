@@ -5,6 +5,8 @@ from django.db import models
 
 class Attachment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # null=True: attachment uploaded but not yet linked to an issue (transient state).
+    # CASCADE: when an issue is deleted, all its attachments are deleted too.
     issue = models.ForeignKey(
         "issues.Issue", on_delete=models.CASCADE,
         related_name="attachments", null=True, blank=True,
@@ -14,9 +16,9 @@ class Attachment(models.Model):
         null=True, related_name="attachments",
     )
     file_name = models.CharField(max_length=255, verbose_name="文件名")
-    file_key = models.CharField(max_length=500, verbose_name="存储键")
+    file_key = models.CharField(max_length=500, unique=True, verbose_name="存储键")
     file_url = models.URLField(max_length=1000, verbose_name="访问地址")
-    file_size = models.PositiveIntegerField(verbose_name="文件大小")
+    file_size = models.PositiveBigIntegerField(verbose_name="文件大小")
     mime_type = models.CharField(max_length=100, verbose_name="类型")
     created_at = models.DateTimeField(auto_now_add=True)
 
