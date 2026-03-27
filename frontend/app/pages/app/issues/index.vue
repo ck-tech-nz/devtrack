@@ -127,12 +127,8 @@
         <NuxtLink :to="`/app/issues/${item.id}`" class="block">
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-xs text-gray-400 dark:text-gray-500">#{{ item.id }}</span>
-            <UBadge
-              :color="item.priority === 'P0' ? 'error' : item.priority === 'P1' ? 'warning' : item.priority === 'P2' ? 'warning' : 'neutral'"
-              variant="subtle"
-              size="xs"
-            >
-              {{ item.priority }}
+            <UBadge :color="priorityColor(item.priority)" variant="subtle" size="xs">
+              {{ priorityLabel(item.priority) }}
             </UBadge>
           </div>
           <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2">{{ item.title }}</p>
@@ -179,7 +175,7 @@
           <EditableCell :value="row.original.title" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
         </template>
         <template #priority-cell="{ row }">
-          <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="sm">{{ row.original.priority }}</UBadge>
+          <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="sm">{{ priorityLabel(row.original.priority) }}</UBadge>
         </template>
         <template #status-cell="{ row }">
           <div class="flex flex-col items-start gap-1">
@@ -297,7 +293,7 @@ watch(() => newIssue.value.project, (projectId) => {
 const projectRepoOptions = computed(() => projectRepos.value.map(r => ({ label: r.name, value: String(r.id) })))
 
 const projectOptions = computed(() => projects.value.map(p => ({ label: p.name, value: String(p.id) })))
-const createPriorityOptions = [{ label: 'P0', value: 'P0' }, { label: 'P1', value: 'P1' }, { label: 'P2', value: 'P2' }, { label: 'P3', value: 'P3' }]
+const createPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.label}`, value: p.value }))
 const createStatusOptions = [{ label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
 const createAssigneeOptions = computed(() => [{ label: '无', value: '_none' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
 
@@ -423,9 +419,6 @@ function formatApiError(e: any, fallback: string): string {
   return e?.message || fallback
 }
 
-function priorityColor(p: string) {
-  return p === 'P0' ? 'error' : p === 'P1' ? 'warning' : p === 'P2' ? 'warning' : 'neutral'
-}
 function statusColor(s: string) {
   return s === '待处理' ? 'warning' : s === '进行中' ? 'info' : s === '已解决' ? 'success' : 'neutral'
 }
@@ -470,9 +463,9 @@ const batchAssignItems = computed(() => [users.value.map(u => ({
   onSelect: () => batchUpdate('assign', String(u.id)),
 }))])
 
-const batchPriorityItems = [['P0', 'P1', 'P2', 'P3'].map(p => ({
-  label: p,
-  onSelect: () => batchUpdate('priority', p),
+const batchPriorityItems = [PRIORITY_ITEMS.map(p => ({
+  label: `${p.value} ${p.label}`,
+  onSelect: () => batchUpdate('priority', p.value),
 }))]
 
 watch(page, () => {

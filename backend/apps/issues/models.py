@@ -2,6 +2,13 @@ from django.conf import settings
 from django.db import models
 
 
+class Priority(models.TextChoices):
+    P0 = 'P0', '紧急'
+    P1 = 'P1', '高'
+    P2 = 'P2', '中'
+    P3 = 'P3', '低'
+
+
 class Issue(models.Model):
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, related_name="issues"
@@ -21,7 +28,7 @@ class Issue(models.Model):
         null=True, blank=True, related_name="issues",
         verbose_name="关联仓库",
     )
-    priority = models.CharField(max_length=10, verbose_name="优先级")
+    priority = models.CharField(max_length=10, choices=Priority.choices, verbose_name="优先级")
     status = models.CharField(max_length=20, verbose_name="状态")
     labels = models.JSONField(default=list, verbose_name="标签", blank=True)
     reporter = models.ForeignKey(

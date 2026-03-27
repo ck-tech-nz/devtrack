@@ -480,12 +480,7 @@ const form = ref({
   actual_hours: '',
 })
 
-const priorityItems = [
-  { label: 'P0', value: 'P0', activeClass: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
-  { label: 'P1', value: 'P1', activeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' },
-  { label: 'P2', value: 'P2', activeClass: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
-  { label: 'P3', value: 'P3', activeClass: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
-]
+const priorityItems = PRIORITY_ITEMS
 const statusItems = [
   { label: '待处理', value: '待处理', activeClass: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
   { label: '进行中', value: '进行中', activeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },

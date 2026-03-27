@@ -23,11 +23,11 @@
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">#{{ task.id }}</span>
             <UBadge
-              :color="task.priority === 'P0' ? 'error' : task.priority === 'P1' ? 'warning' : 'neutral'"
+              :color="priorityColor(task.priority)"
               variant="subtle"
               size="xs"
             >
-              {{ task.priority }}
+              {{ priorityLabel(task.priority) }}
             </UBadge>
           </div>
           <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2 group-hover:text-crystal-600 dark:group-hover:text-crystal-400 transition-colors">

@@ -7,13 +7,8 @@
       <p class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 flex-1">
         {{ issue.title }}
       </p>
-      <UBadge
-        :color="issue.priority === 'P0' ? 'error' : issue.priority === 'P1' ? 'warning' : issue.priority === 'P2' ? 'warning' : 'neutral'"
-        variant="subtle"
-        size="xs"
-        class="flex-shrink-0"
-      >
-        {{ issue.priority }}
+      <UBadge :color="priorityColor(issue.priority)" variant="subtle" size="xs" class="flex-shrink-0">
+        {{ priorityLabel(issue.priority) }}
       </UBadge>
     </div>
     <div class="mt-2 flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
