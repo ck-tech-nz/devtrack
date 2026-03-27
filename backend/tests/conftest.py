@@ -9,7 +9,7 @@ def api_client():
 
 
 @pytest.fixture
-def auth_client(api_client):
+def auth_user():
     from django.contrib.auth.models import Group, Permission
     user = UserFactory()
     group, _ = Group.objects.get_or_create(name="管理员")
@@ -17,7 +17,12 @@ def auth_client(api_client):
         Permission.objects.filter(content_type__app_label__in=["projects", "issues", "settings", "repos", "ai", "users"])
     )
     user.groups.add(group)
-    api_client.force_authenticate(user=user)
+    return user
+
+
+@pytest.fixture
+def auth_client(api_client, auth_user):
+    api_client.force_authenticate(user=auth_user)
     return api_client
 
 

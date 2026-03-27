@@ -39,14 +39,11 @@ class TestAttachmentModel:
 
 @pytest.mark.django_db
 class TestAttachmentSync:
-    def test_create_issue_links_matching_attachments(self, auth_client, site_settings, settings):
+    def test_create_issue_links_matching_attachments(self, auth_client, auth_user, site_settings, settings):
         from apps.tools.models import Attachment
         from tests.factories import ProjectFactory, AttachmentFactory
-        from django.contrib.auth import get_user_model
         settings.MINIO_PUBLIC_URL = "http://minio:9000"
-        User = get_user_model()
-        # auth_client fixture creates a user last — grab it
-        user = User.objects.order_by("-date_joined").first()
+        user = auth_user
         project = ProjectFactory()
         att = AttachmentFactory(
             issue=None,
@@ -75,13 +72,11 @@ class TestAttachmentSync:
         assert response.status_code == 200
         assert len(response.data["attachments"]) == 2
 
-    def test_update_issue_links_new_attachments(self, auth_client, site_settings, settings):
+    def test_update_issue_links_new_attachments(self, auth_client, auth_user, site_settings, settings):
         from apps.tools.models import Attachment
         from tests.factories import IssueFactory, AttachmentFactory
-        from django.contrib.auth import get_user_model
         settings.MINIO_PUBLIC_URL = "http://minio:9000"
-        User = get_user_model()
-        user = User.objects.order_by("-date_joined").first()
+        user = auth_user
         issue = IssueFactory()
         att = AttachmentFactory(
             issue=None,
