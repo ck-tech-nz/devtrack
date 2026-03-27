@@ -1,8 +1,26 @@
+import re
 from rest_framework import serializers
 from django.utils import timezone
+from django.conf import settings as django_settings
 from apps.settings.models import SiteSettings
 from apps.repos.serializers import GitHubIssueBriefSerializer
+from apps.tools.serializers import AttachmentSerializer
 from .models import Issue, Activity
+
+
+def _sync_attachments(issue, user):
+    """Link unowned Attachment records whose URL appears in issue.description."""
+    from apps.tools.models import Attachment
+    if not issue.description:
+        return
+    minio_base = django_settings.MINIO_PUBLIC_URL
+    urls = set(re.findall(r'https?://\S+', issue.description))
+    cleaned = {re.sub(r'[)"\']+$', '', u) for u in urls}
+    for url in cleaned:
+        if url.startswith(minio_base):
+            Attachment.objects.filter(
+                file_url=url, issue=None, uploaded_by=user
+            ).update(issue=issue)
 
 
 class ActivitySerializer(serializers.ModelSerializer):
@@ -50,11 +68,12 @@ class IssueListSerializer(serializers.ModelSerializer):
 
 class IssueDetailSerializer(IssueListSerializer):
     github_issues = GitHubIssueBriefSerializer(many=True, read_only=True)
+    attachments = AttachmentSerializer(many=True, read_only=True)
 
     class Meta(IssueListSerializer.Meta):
         fields = IssueListSerializer.Meta.fields + [
             "description", "estimated_completion",
-            "actual_hours", "resolved_at", "github_issues",
+            "actual_hours", "resolved_at", "github_issues", "attachments",
         ]
 
 
@@ -62,10 +81,11 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Issue
         fields = [
-            "project", "repo", "title", "description", "priority", "status",
+            "id", "project", "repo", "title", "description", "priority", "status",
             "labels", "assignee", "remark", "estimated_completion",
             "actual_hours", "cause", "solution",
         ]
+        read_only_fields = ["id"]
 
     def validate_labels(self, value):
         site_settings = SiteSettings.get_solo()
@@ -95,6 +115,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
             issue=issue,
             action="created",
         )
+        _sync_attachments(issue, self.context["request"].user)
         return issue
 
     def update(self, instance, validated_data):
@@ -121,6 +142,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
                 detail=f"分配给 {new_assignee.name}" if new_assignee else "取消分配",
             )
 
+        _sync_attachments(issue, user)
         return issue
 
 
