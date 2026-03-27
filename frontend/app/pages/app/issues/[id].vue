@@ -100,88 +100,6 @@
       <!-- Sidebar -->
       <div class="space-y-4">
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
-          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">信息</h3>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">提出人</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter_name || '-' }}</p>
-            </div>
-            <div class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">创建时间</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
-            </div>
-          </div>
-          <div v-if="issue.resolved_at || issue.resolution_hours" class="grid grid-cols-2 gap-3">
-            <div v-if="issue.resolved_at" class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">解决时间</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
-            </div>
-            <div v-if="issue.resolution_hours" class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">解决耗时</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="form-row">
-              <label class="text-gray-400 dark:text-gray-500">预计完成</label>
-              <UInput v-model="form.estimated_completion" type="date" />
-            </div>
-            <div class="form-row">
-              <label class="text-gray-400 dark:text-gray-500">实际工时</label>
-              <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
-            </div>
-          </div>
-        </div>
-
-        <!-- 关联附件 -->
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">关联附件</h3>
-            <UButton size="xs" variant="soft" icon="i-heroicons-paper-clip" @click="attachmentInputRef?.click()">添加</UButton>
-          </div>
-          <input ref="attachmentInputRef" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleAttachmentSelect" />
-          <div v-if="attachments.length" class="grid grid-cols-2 gap-2">
-            <div
-              v-for="att in attachments"
-              :key="att.id"
-              class="relative group rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800"
-            >
-              <img
-                :src="att.file_url"
-                :alt="att.file_name"
-                class="w-full h-20 object-cover"
-                :title="att.file_name"
-              />
-              <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-1 gap-1">
-                <button
-                  class="text-white text-xs bg-primary-600 hover:bg-primary-700 rounded px-1.5 py-0.5 flex-1"
-                  @click.stop="insertAttachmentToDescription(att)"
-                >插入</button>
-                <button
-                  class="text-white text-xs bg-gray-600 hover:bg-gray-700 rounded px-1.5 py-0.5 flex-1"
-                  @click.stop="unlinkAttachment(att.id)"
-                >移除</button>
-              </div>
-            </div>
-          </div>
-          <p v-else class="text-xs text-gray-400 dark:text-gray-500">暂无附件</p>
-        </div>
-
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
-          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">关联仓库</h3>
-          <div v-if="issueRepo" class="flex items-center gap-2">
-            <UIcon name="i-heroicons-code-bracket" class="w-4 h-4 text-gray-400" />
-            <NuxtLink :to="`/app/repos/${issueRepo.id}`" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              {{ issueRepo.full_name }}
-            </NuxtLink>
-            <UBadge v-if="issueRepo.clone_status === 'cloned'" color="success" variant="subtle" size="xs">已克隆</UBadge>
-            <UBadge v-else-if="issueRepo.clone_status === 'cloning'" color="warning" variant="subtle" size="xs">克隆中</UBadge>
-            <UBadge v-else color="neutral" variant="subtle" size="xs">未克隆</UBadge>
-          </div>
-          <p v-else class="text-sm text-gray-400 dark:text-gray-500">未关联仓库</p>
-        </div>
-
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI 分析</h3>
             <div class="flex items-center gap-2">
@@ -240,6 +158,94 @@
             </div>
           </div>
           <p v-else-if="!aiAnalyzing && issue.repo && issueRepo?.clone_status === 'cloned'" class="text-sm text-gray-400 dark:text-gray-500">暂无分析记录</p>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">信息</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">提出人</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter_name || '-' }}</p>
+            </div>
+            <div class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">创建时间</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
+            </div>
+          </div>
+          <div v-if="issue.resolved_at || issue.resolution_hours" class="grid grid-cols-2 gap-3">
+            <div v-if="issue.resolved_at" class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">解决时间</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
+            </div>
+            <div v-if="issue.resolution_hours" class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">解决耗时</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="form-row">
+              <label class="text-gray-400 dark:text-gray-500">预计完成</label>
+              <UInput v-model="form.estimated_completion" type="date" />
+            </div>
+            <div class="form-row">
+              <label class="text-gray-400 dark:text-gray-500">实际工时</label>
+              <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 关联附件 -->
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">关联附件</h3>
+            <UButton size="xs" variant="soft" icon="i-heroicons-paper-clip" @click="attachmentInputRef?.click()">添加</UButton>
+          </div>
+          <input ref="attachmentInputRef" type="file" multiple class="hidden" @change="handleAttachmentSelect" />
+
+          <!-- 图片附件：缩略图网格 -->
+          <div v-if="imageAttachments.length" class="grid grid-cols-2 gap-2">
+            <div
+              v-for="att in imageAttachments"
+              :key="att.id"
+              class="relative group rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800"
+            >
+              <img :src="att.file_url" :alt="att.file_name" class="w-full h-20 object-cover" :title="att.file_name" />
+              <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-1 gap-1">
+                <button class="text-white text-xs bg-primary-600 hover:bg-primary-700 rounded px-1.5 py-0.5 flex-1" @click.stop="insertAttachmentToDescription(att)">插入</button>
+                <button class="text-white text-xs bg-red-600 hover:bg-red-700 rounded px-1.5 py-0.5 flex-1" @click.stop="deleteAttachment(att.id)">删除</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 非图片附件：列表 -->
+          <div v-if="fileAttachments.length" class="space-y-1">
+            <div
+              v-for="att in fileAttachments"
+              :key="att.id"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 group"
+            >
+              <UIcon name="i-heroicons-document" class="w-4 h-4 text-gray-400 shrink-0" />
+              <span class="text-xs text-gray-700 dark:text-gray-300 truncate flex-1" :title="att.file_name">{{ att.file_name }}</span>
+              <a :href="att.file_url" :download="att.file_name" target="_blank" class="text-xs text-blue-500 hover:text-blue-600 shrink-0">下载</a>
+              <button class="text-xs text-red-500 hover:text-red-600 shrink-0 opacity-0 group-hover:opacity-100" @click.stop="deleteAttachment(att.id)">删除</button>
+            </div>
+          </div>
+
+          <p v-if="!attachments.length" class="text-xs text-gray-400 dark:text-gray-500">暂无附件</p>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">关联仓库</h3>
+          <div v-if="issueRepo" class="flex items-center gap-2">
+            <UIcon name="i-heroicons-code-bracket" class="w-4 h-4 text-gray-400" />
+            <NuxtLink :to="`/app/repos/${issueRepo.id}`" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              {{ issueRepo.full_name }}
+            </NuxtLink>
+            <UBadge v-if="issueRepo.clone_status === 'cloned'" color="success" variant="subtle" size="xs">已克隆</UBadge>
+            <UBadge v-else-if="issueRepo.clone_status === 'cloning'" color="warning" variant="subtle" size="xs">克隆中</UBadge>
+            <UBadge v-else color="neutral" variant="subtle" size="xs">未克隆</UBadge>
+          </div>
+          <p v-else class="text-sm text-gray-400 dark:text-gray-500">未关联仓库</p>
         </div>
 
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
@@ -669,9 +675,9 @@ async function checkRunningAnalysis() {
 
 // 关联附件
 const attachmentInputRef = ref<HTMLInputElement | null>(null)
-const attachments = computed(() =>
-  ((issue.value as any)?.attachments ?? []).filter((a: any) => a.mime_type?.startsWith('image/'))
-)
+const attachments = computed(() => (issue.value as any)?.attachments ?? [])
+const imageAttachments = computed(() => attachments.value.filter((a: any) => a.mime_type?.startsWith('image/')))
+const fileAttachments = computed(() => attachments.value.filter((a: any) => !a.mime_type?.startsWith('image/')))
 
 async function handleUploadComplete(uploaded: { url: string; filename: string; id: string }) {
   if (!issue.value?.id) return
@@ -681,7 +687,6 @@ async function handleUploadComplete(uploaded: { url: string; filename: string; i
       method: 'POST',
       body: { attachment_id: uploaded.id },
     })
-    // Refresh issue to get updated attachments list
     issue.value = await api<any>(`/api/issues/${issue.value.id}/`)
   } catch {
     // 绑定失败静默处理
@@ -690,36 +695,33 @@ async function handleUploadComplete(uploaded: { url: string; filename: string; i
 
 async function handleAttachmentSelect(e: Event) {
   const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+  const files = Array.from(input.files || [])
   input.value = ''
   const { api } = useApi()
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await api<{ url: string; filename: string; id: string }>('/api/tools/upload/image/', {
-      method: 'POST',
-      body: formData,
-    })
-    await handleUploadComplete(res)
-  } catch {
-    // 上传失败静默处理
+  for (const file of files) {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api<{ url: string; filename: string; id: string }>('/api/tools/upload/image/', {
+        method: 'POST',
+        body: formData,
+      })
+      await handleUploadComplete(res)
+    } catch {
+      // 上传失败静默处理
+    }
   }
 }
 
-async function unlinkAttachment(attachmentId: string) {
-  if (!issue.value?.id) return
+async function deleteAttachment(attachmentId: string) {
   const { api } = useApi()
   try {
-    await api(`/api/issues/${issue.value.id}/attachments/`, {
-      method: 'DELETE',
-      body: { attachment_id: attachmentId },
-    })
+    await api(`/api/tools/attachments/${attachmentId}/`, { method: 'DELETE' })
     if (issue.value) {
       (issue.value as any).attachments = (issue.value as any).attachments.filter((a: any) => a.id !== attachmentId)
     }
   } catch {
-    // 移除失败静默处理
+    // 删除失败静默处理
   }
 }
 
