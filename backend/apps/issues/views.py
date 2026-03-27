@@ -51,7 +51,7 @@ class IssueListCreateView(generics.ListCreateAPIView):
 
 
 class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Issue.objects.select_related("reporter", "assignee")
+    queryset = Issue.objects.select_related("reporter", "assignee").prefetch_related("attachments")
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
 
     def get_serializer_class(self):
