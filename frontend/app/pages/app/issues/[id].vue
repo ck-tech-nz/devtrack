@@ -212,7 +212,7 @@
               <img :src="att.file_url" :alt="att.file_name" class="w-full h-20 object-cover" :title="att.file_name" />
               <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-1 gap-1">
                 <button class="text-white text-xs bg-primary-600 hover:bg-primary-700 rounded px-1.5 py-0.5 flex-1" @click.stop="insertAttachmentToDescription(att)">插入</button>
-                <button class="text-white text-xs bg-red-600 hover:bg-red-700 rounded px-1.5 py-0.5 flex-1" @click.stop="deleteAttachment(att.id)">删除</button>
+                <button class="text-white text-xs bg-red-600 hover:bg-red-700 rounded px-1.5 py-0.5 flex-1" @click.stop="promptDeleteAttachment(att)">删除</button>
               </div>
             </div>
           </div>
@@ -306,6 +306,29 @@
       </template>
     </UModal>
 
+    <!-- 删除附件确认弹窗 -->
+    <UModal v-model:open="showDeleteAttachmentConfirm">
+      <template #content>
+        <div class="modal-form">
+          <div class="modal-header">
+            <h3>删除附件</h3>
+            <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showDeleteAttachmentConfirm = false" />
+          </div>
+          <div class="modal-body space-y-2">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              确认删除附件 <span class="font-medium">{{ pendingDeleteAttachment?.file_name }}</span>？
+            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">是否同时移除描述中的引用？</p>
+          </div>
+          <div class="modal-footer">
+            <UButton variant="outline" color="neutral" @click="showDeleteAttachmentConfirm = false">取消</UButton>
+            <UButton color="error" variant="outline" @click="() => { deleteAttachment(pendingDeleteAttachment!.id, false); showDeleteAttachmentConfirm = false }">仅删除文件</UButton>
+            <UButton color="error" @click="() => { deleteAttachment(pendingDeleteAttachment!.id, true); showDeleteAttachmentConfirm = false }">删除并移除引用</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
     <!-- 关联已有 GitHub Issue 弹窗 -->
     <UModal v-model:open="showLinkGH" title="关联 GitHub Issue" :ui="{ width: 'sm:max-w-lg' }">
       <template #content>
@@ -384,6 +407,10 @@ const allGHIssues = ref<any[]>([])
 const descriptionEditor = ref<{ setMode: (m: 'edit' | 'preview') => void } | null>(null)
 
 const isNewIssue = computed(() => !issue.value?.description && !issue.value?.title)
+
+// 删除附件确认
+const showDeleteAttachmentConfirm = ref(false)
+const pendingDeleteAttachment = ref<{ id: string; file_url: string; file_name: string } | null>(null)
 
 // GitHub 创建
 const showCreateGH = ref(false)
@@ -713,16 +740,34 @@ async function handleAttachmentSelect(e: Event) {
   }
 }
 
-async function deleteAttachment(attachmentId: string) {
+function promptDeleteAttachment(att: { id: string; file_url: string; file_name: string }) {
+  pendingDeleteAttachment.value = att
+  showDeleteAttachmentConfirm.value = true
+}
+
+async function deleteAttachment(attachmentId: string, removeFromDescription = false) {
   const { api } = useApi()
   try {
     await api(`/api/tools/attachments/${attachmentId}/`, { method: 'DELETE' })
     if (issue.value) {
-      (issue.value as any).attachments = (issue.value as any).attachments.filter((a: any) => a.id !== attachmentId)
+      const att = (issue.value as any).attachments.find((a: any) => a.id === attachmentId)
+      if (removeFromDescription && att) {
+        removeAttachmentFromDescription(att.file_url)
+      }
+      ;(issue.value as any).attachments = (issue.value as any).attachments.filter((a: any) => a.id !== attachmentId)
     }
   } catch {
     // 删除失败静默处理
   }
+}
+
+function removeAttachmentFromDescription(fileUrl: string) {
+  if (!form.value.description) return
+  const escaped = fileUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  form.value.description = form.value.description
+    .replace(new RegExp(`!\\[[^\\]]*\\]\\(${escaped}\\)`, 'g'), '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function insertAttachmentToDescription(attachment: any) {
