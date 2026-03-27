@@ -89,3 +89,49 @@ class TestAttachmentSync:
         assert response.status_code == 200
         att.refresh_from_db()
         assert att.issue_id == issue.id
+
+
+@pytest.mark.django_db
+class TestAttachmentDeleteAPI:
+    def test_delete_attachment_removes_from_db_and_calls_minio(self, auth_client, auth_user):
+        from unittest.mock import patch
+        from tests.factories import AttachmentFactory
+        from apps.tools.models import Attachment
+        att = AttachmentFactory(uploaded_by=auth_user, file_key="2026/03/27/test.png")
+
+        with patch("apps.tools.storage.delete_object") as mock_del:
+            response = auth_client.delete(f"/api/tools/attachments/{att.id}/")
+        assert response.status_code == 204
+        mock_del.assert_called_once_with("2026/03/27/test.png")
+        assert not Attachment.objects.filter(id=att.id).exists()
+
+    def test_delete_forbidden_for_other_user(self, auth_client):
+        from tests.factories import AttachmentFactory, UserFactory
+        other_user = UserFactory()
+        att = AttachmentFactory(uploaded_by=other_user)
+        response = auth_client.delete(f"/api/tools/attachments/{att.id}/")
+        assert response.status_code == 403
+
+    def test_delete_nonexistent_returns_404(self, auth_client):
+        import uuid
+        response = auth_client.delete(f"/api/tools/attachments/{uuid.uuid4()}/")
+        assert response.status_code == 404
+
+    def test_staff_can_delete_others_attachment(self, superuser_client):
+        from unittest.mock import patch
+        from tests.factories import AttachmentFactory, UserFactory
+        from apps.tools.models import Attachment
+        owner = UserFactory()
+        att = AttachmentFactory(uploaded_by=owner, file_key="2026/03/27/staff.png")
+
+        with patch("apps.tools.storage.delete_object") as mock_del:
+            response = superuser_client.delete(f"/api/tools/attachments/{att.id}/")
+        assert response.status_code == 204
+        mock_del.assert_called_once_with("2026/03/27/staff.png")
+        assert not Attachment.objects.filter(id=att.id).exists()
+
+    def test_unauthenticated_delete_rejected(self, api_client):
+        from tests.factories import AttachmentFactory
+        att = AttachmentFactory()
+        response = api_client.delete(f"/api/tools/attachments/{att.id}/")
+        assert response.status_code == 401
