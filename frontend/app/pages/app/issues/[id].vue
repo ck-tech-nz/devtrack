@@ -71,8 +71,20 @@
                 <USelect v-model="form.assignee" :items="assigneeItems" placeholder="选择负责人" value-key="value" />
               </div>
               <div class="form-row">
-                <label>标签</label>
-                <USelectMenu v-model="form.labels" :items="labelItems" multiple placeholder="选择标签" />
+                <label>求助</label>
+                <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" />
+              </div>
+            </div>
+            <div v-if="labelItems.length" class="form-row">
+              <label>标签</label>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  v-for="lbl in labelItems"
+                  :key="lbl"
+                  class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                  :class="form.labels.includes(lbl) ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                  @click="form.labels.includes(lbl) ? form.labels.splice(form.labels.indexOf(lbl), 1) : form.labels.push(lbl)"
+                >{{ lbl }}</button>
               </div>
             </div>
           </div>
@@ -445,6 +457,7 @@ const form = ref({
   description: '',
   labels: [] as string[],
   assignee: '_none',
+  helpers: [] as string[],
   remark: '',
   cause: '',
   solution: '',
@@ -468,6 +481,9 @@ const assigneeItems = computed(() => [
   { label: '无', value: '_none' },
   ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })),
 ])
+const helperItems = computed(() =>
+  users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))
+)
 
 // Track if form has changes
 const originalForm = ref('')
@@ -479,6 +495,7 @@ function populateForm(data: any) {
     description: data.description || '',
     labels: data.labels || [],
     assignee: data.assignee ? String(data.assignee) : '_none',
+    helpers: (data.helpers || []).map(String),
     remark: data.remark || '',
     cause: data.cause || '',
     solution: data.solution || '',
@@ -547,6 +564,7 @@ async function saveAll() {
   try {
     const body: any = { ...form.value }
     if (body.assignee === '_none') delete body.assignee
+    body.helpers = (body.helpers as string[]).map(Number)
     if (!body.estimated_completion) delete body.estimated_completion
     if (body.actual_hours) body.actual_hours = Number(body.actual_hours)
     else delete body.actual_hours

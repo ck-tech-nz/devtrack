@@ -2,10 +2,13 @@ import re
 from rest_framework import serializers
 from django.utils import timezone
 from django.conf import settings as django_settings
+from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
 from apps.repos.serializers import GitHubIssueBriefSerializer
 from apps.tools.serializers import AttachmentSerializer
 from .models import Issue, Activity
+
+User = get_user_model()
 
 
 def _sync_attachments(issue, user):
@@ -46,6 +49,8 @@ class GitHubIssueLinkSerializer(serializers.ModelSerializer):
 class IssueListSerializer(serializers.ModelSerializer):
     reporter_name = serializers.CharField(source="reporter.name", read_only=True, default=None)
     assignee_name = serializers.CharField(source="assignee.name", read_only=True, default=None)
+    helpers = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    helpers_names = serializers.SerializerMethodField()
     resolution_hours = serializers.SerializerMethodField()
     github_issues = GitHubIssueLinkSerializer(many=True, read_only=True)
 
@@ -54,9 +59,12 @@ class IssueListSerializer(serializers.ModelSerializer):
         fields = [
             "id", "project", "repo", "title", "priority",
             "status", "labels", "reporter", "reporter_name",
-            "assignee", "assignee_name", "remark", "cause", "solution",
+            "assignee", "assignee_name", "helpers", "helpers_names", "remark", "cause", "solution",
             "resolution_hours", "created_at", "updated_at", "github_issues",
         ]
+
+    def get_helpers_names(self, obj):
+        return [u.name or u.username for u in obj.helpers.all()]
 
     def get_resolution_hours(self, obj):
         if obj.resolved_at and obj.created_at:
@@ -77,11 +85,15 @@ class IssueDetailSerializer(IssueListSerializer):
 
 
 class IssueCreateUpdateSerializer(serializers.ModelSerializer):
+    helpers = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=User.objects.all(), required=False,
+    )
+
     class Meta:
         model = Issue
         fields = [
             "id", "project", "repo", "title", "description", "priority", "status",
-            "labels", "assignee", "remark", "estimated_completion",
+            "labels", "assignee", "helpers", "remark", "estimated_completion",
             "actual_hours", "cause", "solution",
         ]
         read_only_fields = ["id"]
@@ -107,8 +119,11 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        helpers = validated_data.pop("helpers", [])
         validated_data["reporter"] = self.context["request"].user
         issue = super().create(validated_data)
+        if helpers:
+            issue.helpers.set(helpers)
         Activity.objects.create(
             user=self.context["request"].user,
             issue=issue,
@@ -118,10 +133,13 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
         return issue
 
     def update(self, instance, validated_data):
+        helpers = validated_data.pop("helpers", None)
         user = self.context["request"].user
         old_status = instance.status
         old_assignee = instance.assignee_id
         issue = super().update(instance, validated_data)
+        if helpers is not None:
+            issue.helpers.set(helpers)
 
         new_status = validated_data.get("status")
         if new_status and new_status != old_status:
