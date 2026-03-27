@@ -59,14 +59,24 @@ const collapsed = ref(false)
 onMounted(async () => {
   if (!user.value) return
   try {
-    const [pending, inProgress] = await Promise.all([
-      api<any>(`/api/issues/?assignee=${user.value.id}&status=待处理&page_size=4`),
-      api<any>(`/api/issues/?assignee=${user.value.id}&status=进行中&page_size=4`),
+    const uid = user.value.id
+    const [ap, ai, hp, hi] = await Promise.all([
+      api<any>(`/api/issues/?assignee=${uid}&status=待处理&page_size=8`),
+      api<any>(`/api/issues/?assignee=${uid}&status=进行中&page_size=8`),
+      api<any>(`/api/issues/?helpers=${uid}&status=待处理&page_size=8`),
+      api<any>(`/api/issues/?helpers=${uid}&status=进行中&page_size=8`),
     ])
-    tasks.value = [
-      ...(pending.results || pending || []),
-      ...(inProgress.results || inProgress || []),
-    ].slice(0, 8)
+    const seen = new Set<number>()
+    const merged: any[] = []
+    for (const item of [
+      ...(ap.results || ap || []),
+      ...(ai.results || ai || []),
+      ...(hp.results || hp || []),
+      ...(hi.results || hi || []),
+    ]) {
+      if (!seen.has(item.id)) { seen.add(item.id); merged.push(item) }
+    }
+    tasks.value = merged.slice(0, 8)
   } catch (e) {
     console.error('Failed to load pending tasks:', e)
   }

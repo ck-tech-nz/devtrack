@@ -15,9 +15,7 @@
           <span class="text-gray-400 dark:text-gray-500 font-normal ml-2">#{{ issue.id }}</span>
         </h1>
       </div>
-      <div class="flex items-center space-x-2">
-        <UButton v-if="hasChanges" color="primary" size="sm" :loading="saving" @click="saveAll">保存修改</UButton>
-      </div>
+      <div class="flex items-center space-x-2"></div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -27,13 +25,19 @@
           <div class="space-y-4">
             <!-- 标题 -->
             <div class="form-row">
-              <label>标题</label>
+              <div class="flex items-center justify-between">
+                <label>标题</label>
+                <UButton v-if="isFieldDirty('title')" size="xs" variant="soft" :loading="savingField === 'title'" @click="saveField('title')">保存</UButton>
+              </div>
               <UInput v-model="form.title" />
             </div>
 
             <!-- 描述 -->
             <div class="form-row">
-              <label>描述</label>
+              <div class="flex items-center justify-between">
+                <label>描述</label>
+                <UButton v-if="isFieldDirty('description')" size="xs" variant="soft" :loading="savingField === 'description'" @click="saveField('description')">保存</UButton>
+              </div>
               <MarkdownEditor ref="descriptionEditor" v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" @upload-complete="handleUploadComplete" />
             </div>
 
@@ -68,11 +72,11 @@
             <div class="form-grid-2">
               <div class="form-row">
                 <label>负责人</label>
-                <USelect v-model="form.assignee" :items="assigneeItems" placeholder="选择负责人" value-key="value" />
+                <USelect v-model="form.assignee" :items="assigneeItems" placeholder="选择负责人" value-key="value" @update:model-value="(v: string) => autoSave('assignee', v)" />
               </div>
               <div class="form-row">
                 <label>求助</label>
-                <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" />
+                <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" @update:model-value="(v: string[]) => autoSave('helpers', v)" />
               </div>
             </div>
             <div v-if="labelItems.length" class="form-row">
@@ -83,7 +87,7 @@
                   :key="lbl"
                   class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
                   :class="form.labels.includes(lbl) ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
-                  @click="form.labels.includes(lbl) ? form.labels.splice(form.labels.indexOf(lbl), 1) : form.labels.push(lbl)"
+                  @click="toggleLabel(lbl)"
                 >{{ lbl }}</button>
               </div>
             </div>
@@ -94,15 +98,24 @@
           <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">分析记录</h3>
           <div class="space-y-4">
             <div class="form-row">
-              <label>备注</label>
+              <div class="flex items-center justify-between">
+                <label>备注</label>
+                <UButton v-if="isFieldDirty('remark')" size="xs" variant="soft" :loading="savingField === 'remark'" @click="saveField('remark')">保存</UButton>
+              </div>
               <UTextarea v-model="form.remark" :rows="2" placeholder="备注信息" />
             </div>
             <div class="form-row">
-              <label>原因分析</label>
+              <div class="flex items-center justify-between">
+                <label>原因分析</label>
+                <UButton v-if="isFieldDirty('cause')" size="xs" variant="soft" :loading="savingField === 'cause'" @click="saveField('cause')">保存</UButton>
+              </div>
               <UTextarea v-model="form.cause" :rows="3" placeholder="问题原因" />
             </div>
             <div class="form-row">
-              <label>解决方案</label>
+              <div class="flex items-center justify-between">
+                <label>解决方案</label>
+                <UButton v-if="isFieldDirty('solution')" size="xs" variant="soft" :loading="savingField === 'solution'" @click="saveField('solution')">保存</UButton>
+              </div>
               <UTextarea v-model="form.solution" :rows="3" placeholder="解决办法" />
             </div>
           </div>
@@ -197,10 +210,13 @@
           <div class="grid grid-cols-2 gap-3">
             <div class="form-row">
               <label class="text-gray-400 dark:text-gray-500">预计完成</label>
-              <UInput v-model="form.estimated_completion" type="date" />
+              <UInput v-model="form.estimated_completion" type="date" @update:model-value="(v: string) => autoSave('estimated_completion', v)" />
             </div>
             <div class="form-row">
-              <label class="text-gray-400 dark:text-gray-500">实际工时</label>
+              <div class="flex items-center justify-between">
+                <label class="text-gray-400 dark:text-gray-500">实际工时</label>
+                <UButton v-if="isFieldDirty('actual_hours')" size="xs" variant="soft" :loading="savingField === 'actual_hours'" @click="saveField('actual_hours')">保存</UButton>
+              </div>
               <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
             </div>
           </div>
@@ -386,7 +402,6 @@ const route = useRoute()
 const { isOnline } = useServiceStatus()
 
 const loading = ref(true)
-const saving = ref(false)
 const issue = ref<any>(null)
 const aiAnalyzing = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -485,9 +500,12 @@ const helperItems = computed(() =>
   users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))
 )
 
-// Track if form has changes
-const originalForm = ref('')
-const hasChanges = computed(() => JSON.stringify(form.value) !== originalForm.value)
+const savedForm = ref<typeof form.value>({ ...form.value })
+const savingField = ref<string | null>(null)
+
+function isFieldDirty(field: keyof typeof form.value) {
+  return JSON.stringify(form.value[field]) !== JSON.stringify(savedForm.value[field])
+}
 
 function populateForm(data: any) {
   form.value = {
@@ -502,7 +520,7 @@ function populateForm(data: any) {
     estimated_completion: data.estimated_completion || '',
     actual_hours: data.actual_hours != null ? String(data.actual_hours) : '',
   }
-  originalForm.value = JSON.stringify(form.value)
+  savedForm.value = JSON.parse(JSON.stringify(form.value))
 }
 
 async function fetchIssue() {
@@ -558,43 +576,52 @@ function pollAnalysisStatus(analysisId: number | undefined) {
 
 
 
-async function saveAll() {
+// 文本输入框：显示保存按钮，点击后保存
+async function saveField(field: keyof typeof form.value) {
   if (!issue.value) return
-  saving.value = true
+  savingField.value = field
   try {
-    const body: any = { ...form.value }
-    if (body.assignee === '_none') delete body.assignee
-    body.helpers = (body.helpers as string[]).map(Number)
-    if (!body.estimated_completion) delete body.estimated_completion
-    if (body.actual_hours) body.actual_hours = Number(body.actual_hours)
-    else delete body.actual_hours
-    await api(`/api/issues/${issue.value.id}/`, {
-      method: 'PATCH',
-      body,
-    })
+    const body: Record<string, any> = {}
+    const val = form.value[field]
+    if (field === 'actual_hours') body.actual_hours = val ? Number(val) : null
+    else body[field] = val
+    await api(`/api/issues/${issue.value.id}/`, { method: 'PATCH', body })
     issue.value = await api<any>(`/api/issues/${route.params.id}/`)
     populateForm(issue.value)
-    descriptionEditor.value?.setMode('preview')
+    if (field === 'description') descriptionEditor.value?.setMode('preview')
   } catch (e) {
-    console.error('Save failed:', e)
+    console.error(`Save ${field} failed:`, e)
   } finally {
-    saving.value = false
+    savingField.value = null
   }
 }
 
-// 立即 PATCH 单个字段（优先级/状态胶囊按钮使用）
-async function updateField(field: string, value: string) {
+// 下拉/胶囊/日期：直接保存
+async function autoSave(field: string, rawValue: any) {
   if (!issue.value) return
+  let value = rawValue
+  if (field === 'assignee') value = rawValue === '_none' ? null : rawValue
+  if (field === 'helpers') value = (rawValue as string[]).map(Number)
+  if (field === 'estimated_completion') value = rawValue || null
   try {
-    await api(`/api/issues/${issue.value.id}/`, {
-      method: 'PATCH',
-      body: { [field]: value },
-    })
+    await api(`/api/issues/${issue.value.id}/`, { method: 'PATCH', body: { [field]: value } })
     issue.value = await api<any>(`/api/issues/${route.params.id}/`)
     populateForm(issue.value)
   } catch (e) {
-    console.error(`Update ${field} failed:`, e)
+    console.error(`Auto-save ${field} failed:`, e)
   }
+}
+
+function toggleLabel(lbl: string) {
+  const idx = form.value.labels.indexOf(lbl)
+  if (idx >= 0) form.value.labels.splice(idx, 1)
+  else form.value.labels.push(lbl)
+  autoSave('labels', [...form.value.labels])
+}
+
+// 优先级/状态胶囊直接保存
+async function updateField(field: string, value: string) {
+  await autoSave(field, value)
 }
 
 // 状态胶囊点击处理（已解决 -> 已关闭 时检查 GitHub）

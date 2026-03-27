@@ -29,7 +29,7 @@ class IssueListCreateView(generics.ListCreateAPIView):
     queryset = Issue.objects.select_related("reporter", "assignee").prefetch_related("github_issues__repo")
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["priority", "status", "assignee", "project"]
+    filterset_fields = ["priority", "status", "assignee", "project", "helpers"]
     search_fields = ["title"]
     ordering_fields = ["created_at", "priority", "updated_at"]
     ordering = ["-created_at"]
