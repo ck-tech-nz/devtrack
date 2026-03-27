@@ -86,6 +86,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'upload-complete': [attachment: { url: string; filename: string; id: string }]
 }>()
 
 const { api } = useApi()
@@ -315,11 +316,12 @@ async function uploadFiles(files: File[]) {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await api<{ url: string; filename: string }>('/api/tools/upload/image/', {
+      const res = await api<{ url: string; filename: string; id: string }>('/api/tools/upload/image/', {
         method: 'POST',
         body: formData,
       })
       replacePlaceholder(placeholder, `![${res.filename}](${res.url})`)
+      emit('upload-complete', { url: res.url, filename: res.filename, id: res.id })
     } catch {
       replacePlaceholder(placeholder, `![上传失败 ${file.name}]()`)
       toast.add({ title: `上传失败: ${file.name}`, color: 'error' })

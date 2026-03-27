@@ -34,7 +34,7 @@
             <!-- 描述 -->
             <div class="form-row">
               <label>描述</label>
-              <MarkdownEditor ref="descriptionEditor" v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" />
+              <MarkdownEditor ref="descriptionEditor" v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" @upload-complete="handleUploadComplete" />
             </div>
 
             <!-- 优先级 & 状态 -->
@@ -133,10 +133,14 @@
           </div>
         </div>
 
-        <!-- 附件图片 -->
-        <div v-if="attachments.length" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
-          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">附件图片</h3>
-          <div class="grid grid-cols-2 gap-2">
+        <!-- 关联附件 -->
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">关联附件</h3>
+            <UButton size="xs" variant="soft" icon="i-heroicons-paper-clip" @click="attachmentInputRef?.click()">添加</UButton>
+          </div>
+          <input ref="attachmentInputRef" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleAttachmentSelect" />
+          <div v-if="attachments.length" class="grid grid-cols-2 gap-2">
             <div
               v-for="att in attachments"
               :key="att.id"
@@ -145,22 +149,22 @@
               <img
                 :src="att.file_url"
                 :alt="att.file_name"
-                class="w-full h-20 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                class="w-full h-20 object-cover"
                 :title="att.file_name"
-                @click="insertAttachmentToDescription(att)"
               />
-              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-1">
+              <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-1 gap-1">
                 <button
-                  class="text-white text-xs bg-primary-600 hover:bg-primary-700 rounded px-1.5 py-0.5"
+                  class="text-white text-xs bg-primary-600 hover:bg-primary-700 rounded px-1.5 py-0.5 flex-1"
                   @click.stop="insertAttachmentToDescription(att)"
                 >插入</button>
                 <button
-                  class="text-white text-xs bg-red-600 hover:bg-red-700 rounded px-1.5 py-0.5"
-                  @click.stop="deleteAttachment(att.id)"
-                >删除</button>
+                  class="text-white text-xs bg-gray-600 hover:bg-gray-700 rounded px-1.5 py-0.5 flex-1"
+                  @click.stop="unlinkAttachment(att.id)"
+                >移除</button>
               </div>
             </div>
           </div>
+          <p v-else class="text-xs text-gray-400 dark:text-gray-500">暂无附件</p>
         </div>
 
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
@@ -663,20 +667,59 @@ async function checkRunningAnalysis() {
   }
 }
 
-// 附件（仅图片）
+// 关联附件
+const attachmentInputRef = ref<HTMLInputElement | null>(null)
 const attachments = computed(() =>
   ((issue.value as any)?.attachments ?? []).filter((a: any) => a.mime_type?.startsWith('image/'))
 )
 
-async function deleteAttachment(id: string) {
+async function handleUploadComplete(uploaded: { url: string; filename: string; id: string }) {
+  if (!issue.value?.id) return
   const { api } = useApi()
   try {
-    await api(`/api/tools/attachments/${id}/`, { method: 'DELETE' })
+    await api(`/api/issues/${issue.value.id}/attachments/`, {
+      method: 'POST',
+      body: { attachment_id: uploaded.id },
+    })
+    // Refresh issue to get updated attachments list
+    issue.value = await api<any>(`/api/issues/${issue.value.id}/`)
+  } catch {
+    // 绑定失败静默处理
+  }
+}
+
+async function handleAttachmentSelect(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  input.value = ''
+  const { api } = useApi()
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await api<{ url: string; filename: string; id: string }>('/api/tools/upload/image/', {
+      method: 'POST',
+      body: formData,
+    })
+    await handleUploadComplete(res)
+  } catch {
+    // 上传失败静默处理
+  }
+}
+
+async function unlinkAttachment(attachmentId: string) {
+  if (!issue.value?.id) return
+  const { api } = useApi()
+  try {
+    await api(`/api/issues/${issue.value.id}/attachments/`, {
+      method: 'DELETE',
+      body: { attachment_id: attachmentId },
+    })
     if (issue.value) {
-      (issue.value as any).attachments = (issue.value as any).attachments.filter((a: any) => a.id !== id)
+      (issue.value as any).attachments = (issue.value as any).attachments.filter((a: any) => a.id !== attachmentId)
     }
   } catch {
-    // 删除失败静默处理
+    // 移除失败静默处理
   }
 }
 
