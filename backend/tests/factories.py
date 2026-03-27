@@ -142,3 +142,19 @@ class AnalysisFactory(factory.django.DjangoModelFactory):
     data_hash = ""
     input_context = factory.LazyFunction(dict)
     prompt_snapshot = factory.LazyFunction(dict)
+
+
+from apps.tools.models import Attachment
+
+
+class AttachmentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Attachment
+
+    issue = None
+    uploaded_by = factory.SubFactory(UserFactory)
+    file_name = factory.Sequence(lambda n: f"screenshot_{n}.png")
+    file_key = factory.Sequence(lambda n: f"2026/03/27/{n:04d}.png")
+    file_url = factory.LazyAttribute(lambda o: f"http://minio:9000/devtrack-uploads/{o.file_key}")
+    file_size = 102400
+    mime_type = "image/png"
