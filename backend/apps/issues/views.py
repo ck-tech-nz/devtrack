@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.db.models import Count, Avg, F
 from django.db.models.functions import TruncDate
 from apps.repos.models import Repo, GitHubIssue
+from apps.ai.models import Analysis
+from apps.ai.services import IssueAnalysisService
 from apps.repos.services import GitHubSyncService
 from apps.repos.serializers import GitHubIssueBriefSerializer
 from .models import Issue, Activity
@@ -226,6 +228,90 @@ class IssueGitHubLinkView(APIView):
         gh_issues = GitHubIssue.objects.filter(id__in=gh_ids)
         issue.github_issues.remove(*gh_issues)
         return Response({"unlinked": len(gh_issues)})
+
+
+class IssueAIAnalyzeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        issue = Issue.objects.select_related("repo").filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        if not issue.repo:
+            return Response({"detail": "请先关联仓库"}, status=status.HTTP_400_BAD_REQUEST)
+        if issue.repo.clone_status != "cloned":
+            return Response({"detail": "请先同步代码"}, status=status.HTTP_400_BAD_REQUEST)
+
+        svc = IssueAnalysisService()
+        existing = svc.get_running_analysis(issue)
+        if existing:
+            return Response(
+                {"analysis_id": existing.id, "status": "running"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        analysis = svc.analyze_async(issue, triggered_by="manual", user=request.user)
+        return Response(
+            {"analysis_id": analysis.id, "status": "running"},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class IssueAIStatusView(APIView):
+    """查询 Issue 是否有正在运行的 AI 分析。"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        svc = IssueAnalysisService()
+        running = svc.get_running_analysis(issue)
+        if running:
+            return Response({"analysis_id": running.id, "status": "running"})
+        return Response({"analysis_id": None, "status": "idle"})
+
+
+class IssueAnalysesView(APIView):
+    """GET /api/issues/{id}/analyses/ — 返回该 Issue 的 AI 分析历史"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        analyses = (
+            Analysis.objects
+            .filter(issue=issue, analysis_type="issue_code_analysis")
+            .select_related("triggered_by_user")
+            .order_by("-created_at")
+        )
+
+        data = []
+        for a in analyses:
+            results = None
+            if a.status == Analysis.Status.DONE and a.parsed_result:
+                pr = a.parsed_result
+                if "target_field" in pr:
+                    results = {pr["target_field"]: pr.get("content", "")}
+                else:
+                    results = {k: v for k, v in pr.items()
+                              if k in ("cause", "solution", "remark") and v}
+
+            data.append({
+                "id": a.id,
+                "status": a.status,
+                "triggered_by": a.triggered_by,
+                "triggered_by_user": (
+                    a.triggered_by_user.name or a.triggered_by_user.username
+                ) if a.triggered_by_user else None,
+                "created_at": a.created_at.isoformat(),
+                "error_message": a.error_message if a.status == Analysis.Status.FAILED else None,
+                "results": results,
+            })
+
+        return Response(data)
 
 
 class IssueCloseWithGitHubView(APIView):

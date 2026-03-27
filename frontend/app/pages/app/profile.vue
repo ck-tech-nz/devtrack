@@ -21,7 +21,18 @@
       <!-- Editable fields -->
       <div class="grid grid-cols-2 gap-4">
         <UFormField label="昵称">
-          <UInput v-model="form.name" size="lg" class="w-full" />
+          <div class="flex gap-2">
+            <UInput v-model="form.name" size="lg" class="flex-1" />
+            <UButton
+              variant="outline"
+              color="neutral"
+              size="lg"
+              :loading="generatingName"
+              icon="i-heroicons-sparkles"
+              title="AI 生成昵称"
+              @click="generateNickname"
+            />
+          </div>
         </UFormField>
         <UFormField label="邮箱" hint="用于接收通知">
           <UInput v-model="form.email" type="email" size="lg" class="w-full" />
@@ -101,6 +112,24 @@ const { settings } = useUserSettings()
 const saving = ref(false)
 const error = ref('')
 const success = ref('')
+const generatingName = ref(false)
+const generatedNames = ref<string[]>([])
+
+async function generateNickname() {
+  generatingName.value = true
+  try {
+    const data = await api<{ nickname: string }>('/api/auth/generate-nickname/', {
+      method: 'POST',
+      body: { username: user.value?.username, exclude: generatedNames.value },
+    })
+    form.value.name = data.nickname
+    if (data.nickname) generatedNames.value.push(data.nickname)
+  } catch {
+    // silently ignore
+  } finally {
+    generatingName.value = false
+  }
+}
 
 const form = ref({ name: '', email: '', avatar: '' })
 const pw = ref({ current: '', new_password: '', confirm: '' })

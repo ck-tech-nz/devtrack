@@ -109,6 +109,47 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
+class AdminCreateUserSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True)
+    name = serializers.CharField(max_length=50, required=False, default="")
+    email = serializers.EmailField(required=False, default="")
+    is_active = serializers.BooleanField(default=True)
+    groups = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("该用户名已被注册")
+        return value
+
+    def validate_groups(self, value):
+        from django.contrib.auth.models import Group
+        groups = []
+        for name in value:
+            try:
+                groups.append(Group.objects.get(name=name))
+            except Group.DoesNotExist:
+                raise serializers.ValidationError(f"用户组 '{name}' 不存在")
+        return groups
+
+    def create(self, validated_data):
+        from .avatar_choices import random_avatar
+        groups = validated_data.pop("groups", [])
+        user = User.objects.create_user(
+            username=validated_data["username"],
+            password=validated_data["password"],
+            name=validated_data.get("name", ""),
+            email=validated_data.get("email", ""),
+            avatar=random_avatar(),
+            is_active=validated_data.get("is_active", True),
+        )
+        if groups:
+            user.groups.set(groups)
+        return user
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True)

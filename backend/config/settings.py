@@ -139,6 +139,8 @@ MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "devtrack-uploads")
 MINIO_USE_SSL = os.environ.get("MINIO_USE_SSL", "False").lower() in ("true", "1")
 MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "/uploads")
 
+REPO_CLONE_DIR = os.environ.get("REPO_CLONE_DIR", "/data/repos")
+
 # Page permissions configuration
 PAGE_PERMS = {
     "PROTECTED_PATHS": ["/app/permissions"],

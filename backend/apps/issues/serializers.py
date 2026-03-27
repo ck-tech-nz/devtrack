@@ -35,7 +35,7 @@ class IssueListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Issue
         fields = [
-            "id", "project", "title", "priority",
+            "id", "project", "repo", "title", "priority",
             "status", "labels", "reporter", "reporter_name",
             "assignee", "assignee_name", "remark", "cause", "solution",
             "resolution_hours", "created_at", "updated_at", "github_issues",
@@ -62,7 +62,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Issue
         fields = [
-            "project", "title", "description", "priority", "status",
+            "project", "repo", "title", "description", "priority", "status",
             "labels", "assignee", "remark", "estimated_completion",
             "actual_hours", "cause", "solution",
         ]

@@ -65,6 +65,7 @@ class Analysis(models.Model):
     class TriggerType(models.TextChoices):
         PAGE_OPEN = "page_open", "页面打开"
         MANUAL = "manual", "手动刷新"
+        AUTO = "auto", "自动触发"
 
     analysis_type = models.CharField(max_length=100, verbose_name="分析类型")
     prompt_template = models.ForeignKey(
@@ -77,6 +78,11 @@ class Analysis(models.Model):
     triggered_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         verbose_name="触发用户",
+    )
+    issue = models.ForeignKey(
+        "issues.Issue", on_delete=models.CASCADE,
+        null=True, blank=True, related_name="analyses",
+        verbose_name="关联问题",
     )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="状态",

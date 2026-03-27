@@ -1,13 +1,14 @@
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.generics import RetrieveUpdateAPIView, ListAPIView, CreateAPIView
+from rest_framework.generics import RetrieveUpdateAPIView, ListCreateAPIView, CreateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from apps.permissions import FullDjangoModelPermissions
 from .serializers import (
     UserSerializer, MeSerializer, RegisterSerializer,
-    AdminUserSerializer, AdminUserUpdateSerializer, ChangePasswordSerializer,
+    AdminUserSerializer, AdminUserUpdateSerializer, AdminCreateUserSerializer,
+    ChangePasswordSerializer,
 )
 
 User = get_user_model()
@@ -21,10 +22,20 @@ class MeView(RetrieveUpdateAPIView):
         return self.request.user
 
 
-class UserListView(ListAPIView):
+class UserListView(ListCreateAPIView):
     queryset = User.objects.all().order_by("-date_joined")
-    serializer_class = AdminUserSerializer
     permission_classes = [FullDjangoModelPermissions]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AdminCreateUserSerializer
+        return AdminUserSerializer
+
+    def create(self, request, *args, **_kwargs):
+        serializer = AdminCreateUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(AdminUserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 class UserDetailView(RetrieveUpdateAPIView):

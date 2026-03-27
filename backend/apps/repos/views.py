@@ -8,7 +8,10 @@ from rest_framework.views import APIView
 from apps.permissions import FullDjangoModelPermissions
 from .models import Repo, GitHubIssue
 from .serializers import RepoSerializer, GitHubIssueBriefSerializer, GitHubIssueDetailSerializer
-from .services import GitHubSyncService
+from concurrent.futures import ThreadPoolExecutor
+from .services import GitHubSyncService, RepoCloneService
+
+_clone_executor = ThreadPoolExecutor(max_workers=2)
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +105,56 @@ class RepoSyncView(APIView):
                 {"detail": f"GitHub 同步失败: {e}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+
+class RepoCloneView(APIView):
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Repo.objects.none()
+
+    def post(self, request, pk):
+        try:
+            repo = Repo.objects.get(pk=pk)
+        except Repo.DoesNotExist:
+            return Response({"detail": "仓库不存在"}, status=status.HTTP_404_NOT_FOUND)
+        if repo.clone_status == "cloning":
+            return Response(
+                {"detail": "克隆任务进行中", "clone_status": "cloning"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        branch = request.data.get("branch")
+        _clone_executor.submit(RepoCloneService().clone_or_pull, repo, branch)
+        return Response(
+            {"detail": "克隆任务已启动", "clone_status": "cloning"},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class RepoGitLogView(APIView):
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Repo.objects.none()
+
+    def get(self, request, pk):
+        try:
+            repo = Repo.objects.get(pk=pk)
+        except Repo.DoesNotExist:
+            return Response({"detail": "仓库不存在"}, status=status.HTTP_404_NOT_FOUND)
+        if repo.clone_status != "cloned":
+            return Response({"detail": "请先同步代码"}, status=status.HTTP_400_BAD_REQUEST)
+        limit = min(int(request.query_params.get("limit", 50)), 200)
+        commits = RepoCloneService().get_log(repo, limit=limit)
+        return Response(commits)
+
+
+class RepoBranchesView(APIView):
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Repo.objects.none()
+
+    def get(self, request, pk):
+        try:
+            repo = Repo.objects.get(pk=pk)
+        except Repo.DoesNotExist:
+            return Response({"detail": "仓库不存在"}, status=status.HTTP_404_NOT_FOUND)
+        if repo.clone_status != "cloned":
+            return Response({"detail": "请先同步代码"}, status=status.HTTP_400_BAD_REQUEST)
+        branches = RepoCloneService().get_branches(repo)
+        return Response(branches)

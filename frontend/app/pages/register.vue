@@ -9,26 +9,38 @@
     <form class="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8" @submit.prevent="handleRegister">
       <h2 class="text-lg font-semibold text-gray-900 mb-6">注册</h2>
       <div class="space-y-4">
-        <UFormField label="用户名" required>
+        <UFormField label="用户名" required :error="fieldErrors.username">
           <UInput v-model="form.username" placeholder="请输入用户名" icon="i-heroicons-user" size="lg" class="w-full" />
         </UFormField>
-        <UFormField label="密码" required>
+        <UFormField label="密码" required :error="fieldErrors.password">
           <UInput v-model="form.password" type="password" placeholder="请输入密码" icon="i-heroicons-lock-closed" size="lg" class="w-full" />
         </UFormField>
-        <UFormField label="确认密码" required>
+        <UFormField label="确认密码" required :error="fieldErrors.password_confirm">
           <UInput v-model="form.password_confirm" type="password" placeholder="请再次输入密码" icon="i-heroicons-lock-closed" size="lg" class="w-full" />
         </UFormField>
-        <UFormField label="昵称">
-          <UInput v-model="form.name" placeholder="请输入昵称" icon="i-heroicons-user-circle" size="lg" class="w-full" />
+        <UFormField label="昵称" :error="fieldErrors.name">
+          <div class="flex gap-2">
+            <UInput v-model="form.name" placeholder="请输入昵称" icon="i-heroicons-user-circle" size="lg" class="flex-1" />
+            <UButton
+              type="button"
+              variant="outline"
+              color="neutral"
+              size="lg"
+              :loading="generatingName"
+              icon="i-heroicons-sparkles"
+              :title="'AI 生成昵称'"
+              @click="generateNickname"
+            />
+          </div>
         </UFormField>
-        <UFormField label="邮箱" hint="用于接收通知">
+        <UFormField label="邮箱" hint="用于接收通知" :error="fieldErrors.email">
           <UInput v-model="form.email" type="email" placeholder="请输入邮箱" icon="i-heroicons-envelope" size="lg" class="w-full" />
         </UFormField>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">选择头像</label>
           <AvatarPicker v-model="form.avatar" />
         </div>
-        <p v-if="error" class="text-sm text-red-500">{{ error }}</p>
+        <p v-if="fieldErrors._global" class="text-sm text-red-500">{{ fieldErrors._global }}</p>
         <UButton block size="lg" color="primary" :loading="loading" type="submit">注册</UButton>
       </div>
     </form>
@@ -54,13 +66,37 @@ const form = ref({
   email: '',
   avatar: randomAvatarId(),
 })
-const error = ref('')
+
+const fieldErrors = ref<Record<string, string>>({})
 const loading = ref(false)
+const generatingName = ref(false)
+const generatedNames = ref<string[]>([])
+
+async function generateNickname() {
+  if (!form.value.username.trim()) {
+    fieldErrors.value = { ...fieldErrors.value, name: '请先输入用户名，再生成昵称' }
+    return
+  }
+  fieldErrors.value = { ...fieldErrors.value, name: '' }
+  generatingName.value = true
+  try {
+    const data = await $fetch<{ nickname: string }>('/api/auth/generate-nickname/', {
+      method: 'POST',
+      body: { username: form.value.username, exclude: generatedNames.value },
+    })
+    form.value.name = data.nickname
+    if (data.nickname) generatedNames.value.push(data.nickname)
+  } catch {
+    // silently ignore — user can type manually
+  } finally {
+    generatingName.value = false
+  }
+}
 
 async function handleRegister() {
-  error.value = ''
+  fieldErrors.value = {}
   if (form.value.password !== form.value.password_confirm) {
-    error.value = '两次密码输入不一致'
+    fieldErrors.value = { password_confirm: '两次密码输入不一致' }
     return
   }
   loading.value = true
@@ -72,13 +108,20 @@ async function handleRegister() {
     await navigateTo('/?registered=1')
   } catch (e: any) {
     const data = e?.data || e?.response?._data
-    if (data && typeof data === 'object') {
-      const msgs = Object.entries(data)
-        .map(([k, v]) => Array.isArray(v) ? v.join(', ') : v)
-        .join('; ')
-      error.value = msgs || '注册失败，请重试'
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const errors: Record<string, string> = {}
+      for (const [k, v] of Object.entries(data)) {
+        const msg = Array.isArray(v) ? v.join('；') : String(v)
+        // Map known fields; everything else goes to _global
+        if (['username', 'password', 'password_confirm', 'name', 'email'].includes(k)) {
+          errors[k] = msg
+        } else {
+          errors._global = (errors._global ? errors._global + '；' : '') + msg
+        }
+      }
+      fieldErrors.value = errors
     } else {
-      error.value = '注册失败，请重试'
+      fieldErrors.value = { _global: '注册失败，请重试' }
     }
   } finally {
     loading.value = false

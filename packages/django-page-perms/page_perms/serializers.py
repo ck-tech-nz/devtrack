@@ -110,6 +110,31 @@ class GroupSerializer(serializers.ModelSerializer):
         ]
 
 
+class GroupCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=150)
+    permissions = serializers.ListField(child=serializers.CharField(), default=list)
+
+    def validate_name(self, value):
+        if Group.objects.filter(name=value).exists():
+            raise serializers.ValidationError(f"组名 '{value}' 已存在。")
+        return value
+
+    def create(self, validated_data):
+        group = Group.objects.create(name=validated_data["name"])
+        perm_strings = validated_data.get("permissions", [])
+        perms = []
+        for perm_string in perm_strings:
+            try:
+                app_label, codename = perm_string.split(".", 1)
+                perm = Permission.objects.get(content_type__app_label=app_label, codename=codename)
+                perms.append(perm)
+            except (ValueError, Permission.DoesNotExist):
+                pass
+        if perms:
+            group.permissions.set(perms)
+        return group
+
+
 class GroupUpdateSerializer(serializers.Serializer):
     permissions = serializers.ListField(child=serializers.CharField())
 

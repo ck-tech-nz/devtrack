@@ -1,7 +1,19 @@
+import os
+import re
+
+from django.conf import settings as django_settings
 from django.db import models
 
 
 class Repo(models.Model):
+    CLONE_STATUS_CHOICES = [
+        ("not_cloned", "未克隆"),
+        ("cloning", "克隆中"),
+        ("cloned", "已克隆"),
+        ("failed", "失败"),
+        ("error", "错误"),
+    ]
+
     name = models.CharField(max_length=100, verbose_name="仓库名")
     full_name = models.CharField(max_length=200, verbose_name="完整名称")
     url = models.CharField(max_length=500, verbose_name="GitHub URL")
@@ -13,6 +25,16 @@ class Repo(models.Model):
     connected_at = models.DateTimeField(auto_now_add=True, verbose_name="绑定时间")
     github_token = models.CharField(max_length=200, blank=True, verbose_name="GitHub Token")
     last_synced_at = models.DateTimeField(null=True, blank=True, verbose_name="最近同步时间")
+    clone_status = models.CharField(max_length=20, choices=CLONE_STATUS_CHOICES, default="not_cloned", verbose_name="克隆状态")
+    clone_error = models.TextField(blank=True, verbose_name="克隆错误信息")
+    current_branch = models.CharField(max_length=100, blank=True, verbose_name="当前分支")
+    cloned_at = models.DateTimeField(null=True, blank=True, verbose_name="克隆时间")
+
+    @property
+    def local_path(self):
+        if not re.match(r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$", self.full_name):
+            raise ValueError(f"Invalid full_name: {self.full_name}")
+        return os.path.join(django_settings.REPO_CLONE_DIR, self.full_name)
 
     class Meta:
         verbose_name = "GitHub 仓库"

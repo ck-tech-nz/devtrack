@@ -56,6 +56,7 @@ class IssueFactory(factory.django.DjangoModelFactory):
         model = Issue
 
     project = factory.SubFactory(ProjectFactory)
+    repo = None
     title = factory.LazyFunction(lambda: fake.sentence())
     description = factory.LazyFunction(lambda: fake.paragraph())
     priority = factory.Iterator(["P0", "P1", "P2", "P3"])
@@ -136,6 +137,7 @@ class AnalysisFactory(factory.django.DjangoModelFactory):
 
     analysis_type = "team_insights"
     triggered_by = "page_open"
+    issue = None
     status = "pending"
     data_hash = ""
     input_context = factory.LazyFunction(dict)

@@ -12,6 +12,11 @@ class Issue(models.Model):
         "repos.GitHubIssue", blank=True, related_name="devtrack_issues",
         verbose_name="关联 GitHub Issues",
     )
+    repo = models.ForeignKey(
+        "repos.Repo", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="issues",
+        verbose_name="关联仓库",
+    )
     priority = models.CharField(max_length=10, verbose_name="优先级")
     status = models.CharField(max_length=20, verbose_name="状态")
     labels = models.JSONField(default=list, verbose_name="标签", blank=True)

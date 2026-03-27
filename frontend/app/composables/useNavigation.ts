@@ -6,6 +6,25 @@ export interface NavItem {
   meta?: Record<string, any>
 }
 
+export interface NavGroup {
+  label: string
+  icon: string
+  children: NavItem[]
+}
+
+export type NavEntry = NavItem | NavGroup
+
+export function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return 'children' in entry
+}
+
+// Groups are defined by which paths they collect, in display order.
+// The group appears at the position of its first matching child in the route list.
+const GROUP_DEFS: { label: string; icon: string; paths: string[] }[] = [
+  { label: '项目管理', icon: 'i-heroicons-folder', paths: ['/app/projects', '/app/repos'] },
+  { label: '用户管理', icon: 'i-heroicons-users', paths: ['/app/users', '/app/permissions'] },
+]
+
 export const useNavigation = () => {
   const { can, user } = useAuth()
   const { routes, loaded } = usePagePerms()
@@ -30,6 +49,33 @@ export const useNavigation = () => {
       if (item.permission && !can(item.permission)) return false
       return true
     })
+  })
+
+  // Grouped nav: items belonging to a GROUP_DEF are collapsed under a parent entry.
+  // Order follows the original route list (group inserted at position of first matching child).
+  const groupedNavItems = computed<NavEntry[]>(() => {
+    const items = filteredNavItems.value
+    const pathToGroupDef = new Map<string, typeof GROUP_DEFS[0]>()
+    for (const def of GROUP_DEFS) {
+      for (const path of def.paths) pathToGroupDef.set(path, def)
+    }
+
+    const result: NavEntry[] = []
+    const emittedGroupLabels = new Set<string>()
+
+    for (const item of items) {
+      if (!item.to) { result.push(item); continue }
+      const def = pathToGroupDef.get(item.to)
+      if (!def) { result.push(item); continue }
+      if (emittedGroupLabels.has(def.label)) continue
+      emittedGroupLabels.add(def.label)
+      const children = def.paths
+        .map(p => items.find(i => i.to === p))
+        .filter(Boolean) as NavItem[]
+      result.push({ label: def.label, icon: def.icon, children })
+    }
+
+    return result
   })
 
   const route = useRoute()
@@ -69,5 +115,5 @@ export const useNavigation = () => {
     return crumbs
   })
 
-  return { navItems, filteredNavItems, currentPath, breadcrumbs }
+  return { navItems, filteredNavItems, groupedNavItems, currentPath, breadcrumbs }
 }

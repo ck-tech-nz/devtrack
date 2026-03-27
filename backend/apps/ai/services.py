@@ -1,7 +1,10 @@
 import hashlib
 import json
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
+from django.db import close_old_connections
 from django.db.models import Max, Count, Avg, F, Q
 from django.utils import timezone
 
@@ -9,6 +12,7 @@ from apps.issues.models import Issue
 from apps.repos.models import GitHubIssue
 from .client import LLMClient
 from .models import LLMConfig, Prompt, Analysis
+from .opencode import OpenCodeRunner
 
 
 class AIConfigurationError(Exception):
@@ -178,3 +182,187 @@ class AIAnalysisService:
             raise
 
         return analysis
+
+
+logger = logging.getLogger(__name__)
+_executor = ThreadPoolExecutor(max_workers=2)
+
+
+class IssueAnalysisService:
+    ALLOWED_FIELDS = {"cause", "solution", "remark"}
+
+    def analyze(self, issue, triggered_by="manual", user=None):
+        if not issue.repo:
+            raise ValueError("请先关联仓库")
+        if issue.repo.clone_status != "cloned":
+            raise ValueError("请先同步代码")
+
+        analysis = Analysis.objects.create(
+            analysis_type="issue_code_analysis",
+            issue=issue,
+            triggered_by=triggered_by,
+            triggered_by_user=user if triggered_by == "manual" else None,
+            status=Analysis.Status.RUNNING,
+        )
+        self._execute_analysis(analysis, issue)
+        return analysis
+
+    def analyze_async(self, issue, triggered_by="auto", user=None):
+        analysis = Analysis.objects.create(
+            analysis_type="issue_code_analysis",
+            issue=issue,
+            triggered_by=triggered_by,
+            triggered_by_user=user if triggered_by == "manual" else None,
+            status=Analysis.Status.RUNNING,
+        )
+        _executor.submit(self._run_in_thread, analysis.id, issue.id)
+        return analysis
+
+    def _run_in_thread(self, analysis_id, issue_id):
+        try:
+            issue = Issue.objects.select_related("repo").get(pk=issue_id)
+            analysis = Analysis.objects.get(pk=analysis_id)
+            self._execute_analysis(analysis, issue)
+        except Exception:
+            logger.exception("AI analysis thread failed for analysis %s", analysis_id)
+            Analysis.objects.filter(pk=analysis_id).update(
+                status=Analysis.Status.FAILED,
+                error_message="执行异常",
+            )
+        finally:
+            close_old_connections()
+
+    def _execute_analysis(self, analysis, issue):
+        prompt_template = Prompt.objects.filter(
+            slug="issue_code_analysis", is_active=True
+        ).first()
+        if not prompt_template:
+            analysis.status = Analysis.Status.FAILED
+            analysis.error_message = "No active Prompt for 'issue_code_analysis'"
+            analysis.save(update_fields=["status", "error_message", "updated_at"])
+            return
+
+        llm_config = prompt_template.llm_config or LLMConfig.objects.filter(
+            is_default=True, is_active=True
+        ).first()
+        if not llm_config:
+            analysis.status = Analysis.Status.FAILED
+            analysis.error_message = "No default LLMConfig configured"
+            analysis.save(update_fields=["status", "error_message", "updated_at"])
+            return
+
+        try:
+            context = {
+                "title": issue.title,
+                "description": issue.description,
+                "priority": issue.priority,
+                "status": issue.status,
+                "labels": ", ".join(issue.labels) if issue.labels else "",
+                "cause": issue.cause or "",
+                "solution": issue.solution or "",
+                "remark": issue.remark or "",
+            }
+            user_prompt = prompt_template.user_prompt_template.format(**context)
+            runner = OpenCodeRunner(llm_config)
+            # Keep prompt concise for CLI — opencode is already a code analysis agent
+            # Long system prompts cause issues as CLI arguments
+            concise_prompt = (
+                f"分析这个代码问题并给出原因和解决方案：\n"
+                f"标题: {issue.title}\n"
+            )
+            if issue.description:
+                concise_prompt += f"描述: {issue.description[:500]}\n"
+            concise_prompt += "请用中文回答，引用具体文件路径和代码。"
+
+            raw = runner.run(
+                repo_path=issue.repo.local_path,
+                prompt=concise_prompt,
+                model=prompt_template.llm_model,
+            )
+
+            # opencode --format json outputs JSON event lines
+            # Extract text content from "type":"text" events
+            text_content = self._extract_opencode_text(raw)
+            if not text_content:
+                raise ValueError("opencode 未返回有效文本内容")
+
+            # Try to parse as structured JSON {target_field, content}
+            # If opencode returns natural language instead, use it directly
+            try:
+                parsed = parse_json_response(text_content)
+                target_field = parsed.get("target_field", "")
+                content = parsed.get("content", "")
+                if target_field not in self.ALLOWED_FIELDS:
+                    # AI didn't follow JSON format, use text directly
+                    target_field = "remark"
+                    content = text_content
+                    parsed = {"target_field": target_field, "content": content}
+            except (json.JSONDecodeError, ValueError):
+                # opencode returned natural language — put it in the best field
+                target_field = self._guess_target_field(issue)
+                content = text_content
+                parsed = {"target_field": target_field, "content": content}
+
+            analysis.raw_response = raw
+            analysis.parsed_result = parsed
+            analysis.prompt_template = prompt_template
+            analysis.status = Analysis.Status.DONE
+            analysis.save(update_fields=[
+                "raw_response", "parsed_result", "prompt_template",
+                "status", "updated_at",
+            ])
+        except Exception as e:
+            analysis.status = Analysis.Status.FAILED
+            analysis.error_message = str(e)
+            analysis.save(update_fields=["status", "error_message", "updated_at"])
+
+    @staticmethod
+    def _guess_target_field(issue):
+        """Pick the best field: cause if empty, else solution if empty, else remark."""
+        if not (issue.cause or "").strip():
+            return "cause"
+        if not (issue.solution or "").strip():
+            return "solution"
+        return "remark"
+
+    @staticmethod
+    def _extract_opencode_text(raw_output):
+        """Extract text content from opencode --format json event stream."""
+        texts = []
+        for line in raw_output.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+                if event.get("type") == "text":
+                    text = event.get("part", {}).get("text", "")
+                    if text:
+                        texts.append(text)
+            except (json.JSONDecodeError, TypeError):
+                continue
+        return "\n".join(texts)
+
+    def get_running_analysis(self, issue):
+        # First clean up any stuck analyses (>10min = dead thread)
+        cutoff = timezone.now() - timedelta(minutes=10)
+        Analysis.objects.filter(
+            issue=issue,
+            analysis_type="issue_code_analysis",
+            status=Analysis.Status.RUNNING,
+            created_at__lt=cutoff,
+        ).update(status=Analysis.Status.FAILED, error_message="分析超时，请重试")
+
+        return Analysis.objects.filter(
+            issue=issue,
+            analysis_type="issue_code_analysis",
+            status=Analysis.Status.RUNNING,
+        ).first()
+
+    @classmethod
+    def cleanup_stale_analyses(cls):
+        cutoff = timezone.now() - timedelta(minutes=10)
+        Analysis.objects.filter(
+            status=Analysis.Status.RUNNING,
+            created_at__lt=cutoff,
+        ).update(status=Analysis.Status.FAILED, error_message="进程异常终止")

@@ -41,5 +41,6 @@ class RepoSerializer(serializers.ModelSerializer):
             "default_branch", "language", "stars", "status",
             "connected_at", "last_synced_at",
             "open_issues_count", "closed_issues_count",
+            "clone_status", "clone_error", "current_branch", "cloned_at",
         ]
-        read_only_fields = ["id", "connected_at", "last_synced_at"]
+        read_only_fields = ["id", "connected_at", "last_synced_at", "clone_status", "clone_error", "current_branch", "cloned_at"]

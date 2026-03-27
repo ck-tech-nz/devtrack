@@ -10,6 +10,7 @@ from .models import PageRoute
 from .permissions import IsSuperUser
 from .serializers import (
     CreatePermissionSerializer,
+    GroupCreateSerializer,
     GroupSerializer,
     GroupUpdateSerializer,
     PageRouteSerializer,
@@ -101,6 +102,12 @@ class GroupViewSet(viewsets.ViewSet):
         groups = Group.objects.prefetch_related("permissions__content_type").all()
         serializer = GroupSerializer(groups, many=True)
         return Response(serializer.data)
+
+    def create(self, request):
+        serializer = GroupCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        group = serializer.save()
+        return Response(GroupSerializer(group).data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, pk=None):
         try:

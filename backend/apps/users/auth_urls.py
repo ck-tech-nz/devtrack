@@ -1,5 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from apps.ai.views import GenerateNicknameView
 from .views import MeView, RegisterView, ChangePasswordView
 
 urlpatterns = [
@@ -8,4 +9,5 @@ urlpatterns = [
     path("me/", MeView.as_view(), name="auth-me"),
     path("me/change-password/", ChangePasswordView.as_view(), name="auth-change-password"),
     path("register/", RegisterView.as_view(), name="auth-register"),
+    path("generate-nickname/", GenerateNicknameView.as_view(), name="generate-nickname"),
 ]

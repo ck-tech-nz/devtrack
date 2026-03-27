@@ -101,38 +101,111 @@
       <div class="space-y-4">
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">信息</h3>
-          <div class="text-sm">
-            <span class="text-gray-400 dark:text-gray-500">提出人</span>
-            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter_name || '-' }}</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">提出人</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter_name || '-' }}</p>
+            </div>
+            <div class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">创建时间</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
+            </div>
           </div>
-          <div class="text-sm">
-            <span class="text-gray-400 dark:text-gray-500">创建时间</span>
-            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
+          <div v-if="issue.resolved_at || issue.resolution_hours" class="grid grid-cols-2 gap-3">
+            <div v-if="issue.resolved_at" class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">解决时间</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
+            </div>
+            <div v-if="issue.resolution_hours" class="text-sm">
+              <span class="text-gray-400 dark:text-gray-500">解决耗时</span>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
+            </div>
           </div>
-          <div v-if="issue.resolved_at" class="text-sm">
-            <span class="text-gray-400 dark:text-gray-500">解决时间</span>
-            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="form-row">
+              <label class="text-gray-400 dark:text-gray-500">预计完成</label>
+              <UInput v-model="form.estimated_completion" type="date" />
+            </div>
+            <div class="form-row">
+              <label class="text-gray-400 dark:text-gray-500">实际工时</label>
+              <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
+            </div>
           </div>
-          <div v-if="issue.resolution_hours" class="text-sm">
-            <span class="text-gray-400 dark:text-gray-500">解决耗时</span>
-            <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">关联仓库</h3>
+          <div v-if="issueRepo" class="flex items-center gap-2">
+            <UIcon name="i-heroicons-code-bracket" class="w-4 h-4 text-gray-400" />
+            <NuxtLink :to="`/app/repos/${issueRepo.id}`" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              {{ issueRepo.full_name }}
+            </NuxtLink>
+            <UBadge v-if="issueRepo.clone_status === 'cloned'" color="success" variant="subtle" size="xs">已克隆</UBadge>
+            <UBadge v-else-if="issueRepo.clone_status === 'cloning'" color="warning" variant="subtle" size="xs">克隆中</UBadge>
+            <UBadge v-else color="neutral" variant="subtle" size="xs">未克隆</UBadge>
           </div>
-          <div class="form-row">
-            <label class="text-gray-400 dark:text-gray-500">预计完成</label>
-            <UInput v-model="form.estimated_completion" type="date" />
-          </div>
-          <div class="form-row">
-            <label class="text-gray-400 dark:text-gray-500">实际工时</label>
-            <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
-          </div>
+          <p v-else class="text-sm text-gray-400 dark:text-gray-500">未关联仓库</p>
         </div>
 
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI 分析</h3>
-            <ServiceStatusDot :online="isOnline('ai')" />
+            <div class="flex items-center gap-2">
+              <ServiceStatusDot :online="isOnline('ai')" />
+              <UButton
+                v-if="issue.repo"
+                size="xs"
+                variant="soft"
+                icon="i-heroicons-cpu-chip"
+                :loading="aiAnalyzing"
+                :disabled="aiAnalyzing || issueRepo?.clone_status !== 'cloned'"
+                @click="triggerAIAnalysis"
+              >{{ aiAnalyzing ? '分析中...' : '分析' }}</UButton>
+            </div>
           </div>
-          <p class="text-sm text-gray-400 dark:text-gray-500">暂无 AI 分析结果</p>
+
+          <!-- 运行状态 -->
+          <div v-if="aiAnalyzing" class="space-y-2">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-cpu-chip" class="w-4 h-4 text-blue-500 animate-spin" />
+              <span class="text-sm text-blue-500 dark:text-blue-400">正在分析代码...</span>
+            </div>
+            <div class="text-xs text-gray-400">opencode 正在分析仓库代码，通常需要 1-3 分钟</div>
+            <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+              <div class="bg-blue-500 h-1.5 rounded-full ai-progress-bar"></div>
+            </div>
+          </div>
+
+          <!-- 前置条件提示 -->
+          <div v-else-if="!issue.repo" class="text-sm text-gray-400 dark:text-gray-500">请先关联仓库</div>
+          <div v-else-if="issueRepo?.clone_status !== 'cloned'" class="text-sm text-gray-400 dark:text-gray-500">请先同步仓库代码</div>
+
+          <!-- 分析历史 -->
+          <div v-if="analyses.length" class="space-y-2 max-h-96 overflow-y-auto">
+            <div v-for="a in analyses" :key="a.id" class="rounded-lg border text-sm"
+              :class="a.status === 'failed' ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'">
+              <div class="px-3 py-2">
+                <div class="flex items-center justify-between text-xs mb-1">
+                  <div class="flex items-center gap-1" :class="a.status === 'failed' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'">
+                    <UIcon name="i-heroicons-cpu-chip" class="w-3 h-3" />
+                    <span>{{ a.created_at?.slice(0, 16).replace('T', ' ') }}</span>
+                  </div>
+                  <UBadge :color="a.triggered_by === 'manual' ? 'primary' : 'neutral'" variant="subtle" size="xs">
+                    {{ a.triggered_by === 'manual' ? '手动' : '自动' }}
+                  </UBadge>
+                </div>
+                <div v-if="a.status === 'failed'" class="text-xs text-red-600 dark:text-red-400">{{ a.error_message }}</div>
+                <div v-else-if="a.status === 'running'" class="text-xs text-blue-500">分析中...</div>
+                <template v-else-if="a.results">
+                  <div v-for="(content, field) in a.results" :key="field" class="mt-1">
+                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ fieldLabel(field as string) }}</div>
+                    <div class="markdown-body text-sm mt-0.5 text-gray-700 dark:text-gray-300 max-h-60 overflow-y-auto" v-html="renderMarkdown(content as string)"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+          <p v-else-if="!aiAnalyzing && issue.repo && issueRepo?.clone_status === 'cloned'" class="text-sm text-gray-400 dark:text-gray-500">暂无分析记录</p>
         </div>
 
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
@@ -240,6 +313,30 @@ const { isOnline } = useServiceStatus()
 const loading = ref(true)
 const saving = ref(false)
 const issue = ref<any>(null)
+const aiAnalyzing = ref(false)
+let pollTimer: ReturnType<typeof setInterval> | null = null
+const analyses = ref<any[]>([])
+
+async function fetchAnalyses() {
+  if (!issue.value?.id) return
+  analyses.value = await api<any[]>(`/api/issues/${issue.value.id}/analyses/`).catch(() => []) || []
+}
+
+function fieldLabel(field: string) {
+  const labels: Record<string, string> = { cause: '原因分析', solution: '解决方案', remark: '备注' }
+  return labels[field] || field
+}
+
+import MarkdownIt from 'markdown-it'
+const md = new MarkdownIt({ html: false, linkify: true })
+function renderMarkdown(text: string) {
+  if (!text) return ''
+  return md.render(text)
+}
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 const users = ref<any[]>([])
 const labelItems = ref<string[]>([])
 const repos = ref<any[]>([])
@@ -261,6 +358,10 @@ const ghSelectedIds = ref<number[]>([])
 const ghLinking = ref(false)
 
 const repoOptions = computed(() => repos.value.map(r => ({ label: r.full_name, value: String(r.id) })))
+const issueRepo = computed(() => {
+  if (!issue.value?.repo) return null
+  return repos.value.find(r => r.id === issue.value.repo) || null
+})
 
 const linkedGHIds = computed(() => new Set((issue.value?.github_issues || []).map((g: any) => g.id)))
 
@@ -319,6 +420,59 @@ function populateForm(data: any) {
   }
   originalForm.value = JSON.stringify(form.value)
 }
+
+async function fetchIssue() {
+  issue.value = await api<any>(`/api/issues/${route.params.id}/`)
+  populateForm(issue.value)
+}
+
+async function triggerAIAnalysis() {
+  if (aiAnalyzing.value) return // prevent double-click
+  aiAnalyzing.value = true
+  try {
+    const res = await api<any>(`/api/issues/${route.params.id}/ai-analyze/`, {
+      method: 'POST',
+    })
+    pollAnalysisStatus(res.analysis_id)
+  } catch (e: any) {
+    const status = e.status || e.statusCode
+    if (status === 409) {
+      // Already running (likely auto-triggered), poll it
+      const analysisId = e.data?.analysis_id
+      if (analysisId) {
+        pollAnalysisStatus(analysisId)
+      } else {
+        aiAnalyzing.value = false
+      }
+    } else {
+      aiAnalyzing.value = false
+    }
+  }
+}
+
+function pollAnalysisStatus(analysisId: number | undefined) {
+  if (!analysisId) { aiAnalyzing.value = false; return }
+  let failCount = 0
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await api<any>(`/api/ai/analysis/${analysisId}/status/`)
+      failCount = 0
+      if (res.status === 'done' || res.status === 'failed') {
+        clearInterval(pollTimer!)
+        aiAnalyzing.value = false
+        await fetchAnalyses()
+      }
+    } catch {
+      failCount++
+      if (failCount >= 3) {
+        clearInterval(pollTimer!)
+        aiAnalyzing.value = false
+      }
+    }
+  }, 3000)
+}
+
+
 
 async function saveAll() {
   if (!issue.value) return
@@ -461,7 +615,23 @@ onMounted(async () => {
   loading.value = false
   // 异步加载 GitHub Issues 列表（用于关联弹窗）
   fetchGHIssues()
+  // 检查是否有正在运行的 AI 分析，恢复轮询
+  checkRunningAnalysis()
+  fetchAnalyses()
 })
+
+async function checkRunningAnalysis() {
+  if (!issue.value?.id) return
+  try {
+    const res = await api<any>(`/api/issues/${issue.value.id}/ai-status/`)
+    if (res?.analysis_id && res?.status === 'running') {
+      aiAnalyzing.value = true
+      pollAnalysisStatus(res.analysis_id)
+    }
+  } catch {
+    // No running analysis endpoint or no analysis — that's fine
+  }
+}
 </script>
 
 <style scoped>
@@ -484,4 +654,13 @@ onMounted(async () => {
 .modal-body { display: flex; flex-direction: column; gap: 1rem; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f3f4f6; }
 :root.dark .modal-footer { border-top-color: #374151; }
+.ai-progress-bar {
+  width: 30%;
+  animation: ai-progress 2s ease-in-out infinite;
+}
+@keyframes ai-progress {
+  0% { margin-left: 0%; width: 20%; }
+  50% { margin-left: 40%; width: 40%; }
+  100% { margin-left: 80%; width: 20%; }
+}
 </style>

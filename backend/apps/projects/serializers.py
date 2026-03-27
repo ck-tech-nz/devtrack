@@ -28,12 +28,13 @@ class ProjectMemberCreateSerializer(serializers.Serializer):
 class ProjectListSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     issue_count = serializers.SerializerMethodField()
+    repos = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta:
         model = Project
         fields = [
             "id", "name", "description", "status", "remark",
-            "estimated_completion", "actual_hours", "linked_repos",
+            "estimated_completion", "actual_hours", "repos",
             "member_count", "issue_count", "created_at", "updated_at",
         ]
 
@@ -46,12 +47,13 @@ class ProjectListSerializer(serializers.ModelSerializer):
 
 class ProjectDetailSerializer(serializers.ModelSerializer):
     members = ProjectMemberSerializer(source="project_members", many=True, read_only=True)
+    repos = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta:
         model = Project
         fields = [
             "id", "name", "description", "status", "remark",
-            "estimated_completion", "actual_hours", "linked_repos",
+            "estimated_completion", "actual_hours", "repos",
             "members", "created_at", "updated_at",
         ]
 
@@ -61,5 +63,5 @@ class ProjectCreateUpdateSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             "name", "description", "status", "remark",
-            "estimated_completion", "actual_hours", "linked_repos",
+            "estimated_completion", "actual_hours", "repos",
         ]

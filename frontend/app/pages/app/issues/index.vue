@@ -10,14 +10,14 @@
         </label>
         <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
           <button
-            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+            class="px-4 py-1.5 text-sm font-medium rounded-md transition-colors"
             :class="viewMode === 'kanban' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
             @click="viewMode = 'kanban'"
           >
             看板
           </button>
           <button
-            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+            class="px-4 py-1.5 text-sm font-medium rounded-md transition-colors"
             :class="viewMode === 'table' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
             @click="viewMode = 'table'"
           >
@@ -36,12 +36,16 @@
         <div class="modal-form">
           <div class="modal-header">
             <h3>新建问题</h3>
-            <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showCreateModal = false" />
+            <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="closeCreateModal" />
           </div>
           <div class="modal-body">
             <div class="form-row">
               <label>项目</label>
               <USelect v-model="newIssue.project" :items="projectOptions" placeholder="选择项目" value-key="value" />
+            </div>
+            <div v-if="projectRepos.length > 1" class="form-row">
+              <label>关联仓库</label>
+              <USelect v-model="newIssue.repo" :items="projectRepoOptions" placeholder="选择仓库" value-key="value" />
             </div>
             <div class="form-row">
               <label>标题 <span class="text-red-400">*</span></label>
@@ -74,7 +78,7 @@
             <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
           </div>
           <div class="modal-footer">
-            <UButton variant="outline" color="neutral" @click="showCreateModal = false">取消</UButton>
+            <UButton variant="outline" color="neutral" @click="closeCreateModal">取消</UButton>
             <UButton :loading="creating" @click="handleCreateIssue">创建</UButton>
           </div>
         </div>
@@ -144,11 +148,17 @@
 
     <!-- Table View -->
     <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+      <div class="flex justify-end px-4 py-2 border-b border-gray-50 dark:border-gray-800">
+        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+          <USwitch v-model="showGHColumn" size="xs" />
+          <span class="text-xs text-gray-500 dark:text-gray-400">GitHub Issues</span>
+        </label>
+      </div>
       <UTable
         v-model:row-selection="rowSelection"
         :data="issues"
         :columns="columns"
-        :ui="{ th: 'text-xs', td: 'text-sm' }"
+        :ui="{ th: 'text-xs whitespace-nowrap', td: 'text-sm' }"
       >
         <template #select-header="{ table }">
           <UCheckbox
@@ -169,10 +179,15 @@
           <EditableCell :value="row.original.title" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
         </template>
         <template #priority-cell="{ row }">
-          <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="xs">{{ row.original.priority }}</UBadge>
+          <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="sm">{{ row.original.priority }}</UBadge>
         </template>
         <template #status-cell="{ row }">
-          <UBadge :color="statusColor(row.original.status)" variant="subtle" size="xs">{{ row.original.status }}</UBadge>
+          <div class="flex flex-col items-start gap-1">
+            <UBadge :color="statusColor(row.original.status)" variant="subtle" size="sm">{{ row.original.status }}</UBadge>
+            <UBadge v-if="analyzingIssueIds.has(row.original.id)" color="info" variant="subtle" size="sm" class="whitespace-nowrap">
+              <UIcon name="i-heroicons-cpu-chip" class="w-3.5 h-3.5 animate-spin mr-0.5" />AI 分析中
+            </UBadge>
+          </div>
         </template>
         <template #assignee_name-cell="{ row }">
           {{ row.original.assignee_name || '-' }}
@@ -238,10 +253,12 @@ const rowSelection = ref<Record<string, boolean>>({})
 
 const loading = ref(true)
 const issues = ref<any[]>([])
+const analyzingIssueIds = ref<Set<number>>(new Set())
 const totalCount = ref(0)
 const users = ref<any[]>([])
 const labelOptions = ref<string[]>([])
 const projects = ref<any[]>([])
+const repos = ref<any[]>([])
 
 // Create issue modal state
 const showCreateModal = ref(false)
@@ -256,12 +273,39 @@ const newIssue = ref({
   status: '待处理',
   labels: [] as string[],
   assignee: defaultAssignee.value,
+  repo: null as string | null,
 })
+
+const projectRepos = ref<any[]>([])
+
+watch(() => newIssue.value.project, (projectId) => {
+  if (!projectId) {
+    projectRepos.value = []
+    newIssue.value.repo = null
+    return
+  }
+  const project = projects.value.find(p => String(p.id) === String(projectId))
+  const repoIds: string[] = (project?.repos || []).map((r: any) => String(r))
+  projectRepos.value = repos.value.filter(r => repoIds.includes(String(r.id)))
+  if (projectRepos.value.length === 1) {
+    newIssue.value.repo = String(projectRepos.value[0].id)
+  } else {
+    newIssue.value.repo = null
+  }
+})
+
+const projectRepoOptions = computed(() => projectRepos.value.map(r => ({ label: r.name, value: String(r.id) })))
 
 const projectOptions = computed(() => projects.value.map(p => ({ label: p.name, value: String(p.id) })))
 const createPriorityOptions = [{ label: 'P0', value: 'P0' }, { label: 'P1', value: 'P1' }, { label: 'P2', value: 'P2' }, { label: 'P3', value: 'P3' }]
 const createStatusOptions = [{ label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
 const createAssigneeOptions = computed(() => [{ label: '无', value: '_none' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
+
+function closeCreateModal() {
+  showCreateModal.value = false
+  newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null }
+  projectRepos.value = []
+}
 
 async function handleCreateIssue() {
   if (!newIssue.value.title.trim()) {
@@ -280,9 +324,11 @@ async function handleCreateIssue() {
     }
     if (newIssue.value.project) body.project = newIssue.value.project
     if (newIssue.value.assignee && newIssue.value.assignee !== '_none') body.assignee = newIssue.value.assignee
+    if (newIssue.value.repo) body.repo = newIssue.value.repo
     await api('/api/issues/', { method: 'POST', body, format: 'json' })
     showCreateModal.value = false
-    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value }
+    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null }
+    projectRepos.value = []
     await fetchIssues()
   } catch (e: any) {
     createError.value = formatApiError(e, '创建失败，请重试')
@@ -300,21 +346,28 @@ const selectedRowsData = computed(() => {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize)))
 
-const columns = [
-  { id: 'select', header: '', cell: '' },
-  { accessorKey: 'id', header: 'ID' },
-  { accessorKey: 'title', header: '标题' },
-  { accessorKey: 'priority', header: '优先级' },
-  { accessorKey: 'status', header: '状态' },
-  { accessorKey: 'assignee_name', header: '负责人' },
-  { accessorKey: 'reporter_name', header: '提出人' },
-  { accessorKey: 'remark', header: '备注' },
-  { accessorKey: 'cause', header: '原因分析' },
-  { accessorKey: 'solution', header: '解决方案' },
-  { accessorKey: 'created_at', header: '创建时间' },
-  { accessorKey: 'resolution_hours', header: '解决耗时' },
-  { accessorKey: 'github_issues', header: 'GitHub Issues' },
-]
+const showGHColumn = ref(false)
+
+const columns = computed(() => {
+  const cols = [
+    { id: 'select', header: '', cell: '' },
+    { accessorKey: 'id', header: 'ID' },
+    { accessorKey: 'title', header: '标题' },
+    { accessorKey: 'assignee_name', header: '负责人' },
+    { accessorKey: 'cause', header: '原因分析' },
+    { accessorKey: 'solution', header: '解决方案' },
+    { accessorKey: 'remark', header: '备注' },
+    { accessorKey: 'priority', header: '优先级' },
+    { accessorKey: 'status', header: '状态' },
+    { accessorKey: 'reporter_name', header: '提出人' },
+    { accessorKey: 'created_at', header: '创建时间' },
+    { accessorKey: 'resolution_hours', header: '解决耗时' },
+  ]
+  if (showGHColumn.value) {
+    cols.push({ accessorKey: 'github_issues', header: 'GitHub Issues' })
+  }
+  return cols
+})
 
 async function onStatusChange({ issueId, newStatus }: { issueId: number, newStatus: string }) {
   const issue = issues.value.find((i: any) => i.id === issueId)
@@ -434,16 +487,34 @@ watch(showCompleted, () => {
 })
 
 onMounted(async () => {
-  const [, usersData, settingsData, projectsData] = await Promise.all([
+  const [, usersData, settingsData, projectsData, reposData] = await Promise.all([
     fetchIssues(),
     api<any[]>('/api/users/').catch(() => []),
     api<any>('/api/settings/').catch(() => ({ labels: [] })),
     api<any>('/api/projects/').catch(() => ({ results: [] })),
+    api<any>('/api/repos/').catch(() => ({ results: [] })),
   ])
   users.value = usersData?.results || usersData || []
   labelOptions.value = settingsData?.labels || []
   projects.value = projectsData?.results || projectsData || []
+  repos.value = reposData?.results || reposData || []
+  // Check AI analysis status for issues with repos
+  checkAnalyzingIssues()
 })
+
+async function checkAnalyzingIssues() {
+  const issuesWithRepo = issues.value.filter(i => i.repo)
+  const checks = await Promise.all(
+    issuesWithRepo.map(i =>
+      api<any>(`/api/issues/${i.id}/ai-status/`).catch(() => ({ status: 'idle' }))
+    )
+  )
+  const running = new Set<number>()
+  issuesWithRepo.forEach((issue, idx) => {
+    if (checks[idx]?.status === 'running') running.add(issue.id)
+  })
+  analyzingIssueIds.value = running
+}
 </script>
 
 <style scoped>

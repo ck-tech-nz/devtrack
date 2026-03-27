@@ -109,7 +109,10 @@
             >
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ group.name }}</h3>
-                <UButton size="xs" variant="outline" color="neutral" :loading="savingGroup === group.id" @click="saveGroup(group)">保存</UButton>
+                <div class="flex items-center gap-2">
+                  <UButton size="xs" variant="ghost" color="neutral" icon="i-heroicons-document-duplicate" @click="openCloneGroup(group)">克隆</UButton>
+                  <UButton size="xs" variant="outline" color="neutral" :loading="savingGroup === group.id" @click="saveGroup(group)">保存</UButton>
+                </div>
               </div>
 
               <!-- Listbox mode -->
@@ -249,6 +252,30 @@
             <div class="modal-footer">
               <UButton variant="outline" color="neutral" @click="showCreatePermModal = false">取消</UButton>
               <UButton :loading="creatingPerm" @click="handleCreatePerm">创建</UButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
+
+      <!-- Clone Group Modal -->
+      <UModal v-model:open="showCloneModal" title="克隆权限组" :ui="{ width: 'sm:max-w-md' }">
+        <template #content>
+          <div class="modal-form">
+            <div class="modal-header">
+              <h3>克隆权限组</h3>
+              <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showCloneModal = false" />
+            </div>
+            <div class="modal-body">
+              <div class="form-row">
+                <label>新组名 <span class="text-red-400">*</span></label>
+                <UInput v-model="cloneGroupName" placeholder="输入新组名" />
+              </div>
+              <p class="text-xs text-gray-400 dark:text-gray-500">将复制「{{ cloningFrom?.name }}」的所有权限</p>
+              <p v-if="cloneError" class="text-sm text-red-500">{{ cloneError }}</p>
+            </div>
+            <div class="modal-footer">
+              <UButton variant="outline" color="neutral" @click="showCloneModal = false">取消</UButton>
+              <UButton :loading="cloning" @click="handleCloneGroup">创建</UButton>
             </div>
           </div>
         </template>
@@ -468,6 +495,44 @@ async function saveGroup(group: any) {
     alert(formatApiError(e, '保存失败'))
   } finally {
     savingGroup.value = null
+  }
+}
+
+// ---- Clone Group ----
+const showCloneModal = ref(false)
+const cloningFrom = ref<any>(null)
+const cloneGroupName = ref('')
+const cloneError = ref('')
+const cloning = ref(false)
+
+function openCloneGroup(group: any) {
+  cloningFrom.value = group
+  cloneGroupName.value = `${group.name} (副本)`
+  cloneError.value = ''
+  showCloneModal.value = true
+}
+
+async function handleCloneGroup() {
+  if (!cloneGroupName.value.trim()) {
+    cloneError.value = '组名不能为空'
+    return
+  }
+  cloning.value = true
+  cloneError.value = ''
+  try {
+    await api('/api/page-perms/groups/', {
+      method: 'POST',
+      body: {
+        name: cloneGroupName.value.trim(),
+        permissions: Array.from(cloningFrom.value._selectedPerms) as string[],
+      },
+    })
+    showCloneModal.value = false
+    await fetchGroups()
+  } catch (e: any) {
+    cloneError.value = formatApiError(e, '创建失败，请重试')
+  } finally {
+    cloning.value = false
   }
 }
 

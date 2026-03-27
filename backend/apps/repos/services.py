@@ -1,6 +1,12 @@
 import logging
+import os
+import stat
+import subprocess
+from subprocess import CalledProcessError
+import tempfile
 
 import requests
+from django.conf import settings as django_settings
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -110,3 +116,118 @@ class GitHubSyncService:
                 self.sync_repo(repo)
             except Exception:
                 logger.exception("Failed to sync %s", repo.full_name)
+
+
+class RepoCloneService:
+    def clone_or_pull(self, repo, branch=None):
+        repo.clone_status = "cloning"
+        repo.clone_error = ""
+        repo.save(update_fields=["clone_status", "clone_error"])
+
+        askpass_path = None
+        try:
+            local_path = repo.local_path
+            env, askpass_path = self._make_askpass(repo.github_token)
+
+            if not os.path.exists(local_path):
+                os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                clone_url = repo.url if repo.url.endswith(".git") else f"{repo.url}.git"
+                subprocess.run(
+                    ["git", "clone", clone_url, local_path],
+                    env=env, capture_output=True, text=True,
+                    timeout=300, check=True,
+                )
+            else:
+                subprocess.run(
+                    ["git", "-C", local_path, "fetch", "--all"],
+                    env=env, capture_output=True, text=True,
+                    timeout=300, check=True,
+                )
+                target = branch or repo.default_branch or "main"
+                subprocess.run(
+                    ["git", "-C", local_path, "reset", "--hard", f"origin/{target}"],
+                    capture_output=True, text=True, timeout=60, check=True,
+                )
+
+            if branch:
+                subprocess.run(
+                    ["git", "-C", local_path, "checkout", branch],
+                    env=env, capture_output=True, text=True,
+                    timeout=60, check=True,
+                )
+                repo.current_branch = branch
+            else:
+                repo.current_branch = repo.default_branch or "main"
+
+            repo.clone_status = "cloned"
+            repo.cloned_at = timezone.now()
+            repo.save(update_fields=["clone_status", "clone_error", "current_branch", "cloned_at"])
+        except CalledProcessError as e:
+            repo.clone_status = "failed"
+            repo.clone_error = e.stderr or str(e)
+            repo.save(update_fields=["clone_status", "clone_error"])
+        except Exception as e:
+            repo.clone_status = "failed"
+            repo.clone_error = str(e)
+            repo.save(update_fields=["clone_status", "clone_error"])
+        finally:
+            self._cleanup_askpass(askpass_path)
+
+    def get_log(self, repo, limit=50):
+        local_path = repo.local_path
+        if not os.path.exists(local_path):
+            return []
+        result = subprocess.run(
+            ["git", "-C", local_path, "log",
+             "--format=%H%x00%an%x00%aI%x00%s", f"-n{limit}"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            return []
+        commits = []
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            parts = line.split("\x00")
+            if len(parts) == 4:
+                commits.append({
+                    "hash": parts[0],
+                    "author": parts[1],
+                    "date": parts[2],
+                    "message": parts[3],
+                })
+        return commits
+
+    def get_branches(self, repo):
+        local_path = repo.local_path
+        if not os.path.exists(local_path):
+            return []
+        result = subprocess.run(
+            ["git", "-C", local_path, "branch", "-r",
+             "--format=%(refname:short)"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            return []
+        return [b.strip() for b in result.stdout.strip().split("\n") if b.strip()]
+
+    @staticmethod
+    def _make_askpass(token):
+        env = os.environ.copy()
+        if not token:
+            return env, None
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False)
+        f.write(f"#!/bin/sh\necho {token}\n")
+        f.close()
+        os.chmod(f.name, stat.S_IRWXU)
+        env["GIT_ASKPASS"] = f.name
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        return env, f.name
+
+    @staticmethod
+    def _cleanup_askpass(askpass_path):
+        if askpass_path:
+            try:
+                os.unlink(askpass_path)
+            except OSError:
+                pass

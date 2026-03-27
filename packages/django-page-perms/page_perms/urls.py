@@ -10,6 +10,6 @@ urlpatterns = [
     path("", include(router.urls)),
     path("permissions/", PermissionViewSet.as_view({"get": "list", "post": "create"})),
     path("permissions/<int:pk>/", PermissionViewSet.as_view({"delete": "destroy"})),
-    path("groups/", GroupViewSet.as_view({"get": "list"})),
+    path("groups/", GroupViewSet.as_view({"get": "list", "post": "create"})),
     path("groups/<int:pk>/", GroupViewSet.as_view({"patch": "partial_update"})),
 ]

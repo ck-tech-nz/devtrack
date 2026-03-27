@@ -11,7 +11,10 @@ class Project(models.Model):
     actual_hours = models.DecimalField(
         max_digits=8, decimal_places=2, null=True, blank=True, verbose_name="实际工时"
     )
-    linked_repos = models.JSONField(default=list, verbose_name="关联仓库")
+    repos = models.ManyToManyField(
+        "repos.Repo", blank=True, related_name="projects",
+        verbose_name="关联仓库",
+    )
     members = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         through="ProjectMember",
