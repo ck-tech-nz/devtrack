@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import apps.tools.storage as tools_storage
+from .models import Attachment
 
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 MAX_SIZE = 5 * 1024 * 1024  # 5MB
@@ -25,5 +26,37 @@ class ImageUploadView(APIView):
                 {"detail": f"文件大小 ({file.size // 1024 // 1024}MB) 超过限制 (5MB)"},
                 status=400,
             )
-        url = tools_storage.upload_image(file)
+
+        url, key = tools_storage.upload_image(file)
+
+        issue_id = request.data.get("issue_id")
+        issue = None
+        if issue_id:
+            from apps.issues.models import Issue
+            issue = Issue.objects.filter(pk=issue_id).first()
+
+        Attachment.objects.create(
+            issue=issue,
+            uploaded_by=request.user,
+            file_name=file.name,
+            file_key=key,
+            file_url=url,
+            file_size=file.size,
+            mime_type=file.content_type,
+        )
+
         return Response({"url": url, "filename": file.name})
+
+
+class AttachmentDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        attachment = Attachment.objects.filter(pk=pk).first()
+        if not attachment:
+            return Response({"detail": "附件不存在"}, status=404)
+        if attachment.uploaded_by != request.user and not request.user.is_staff:
+            return Response({"detail": "无权限删除此附件"}, status=403)
+        tools_storage.delete_object(attachment.file_key)
+        attachment.delete()
+        return Response(status=204)
