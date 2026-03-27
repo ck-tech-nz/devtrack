@@ -18,8 +18,8 @@ def get_s3_client():
     )
 
 
-def upload_image(file) -> str:
-    """Upload a file to MinIO and return the public URL."""
+def upload_image(file) -> tuple[str, str]:
+    """Upload a file to MinIO. Returns (public_url, object_key)."""
     ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else "bin"
     now = datetime.now()
     key = f"{now.year}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}.{ext}"
@@ -31,4 +31,10 @@ def upload_image(file) -> str:
         key,
         ExtraArgs={"ContentType": file.content_type},
     )
-    return f"{settings.MINIO_PUBLIC_URL}/{key}"
+    return f"{settings.MINIO_PUBLIC_URL}/{key}", key
+
+
+def delete_object(key: str) -> None:
+    """Delete an object from MinIO by its object key."""
+    client = get_s3_client()
+    client.delete_object(Bucket=settings.MINIO_BUCKET, Key=key)
