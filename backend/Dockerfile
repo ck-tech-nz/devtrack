@@ -2,6 +2,7 @@ FROM python:3.14-slim
 
 RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://opencode.ai/install | bash
+ENV PATH="/root/.local/bin:${PATH}"
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
