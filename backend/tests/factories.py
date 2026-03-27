@@ -149,7 +149,6 @@ class AttachmentFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Attachment
 
-    issue = None
     uploaded_by = factory.SubFactory(UserFactory)
     file_name = factory.Sequence(lambda n: f"screenshot_{n}.png")
     file_key = factory.Sequence(lambda n: f"2026/03/27/{n:04d}.png")

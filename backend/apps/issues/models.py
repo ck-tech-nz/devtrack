@@ -12,6 +12,10 @@ class Issue(models.Model):
         "repos.GitHubIssue", blank=True, related_name="devtrack_issues",
         verbose_name="关联 GitHub Issues",
     )
+    attachments = models.ManyToManyField(
+        "tools.Attachment", blank=True,
+        related_name="issues", verbose_name="附件",
+    )
     repo = models.ForeignKey(
         "repos.Repo", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="issues",

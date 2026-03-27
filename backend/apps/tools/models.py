@@ -5,12 +5,6 @@ from django.db import models
 
 class Attachment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # null=True: attachment uploaded but not yet linked to an issue (transient state).
-    # CASCADE: when an issue is deleted, all its attachments are deleted too.
-    issue = models.ForeignKey(
-        "issues.Issue", on_delete=models.CASCADE,
-        related_name="attachments", null=True, blank=True,
-    )
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, related_name="attachments",

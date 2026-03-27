@@ -29,14 +29,7 @@ class ImageUploadView(APIView):
 
         url, key = tools_storage.upload_image(file)
 
-        issue_id = request.data.get("issue_id")
-        issue = None
-        if issue_id:
-            from apps.issues.models import Issue
-            issue = Issue.objects.filter(pk=issue_id).first()
-
-        Attachment.objects.create(
-            issue=issue,
+        attachment = Attachment.objects.create(
             uploaded_by=request.user,
             file_name=file.name,
             file_key=key,
@@ -45,7 +38,7 @@ class ImageUploadView(APIView):
             mime_type=file.content_type,
         )
 
-        return Response({"url": url, "filename": file.name})
+        return Response({"url": url, "filename": file.name, "id": str(attachment.id)})
 
 
 class AttachmentDeleteView(APIView):

@@ -17,7 +17,7 @@ class TestAttachmentModel:
         assert a.is_image is False
 
     def test_attachment_survives_user_deletion(self):
-        """uploaded_by SET_NULL: deleting user keeps attachment, nulls uploaded_by"""
+        """uploaded_by SET_NULL: deleting user keeps attachment"""
         from tests.factories import UserFactory
         from apps.tools.models import Attachment
         user = UserFactory()
@@ -26,28 +26,27 @@ class TestAttachmentModel:
         a.refresh_from_db()
         assert a.uploaded_by is None
 
-    def test_attachment_deleted_with_issue(self):
-        """issue CASCADE: deleting issue deletes all its attachments"""
+    def test_attachment_linked_to_issue_via_m2m(self):
+        """M2M: attachment linked to issue, auto-removed when attachment deleted"""
         from tests.factories import IssueFactory
-        from apps.tools.models import Attachment
         issue = IssueFactory()
-        AttachmentFactory(issue=issue)
-        AttachmentFactory(issue=issue)
-        issue.delete()
-        assert not Attachment.objects.filter(issue_id=issue.pk).exists()
+        att = AttachmentFactory()
+        issue.attachments.add(att)
+        assert issue.attachments.filter(id=att.id).exists()
+        att.delete()
+        assert not issue.attachments.filter(id=att.id).exists()
 
 
 @pytest.mark.django_db
 class TestAttachmentSync:
     def test_create_issue_links_matching_attachments(self, auth_client, auth_user, site_settings, settings):
         from apps.tools.models import Attachment
-        from tests.factories import ProjectFactory, AttachmentFactory
+        from apps.issues.models import Issue
+        from tests.factories import ProjectFactory
         settings.MINIO_PUBLIC_URL = "http://minio:9000"
-        user = auth_user
         project = ProjectFactory()
         att = AttachmentFactory(
-            issue=None,
-            uploaded_by=user,
+            uploaded_by=auth_user,
             file_url="http://minio:9000/devtrack-uploads/2026/03/27/abc.png",
         )
         description = "截图: ![img](http://minio:9000/devtrack-uploads/2026/03/27/abc.png)"
@@ -60,42 +59,81 @@ class TestAttachmentSync:
             "labels": [],
         }, format="json")
         assert response.status_code == 201
-        att.refresh_from_db()
-        assert att.issue_id == response.data["id"]
+        issue = Issue.objects.get(id=response.data["id"])
+        assert issue.attachments.filter(id=att.id).exists()
 
     def test_detail_response_includes_attachments(self, auth_client, site_settings):
-        from tests.factories import IssueFactory, AttachmentFactory
+        from tests.factories import IssueFactory
         issue = IssueFactory()
-        AttachmentFactory(issue=issue)
-        AttachmentFactory(issue=issue)
+        att1 = AttachmentFactory()
+        att2 = AttachmentFactory()
+        issue.attachments.add(att1, att2)
         response = auth_client.get(f"/api/issues/{issue.id}/")
         assert response.status_code == 200
         assert len(response.data["attachments"]) == 2
 
     def test_update_issue_links_new_attachments(self, auth_client, auth_user, site_settings, settings):
-        from apps.tools.models import Attachment
-        from tests.factories import IssueFactory, AttachmentFactory
+        from apps.issues.models import Issue
+        from tests.factories import IssueFactory
         settings.MINIO_PUBLIC_URL = "http://minio:9000"
-        user = auth_user
         issue = IssueFactory()
         att = AttachmentFactory(
-            issue=None,
-            uploaded_by=user,
+            uploaded_by=auth_user,
             file_url="http://minio:9000/devtrack-uploads/2026/03/27/xyz.png",
         )
         response = auth_client.patch(f"/api/issues/{issue.id}/", {
             "description": "更新: ![img](http://minio:9000/devtrack-uploads/2026/03/27/xyz.png)",
         }, format="json")
         assert response.status_code == 200
-        att.refresh_from_db()
-        assert att.issue_id == issue.id
+        issue.refresh_from_db()
+        assert issue.attachments.filter(id=att.id).exists()
+
+
+@pytest.mark.django_db
+class TestIssueAttachmentsAPI:
+    def test_link_attachment_to_issue(self, auth_client):
+        from tests.factories import IssueFactory
+        issue = IssueFactory()
+        att = AttachmentFactory()
+        response = auth_client.post(
+            f"/api/issues/{issue.id}/attachments/",
+            {"attachment_id": str(att.id)},
+            format="json",
+        )
+        assert response.status_code == 204
+        assert issue.attachments.filter(id=att.id).exists()
+
+    def test_unlink_attachment_from_issue(self, auth_client):
+        from tests.factories import IssueFactory
+        issue = IssueFactory()
+        att = AttachmentFactory()
+        issue.attachments.add(att)
+        response = auth_client.delete(
+            f"/api/issues/{issue.id}/attachments/",
+            {"attachment_id": str(att.id)},
+            format="json",
+        )
+        assert response.status_code == 204
+        assert not issue.attachments.filter(id=att.id).exists()
+
+    def test_unlink_does_not_delete_attachment(self, auth_client):
+        from tests.factories import IssueFactory
+        from apps.tools.models import Attachment
+        issue = IssueFactory()
+        att = AttachmentFactory()
+        issue.attachments.add(att)
+        auth_client.delete(
+            f"/api/issues/{issue.id}/attachments/",
+            {"attachment_id": str(att.id)},
+            format="json",
+        )
+        assert Attachment.objects.filter(id=att.id).exists()
 
 
 @pytest.mark.django_db
 class TestAttachmentDeleteAPI:
     def test_delete_attachment_removes_from_db_and_calls_minio(self, auth_client, auth_user):
         from unittest.mock import patch
-        from tests.factories import AttachmentFactory
         from apps.tools.models import Attachment
         att = AttachmentFactory(uploaded_by=auth_user, file_key="2026/03/27/test.png")
 
@@ -106,7 +144,7 @@ class TestAttachmentDeleteAPI:
         assert not Attachment.objects.filter(id=att.id).exists()
 
     def test_delete_forbidden_for_other_user(self, auth_client):
-        from tests.factories import AttachmentFactory, UserFactory
+        from tests.factories import UserFactory
         other_user = UserFactory()
         att = AttachmentFactory(uploaded_by=other_user)
         response = auth_client.delete(f"/api/tools/attachments/{att.id}/")
@@ -119,7 +157,7 @@ class TestAttachmentDeleteAPI:
 
     def test_staff_can_delete_others_attachment(self, superuser_client):
         from unittest.mock import patch
-        from tests.factories import AttachmentFactory, UserFactory
+        from tests.factories import UserFactory
         from apps.tools.models import Attachment
         owner = UserFactory()
         att = AttachmentFactory(uploaded_by=owner, file_key="2026/03/27/staff.png")
@@ -131,7 +169,6 @@ class TestAttachmentDeleteAPI:
         assert not Attachment.objects.filter(id=att.id).exists()
 
     def test_unauthenticated_delete_rejected(self, api_client):
-        from tests.factories import AttachmentFactory
         att = AttachmentFactory()
         response = api_client.delete(f"/api/tools/attachments/{att.id}/")
         assert response.status_code == 401

@@ -314,6 +314,34 @@ class IssueAnalysesView(APIView):
         return Response(data)
 
 
+class IssueAttachmentsView(APIView):
+    """POST: link attachment to issue. DELETE: unlink (does NOT delete the file)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tools.models import Attachment
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=404)
+        attachment_id = request.data.get("attachment_id")
+        attachment = Attachment.objects.filter(pk=attachment_id).first()
+        if not attachment:
+            return Response({"detail": "附件不存在"}, status=404)
+        issue.attachments.add(attachment)
+        return Response(status=204)
+
+    def delete(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=404)
+        attachment_id = request.data.get("attachment_id")
+        attachment = issue.attachments.filter(pk=attachment_id).first()
+        if not attachment:
+            return Response({"detail": "附件不存在"}, status=404)
+        issue.attachments.remove(attachment)
+        return Response(status=204)
+
+
 class IssueCloseWithGitHubView(APIView):
     """关闭 DevTrack Issue，同时关闭关联的 GitHub Issues。"""
     permission_classes = [IsAuthenticated]

@@ -9,7 +9,7 @@ from .models import Issue, Activity
 
 
 def _sync_attachments(issue, user):
-    """Link unowned Attachment records whose URL appears in issue.description."""
+    """Link Attachment records whose URL appears in issue.description to the issue."""
     from apps.tools.models import Attachment
     if not issue.description:
         return
@@ -18,9 +18,8 @@ def _sync_attachments(issue, user):
     cleaned = {re.sub(r'[)"\']+$', '', u) for u in urls}
     for url in cleaned:
         if url.startswith(minio_base):
-            Attachment.objects.filter(
-                file_url=url, issue=None, uploaded_by=user
-            ).update(issue=issue)
+            for att in Attachment.objects.filter(file_url=url, uploaded_by=user):
+                issue.attachments.add(att)
 
 
 class ActivitySerializer(serializers.ModelSerializer):
