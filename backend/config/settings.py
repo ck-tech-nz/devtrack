@@ -14,9 +14,7 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1")
 ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
-    if origin.strip()
+    origin.strip() for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()
 ]
 
 INSTALLED_APPS = [
