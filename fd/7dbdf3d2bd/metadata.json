@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "fd7dbdf3d2bd",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "backend/apps/ai/admin.py",
+    "backend/apps/issues/admin.py",
+    "backend/apps/projects/admin.py",
+    "backend/apps/repos/admin.py",
+    "backend/apps/settings/admin.py",
+    "backend/apps/tools/admin.py",
+    "backend/apps/users/admin.py",
+    "backend/apps/users/templates/widgets/json_schema.html",
+    "backend/config/settings.py",
+    "backend/pyproject.toml",
+    "backend/uv.lock",
+    "docs/superpowers/plans/2026-03-30-django-unfold.md",
+    "docs/superpowers/specs/2026-03-30-django-unfold-design.md",
+    "frontend/app/components/AppHeader.vue",
+    "frontend/app/pages/app/issues/index.vue"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fd/7dbdf3d2bd/0/metadata.json",
+      "transcript": "/fd/7dbdf3d2bd/0/full.jsonl",
+      "content_hash": "/fd/7dbdf3d2bd/0/content_hash.txt",
+      "prompt": "/fd/7dbdf3d2bd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5,
+    "cache_creation_tokens": 1081,
+    "cache_read_tokens": 239404,
+    "output_tokens": 379,
+    "api_call_count": 3
+  }
+}

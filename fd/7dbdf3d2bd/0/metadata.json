@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "fd7dbdf3d2bd",
+  "session_id": "6513e5c3-6b77-48e2-97e2-6ecff106b6c0",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-30T06:56:52.02258Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "backend/apps/issues/admin.py",
+    "backend/apps/tools/admin.py",
+    "backend/config/settings.py",
+    "frontend/app/pages/app/issues/index.vue",
+    "backend/apps/ai/admin.py",
+    "backend/apps/users/templates/widgets/json_schema.html",
+    "backend/pyproject.toml",
+    "backend/apps/repos/admin.py",
+    "backend/apps/settings/admin.py",
+    "backend/apps/users/admin.py",
+    "docs/superpowers/plans/2026-03-30-django-unfold.md",
+    "backend/apps/projects/admin.py",
+    "backend/uv.lock",
+    "docs/superpowers/specs/2026-03-30-django-unfold-design.md",
+    "frontend/app/components/AppHeader.vue"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "be44fce70c42",
+  "checkpoint_transcript_start": 229,
+  "transcript_lines_at_start": 229,
+  "token_usage": {
+    "input_tokens": 5,
+    "cache_creation_tokens": 1081,
+    "cache_read_tokens": 239404,
+    "output_tokens": 379,
+    "api_call_count": 3
+  },
+  "session_metrics": {
+    "turn_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-30T06:56:51.608556Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 0,
+    "agent_percentage": 0
+  }
+}
