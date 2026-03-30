@@ -187,6 +187,9 @@ class AIAnalysisService:
 logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=4)
 
+# AI 分析超时（分钟），同时用于子进程超时和僵尸分析清理
+ANALYSIS_TIMEOUT_MINUTES = 10
+
 
 class IssueAnalysisService:
     ALLOWED_FIELDS = {"cause", "solution", "remark"}
@@ -271,6 +274,7 @@ class IssueAnalysisService:
                 repo_path=issue.repo.local_path,
                 prompt=prompt,
                 model=prompt_template.llm_model,
+                timeout=ANALYSIS_TIMEOUT_MINUTES * 60,
             )
 
             # opencode --format json outputs JSON event lines
@@ -333,8 +337,7 @@ class IssueAnalysisService:
         return "\n".join(texts)
 
     def get_running_analysis(self, issue):
-        # First clean up any stuck analyses (>10min = dead thread)
-        cutoff = timezone.now() - timedelta(minutes=10)
+        cutoff = timezone.now() - timedelta(minutes=ANALYSIS_TIMEOUT_MINUTES)
         Analysis.objects.filter(
             issue=issue,
             analysis_type="issue_code_analysis",
@@ -350,7 +353,7 @@ class IssueAnalysisService:
 
     @classmethod
     def cleanup_stale_analyses(cls):
-        cutoff = timezone.now() - timedelta(minutes=10)
+        cutoff = timezone.now() - timedelta(minutes=ANALYSIS_TIMEOUT_MINUTES)
         Analysis.objects.filter(
             status=Analysis.Status.RUNNING,
             created_at__lt=cutoff,
