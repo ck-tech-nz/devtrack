@@ -53,3 +53,7 @@ can I remove the bk_pronext.sh?
 ---
 
 I meant the file in the current project. not delete the file in that proj
+
+---
+
+yes, pls do so and commit & push to env/test
