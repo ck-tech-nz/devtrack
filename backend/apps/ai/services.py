@@ -185,7 +185,7 @@ class AIAnalysisService:
 
 
 logger = logging.getLogger(__name__)
-_executor = ThreadPoolExecutor(max_workers=2)
+_executor = ThreadPoolExecutor(max_workers=4)
 
 
 class IssueAnalysisService:
@@ -254,7 +254,7 @@ class IssueAnalysisService:
         try:
             context = {
                 "title": issue.title,
-                "description": issue.description,
+                "description": (issue.description or "")[:500],
                 "priority": issue.priority,
                 "status": issue.status,
                 "labels": ", ".join(issue.labels) if issue.labels else "",
@@ -264,19 +264,12 @@ class IssueAnalysisService:
             }
             user_prompt = prompt_template.user_prompt_template.format(**context)
             runner = OpenCodeRunner(llm_config)
-            # Keep prompt concise for CLI — opencode is already a code analysis agent
-            # Long system prompts cause issues as CLI arguments
-            concise_prompt = (
-                f"分析这个代码问题并给出原因和解决方案：\n"
-                f"标题: {issue.title}\n"
-            )
-            if issue.description:
-                concise_prompt += f"描述: {issue.description[:500]}\n"
-            concise_prompt += "请用中文回答，引用具体文件路径和代码。"
+            # Compose prompt from DB template: system_prompt + user_prompt
+            prompt = f"{prompt_template.system_prompt.strip()}\n\n{user_prompt.strip()}"
 
             raw = runner.run(
                 repo_path=issue.repo.local_path,
-                prompt=concise_prompt,
+                prompt=prompt,
                 model=prompt_template.llm_model,
             )
 
@@ -286,22 +279,18 @@ class IssueAnalysisService:
             if not text_content:
                 raise ValueError("opencode 未返回有效文本内容")
 
-            # Try to parse as structured JSON {target_field, content}
-            # If opencode returns natural language instead, use it directly
+            # Parse response: supports {cause, solution} and legacy {target_field, content}
             try:
                 parsed = parse_json_response(text_content)
-                target_field = parsed.get("target_field", "")
-                content = parsed.get("content", "")
-                if target_field not in self.ALLOWED_FIELDS:
-                    # AI didn't follow JSON format, use text directly
-                    target_field = "remark"
-                    content = text_content
-                    parsed = {"target_field": target_field, "content": content}
+                if any(k in parsed for k in self.ALLOWED_FIELDS):
+                    parsed = {k: v for k, v in parsed.items()
+                              if k in self.ALLOWED_FIELDS and v}
+                elif "target_field" in parsed and parsed["target_field"] in self.ALLOWED_FIELDS:
+                    parsed = {parsed["target_field"]: parsed.get("content", "")}
+                else:
+                    parsed = {self._guess_target_field(issue): text_content}
             except (json.JSONDecodeError, ValueError):
-                # opencode returned natural language — put it in the best field
-                target_field = self._guess_target_field(issue)
-                content = text_content
-                parsed = {"target_field": target_field, "content": content}
+                parsed = {self._guess_target_field(issue): text_content}
 
             analysis.raw_response = raw
             analysis.parsed_result = parsed
