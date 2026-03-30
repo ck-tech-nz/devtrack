@@ -1,0 +1,2 @@
+<ide_opened_file>The user opened the file /temp/readonly/Bash tool output (d6nbv7) in the IDE. This may or may not be related to the current task.</ide_opened_file>
+check the current changes if they should not be in repo, ignore them
