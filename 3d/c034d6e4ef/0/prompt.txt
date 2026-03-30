@@ -1,0 +1,55 @@
+<ide_selection>The user selected the lines 46 to 46 from /Users/ck/Git/matrix/devtrack/frontend/app/pages/app/issues/index.vue:
+新建问题
+
+This may or may not be related to the current task.</ide_selection>
+list skills
+
+---
+
+explain skill: database-migrations
+
+---
+
+1
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/scripts/bk_pronext.sh in the IDE. This may or may not be related to the current task.</ide_opened_file>
+my target is to keep the test & prod db safe. so want the ai can bk their dbs in a prompt.
+
+do you think I'd better install: affaan-m/everything-claude-code@database-migrations
+or you can write me one based on the providing script?
+
+---
+
+If I want it to be more generic, how can I provide the db & server info to this skill
+
+---
+
+Option1, and make sure if the project don't have one, help the user create one.
+
+---
+
+<ide_selection>The user selected the lines 24 to 24 from /Users/ck/Git/matrix/devtrack/db-backup.yml:
+/Users/ck/Documents/DevTrack/DB_Backups
+
+This may or may not be related to the current task.</ide_selection>
+backup to the project folder and add gitignore
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/db-backup.yml in the IDE. This may or may not be related to the current task.</ide_opened_file>
+now enable this skill
+
+---
+
+do you think we should name the backup/ -> .backup/?
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/.gitignore in the IDE. This may or may not be related to the current task.</ide_opened_file>
+can I remove the bk_pronext.sh?
+
+---
+
+I meant the file in the current project. not delete the file in that proj
