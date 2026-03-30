@@ -1,0 +1,4 @@
+分析出 cause, solution
+如果这个issue 的cause, solution 字段有空值,就帮他作为placeholder 展示出来.
+同时在 issue list 页面的 cause, solution field 也用 AI注释展示出来.
+一旦用户自己填了cause or solution 就以用户的为准, 反正 cause, solution 以展示在AI 区域了不怕
