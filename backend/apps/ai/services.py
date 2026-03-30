@@ -24,7 +24,19 @@ def parse_json_response(raw: str) -> dict:
     if text.startswith("```"):
         lines = text.splitlines()
         text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # AI often wraps JSON in prose — extract first { to last }
+    start = text.find('{')
+    end = text.rfind('}')
+    if start >= 0 and end > start:
+        try:
+            return json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    raise json.JSONDecodeError("No JSON object found", text, 0)
 
 
 def _ts(val):
