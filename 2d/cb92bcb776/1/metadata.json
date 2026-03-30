@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "2dcb92bcb776",
+  "session_id": "6513e5c3-6b77-48e2-97e2-6ecff106b6c0",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-30T06:56:15.56212Z",
+  "branch": "feat/django-unfold",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "frontend/app/components/AppHeader.vue",
+    "frontend/app/pages/app/issues/index.vue"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "7fdfef753e14",
+  "checkpoint_transcript_start": 138,
+  "transcript_lines_at_start": 138,
+  "token_usage": {
+    "input_tokens": 38,
+    "cache_creation_tokens": 19425,
+    "cache_read_tokens": 1894695,
+    "output_tokens": 7894,
+    "api_call_count": 28
+  },
+  "session_metrics": {
+    "turn_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-30T06:56:15.188873Z",
+    "agent_lines": 80,
+    "human_added": 0,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 81,
+    "agent_percentage": 98.76543209876543
+  }
+}
