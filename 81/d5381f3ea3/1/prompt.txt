@@ -1,0 +1,6 @@
+OK
+
+---
+
+- filter 要支持清楚filter
+- 如果用户是superuser 在个人资料下添加系统管理按钮,跳转到 /api/admin/
