@@ -130,7 +130,7 @@ class GroupViewSet(viewsets.ViewSet):
 
         if added or removed:
             ct = ContentType.objects.get_for_model(Group)
-            LogEntry.objects.log_action(
+            LogEntry.objects.create(
                 user_id=request.user.pk,
                 content_type_id=ct.pk,
                 object_id=str(group.pk),
