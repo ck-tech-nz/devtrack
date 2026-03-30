@@ -1,0 +1,4 @@
+[http "https://github.com"]
+    proxy = http://xray-proxy:1081
+[https "https://github.com"]
+    proxy = http://xray-proxy:1081

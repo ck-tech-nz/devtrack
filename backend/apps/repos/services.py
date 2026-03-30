@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import stat
 import subprocess
 from subprocess import CalledProcessError
@@ -129,6 +130,15 @@ class RepoCloneService:
             local_path = repo.local_path
             env, askpass_path = self._make_askpass(repo.github_token)
 
+            # 清理残留的损坏目录（上次克隆失败留下的）
+            if os.path.exists(local_path):
+                check = subprocess.run(
+                    ["git", "-C", local_path, "rev-parse", "HEAD"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if check.returncode != 0:
+                    shutil.rmtree(local_path)
+
             if not os.path.exists(local_path):
                 os.makedirs(os.path.dirname(local_path), exist_ok=True)
                 clone_url = repo.url if repo.url.endswith(".git") else f"{repo.url}.git"
@@ -143,11 +153,16 @@ class RepoCloneService:
                     env=env, capture_output=True, text=True,
                     timeout=300, check=True,
                 )
-                target = branch or repo.default_branch or "main"
+                target = branch or self._detect_default_branch(local_path) or repo.default_branch or "main"
                 subprocess.run(
                     ["git", "-C", local_path, "reset", "--hard", f"origin/{target}"],
                     capture_output=True, text=True, timeout=60, check=True,
                 )
+
+            # 检测并更新实际默认分支
+            detected = self._detect_default_branch(local_path)
+            if detected:
+                repo.default_branch = detected
 
             if branch:
                 subprocess.run(
@@ -161,7 +176,7 @@ class RepoCloneService:
 
             repo.clone_status = "cloned"
             repo.cloned_at = timezone.now()
-            repo.save(update_fields=["clone_status", "clone_error", "current_branch", "cloned_at"])
+            repo.save(update_fields=["clone_status", "clone_error", "current_branch", "cloned_at", "default_branch"])
         except CalledProcessError as e:
             repo.clone_status = "failed"
             repo.clone_error = e.stderr or str(e)
@@ -210,6 +225,31 @@ class RepoCloneService:
         if result.returncode != 0:
             return []
         return [b.strip() for b in result.stdout.strip().split("\n") if b.strip()]
+
+    @staticmethod
+    def _detect_default_branch(local_path):
+        """从本地仓库检测远程默认分支。"""
+        result = subprocess.run(
+            ["git", "-C", local_path, "symbolic-ref", "refs/remotes/origin/HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            ref = result.stdout.strip()
+            return ref.split("/")[-1] if "/" in ref else None
+        result = subprocess.run(
+            ["git", "-C", local_path, "symbolic-ref", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+        for candidate in ("main", "master", "develop"):
+            result = subprocess.run(
+                ["git", "-C", local_path, "rev-parse", "--verify", f"origin/{candidate}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return candidate
+        return None
 
     @staticmethod
     def _make_askpass(token):
