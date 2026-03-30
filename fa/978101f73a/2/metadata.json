@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "fa978101f73a",
+  "session_id": "53fa0213-3dd4-4416-8bb1-54361e6c88ab",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-30T08:14:40.83613Z",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "backend/pyproject.toml",
+    "backend/uv.lock",
+    "packages/django-page-perms/page_perms/views.py"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "5f4dfdbad5cc",
+  "token_usage": {
+    "input_tokens": 23,
+    "cache_creation_tokens": 17416,
+    "cache_read_tokens": 420707,
+    "output_tokens": 5519,
+    "api_call_count": 17
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-30T08:14:40.816621Z",
+    "agent_lines": 11,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 11,
+    "agent_percentage": 100
+  }
+}

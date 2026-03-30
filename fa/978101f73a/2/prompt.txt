@@ -1,0 +1,12 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/db-backup.yml in the IDE. This may or may not be related to the current task.</ide_opened_file>
+ubuntu VPN 如何安装比较好? 安装到
+ssh agent-test-remote
+
+---
+
+不是,我想让我的服务器能连上github, 我有服务,有没有容器化的vpn 以后不用每次部署那么麻烦,一个配置搞定
+vmess://REDACTED?path=/hwapi&remarks=hk&obfsParam=%7B%22Host%22:%22v.mail.netease.com%22%7D&obfs=websocket&tls=1&alterId=0
+
+---
+
+ghcr.io/xtls/xray-core:latest pulled, now go for it
