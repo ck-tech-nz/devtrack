@@ -5,19 +5,37 @@
       <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
       <div class="flex items-center justify-between md:justify-end space-x-3">
         <label class="flex items-center gap-1.5 cursor-pointer select-none">
-          <USwitch v-model="showCompleted" size="xs" />
-          <span class="text-xs text-gray-500 dark:text-gray-400">查看已完成</span>
+          <USwitch v-model="showCompleted" size="lg" />
+          <span class="text-sm text-gray-500 dark:text-gray-400">查看已完成</span>
         </label>
+        <div class="relative">
+          <USelect v-model="filterAssignee" :items="filterAssigneeOptions" size="sm" class="w-28" value-key="value" placeholder="负责人" />
+          <button v-if="filterAssignee" class="filter-clear" @click="filterAssignee = ''">
+            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+          </button>
+        </div>
+        <div class="relative">
+          <USelect v-model="filterPriority" :items="filterPriorityOptions" size="sm" class="w-28" value-key="value" placeholder="优先级" />
+          <button v-if="filterPriority" class="filter-clear" @click="filterPriority = ''">
+            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+          </button>
+        </div>
+        <div class="relative">
+          <USelect v-model="filterStatus" :items="filterStatusOptions" size="sm" class="w-28" value-key="value" placeholder="状态" />
+          <button v-if="filterStatus" class="filter-clear" @click="filterStatus = ''">
+            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+          </button>
+        </div>
         <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
           <button
-            class="px-4 py-1.5 text-sm font-medium rounded-md transition-colors"
+            class="px-3 py-1 text-sm font-medium rounded-md transition-colors"
             :class="viewMode === 'kanban' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
             @click="viewMode = 'kanban'"
           >
             看板
           </button>
           <button
-            class="px-4 py-1.5 text-sm font-medium rounded-md transition-colors"
+            class="px-3 py-1 text-sm font-medium rounded-md transition-colors"
             :class="viewMode === 'table' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
             @click="viewMode = 'table'"
           >
@@ -245,6 +263,11 @@ const viewMode = computed({
 const showCompleted = ref(false)
 const page = ref(1)
 const pageSize = 15
+
+// Filters
+const filterAssignee = ref('')
+const filterPriority = ref('')
+const filterStatus = ref('')
 const rowSelection = ref<Record<string, boolean>>({})
 
 const loading = ref(true)
@@ -296,6 +319,10 @@ const projectOptions = computed(() => projects.value.map(p => ({ label: p.name, 
 const createPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.label}`, value: p.value }))
 const createStatusOptions = [{ label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
 const createAssigneeOptions = computed(() => [{ label: '无', value: '_none' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
+
+const filterAssigneeOptions = computed(() => users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })))
+const filterPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.label}`, value: p.value }))
+const filterStatusOptions = [{ label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
 
 function closeCreateModal() {
   showCreateModal.value = false
@@ -429,9 +456,12 @@ async function fetchIssues() {
     const params = new URLSearchParams()
     params.set('page', String(page.value))
     params.set('page_size', String(pageSize))
-    if (!showCompleted.value) {
+    if (!showCompleted.value && !filterStatus.value) {
       params.set('exclude_statuses', '已解决,已关闭')
     }
+    if (filterAssignee.value) params.set('assignee', filterAssignee.value)
+    if (filterPriority.value) params.set('priority', filterPriority.value)
+    if (filterStatus.value) params.set('status', filterStatus.value)
 
     const data = await api<any>(`/api/issues/?${params.toString()}`)
     issues.value = data.results || data || []
@@ -474,6 +504,12 @@ watch(page, () => {
 })
 
 watch(showCompleted, () => {
+  page.value = 1
+  rowSelection.value = {}
+  fetchIssues()
+})
+
+watch([filterAssignee, filterPriority, filterStatus], () => {
   page.value = 1
   rowSelection.value = {}
   fetchIssues()
@@ -573,5 +609,27 @@ async function checkAnalyzingIssues() {
 }
 :root.dark .modal-footer {
   border-top-color: #374151;
+}
+.filter-clear {
+  position: absolute;
+  right: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  color: #9ca3af;
+  cursor: pointer;
+}
+.filter-clear:hover {
+  color: #374151;
+  background-color: #f3f4f6;
+}
+:root.dark .filter-clear:hover {
+  color: #d1d5db;
+  background-color: #374151;
 }
 </style>

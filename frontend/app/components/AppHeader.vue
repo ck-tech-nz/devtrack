@@ -60,16 +60,26 @@ function cycleTheme() {
   update('theme', themeOrder[(idx + 1) % themeOrder.length])
 }
 
-const userMenuItems = [
-  [{
-    label: '个人资料',
-    icon: 'i-heroicons-user-circle',
-    onSelect: () => navigateTo('/app/profile'),
-  }],
-  [{
+const userMenuItems = computed(() => {
+  const items: any[][] = [
+    [{
+      label: '个人资料',
+      icon: 'i-heroicons-user-circle',
+      onSelect: () => navigateTo('/app/profile'),
+    }],
+  ]
+  if (user.value?.is_superuser) {
+    items.push([{
+      label: '系统管理',
+      icon: 'i-heroicons-cog-6-tooth',
+      onSelect: () => window.open('/api/admin/', '_blank'),
+    }])
+  }
+  items.push([{
     label: '退出登录',
     icon: 'i-heroicons-arrow-right-on-rectangle',
     onSelect: () => logout(),
-  }],
-]
+  }])
+  return items
+})
 </script>

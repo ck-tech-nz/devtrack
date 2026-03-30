@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -18,6 +19,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 INSTALLED_APPS = [
+    "unfold",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -157,5 +159,111 @@ PAGE_PERMS = {
         "开发者": {"permissions": ["view_project", "view_issue", "add_issue", "change_issue", "view_activity", "view_dashboard", "view_analysis", "add_analysis"]},
         "产品经理": {"inherit": "开发者", "permissions": ["add_project", "change_project", "manage_project_members"]},
         "只读成员": {"permissions_startswith": ["view_"]},
+    },
+}
+
+UNFOLD = {
+    "SITE_TITLE": "DevTrack",
+    "SITE_HEADER": "DevTrack 管理后台",
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "项目管理",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "项目",
+                        "icon": "folder_open",
+                        "link": reverse_lazy("admin:projects_project_changelist"),
+                    },
+                    {
+                        "title": "问题",
+                        "icon": "bug_report",
+                        "link": reverse_lazy("admin:issues_issue_changelist"),
+                    },
+                    {
+                        "title": "活动",
+                        "icon": "history",
+                        "link": reverse_lazy("admin:issues_activity_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "代码仓库",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "仓库",
+                        "icon": "source",
+                        "link": reverse_lazy("admin:repos_repo_changelist"),
+                    },
+                    {
+                        "title": "GitHub Issues",
+                        "icon": "label",
+                        "link": reverse_lazy("admin:repos_githubissue_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "AI 配置",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "LLM 配置",
+                        "icon": "smart_toy",
+                        "link": reverse_lazy("admin:ai_llmconfig_changelist"),
+                    },
+                    {
+                        "title": "提示词",
+                        "icon": "description",
+                        "link": reverse_lazy("admin:ai_prompt_changelist"),
+                    },
+                    {
+                        "title": "分析记录",
+                        "icon": "analytics",
+                        "link": reverse_lazy("admin:ai_analysis_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "用户与权限",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "用户",
+                        "icon": "people",
+                        "link": reverse_lazy("admin:users_user_changelist"),
+                    },
+                    {
+                        "title": "用户组",
+                        "icon": "group_work",
+                        "link": reverse_lazy("admin:auth_group_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "系统",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "站点设置",
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:settings_sitesettings_changelist"),
+                    },
+                    {
+                        "title": "附件",
+                        "icon": "attach_file",
+                        "link": reverse_lazy("admin:tools_attachment_changelist"),
+                    },
+                ],
+            },
+        ],
     },
 }

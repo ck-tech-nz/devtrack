@@ -1,7 +1,7 @@
-<div id="json-widget-{{ widget.json_name }}" style="margin-top: 4px;">
+<div id="json-widget-{{ widget.json_name }}" class="mt-1">
   {% for field in widget.fields %}
-  <div style="display: flex; align-items: center; margin-bottom: 8px; gap: 12px;">
-    <label style="min-width: 140px; font-weight: normal; font-size: 13px; color: #666;"
+  <div class="flex items-center mb-3 gap-3">
+    <label class="min-w-[140px] font-normal text-sm text-gray-500 dark:text-gray-400"
            for="id_{{ widget.json_name }}__{{ field.key }}">
       {{ field.label }}
     </label>
@@ -12,14 +12,15 @@
              name="{{ widget.json_name }}__{{ field.key }}"
              {% if field.value %}checked{% endif %}
              data-json-field="{{ field.key }}"
-             data-json-type="boolean" />
+             data-json-type="boolean"
+             class="rounded border-gray-300 text-primary-600 shadow-sm focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900" />
 
     {% elif field.type == "select" %}
       <select id="id_{{ widget.json_name }}__{{ field.key }}"
               name="{{ widget.json_name }}__{{ field.key }}"
               data-json-field="{{ field.key }}"
               data-json-type="select"
-              style="padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+              class="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200">
         {% for choice in field.choices %}
           <option value="{{ choice }}" {% if field.value == choice %}selected{% endif %}>{{ choice }}</option>
         {% endfor %}
@@ -32,7 +33,7 @@
              value="{{ field.value }}"
              data-json-field="{{ field.key }}"
              data-json-type="number"
-             style="padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; width: 120px; font-size: 13px;" />
+             class="border border-gray-300 rounded-md px-3 py-2 w-[120px] text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200" />
 
     {% else %}
       <input type="text"
@@ -41,7 +42,7 @@
              value="{{ field.value }}"
              data-json-field="{{ field.key }}"
              data-json-type="text"
-             style="padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; width: 240px; font-size: 13px;" />
+             class="border border-gray-300 rounded-md px-3 py-2 w-[240px] text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200" />
     {% endif %}
   </div>
   {% endfor %}

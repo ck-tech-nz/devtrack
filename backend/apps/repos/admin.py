@@ -1,15 +1,16 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 from .models import Repo, GitHubIssue
 
 
 @admin.register(Repo)
-class RepoAdmin(admin.ModelAdmin):
+class RepoAdmin(ModelAdmin):
     list_display = ("full_name", "language", "stars", "status", "last_synced_at", "connected_at")
     readonly_fields = ("connected_at", "last_synced_at")
 
 
 @admin.register(GitHubIssue)
-class GitHubIssueAdmin(admin.ModelAdmin):
+class GitHubIssueAdmin(ModelAdmin):
     list_display = ("repo", "github_id", "title", "state", "synced_at")
     readonly_fields = (
         "repo", "github_id", "title", "body", "state", "labels",

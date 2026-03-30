@@ -1,9 +1,10 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 from .models import Attachment
 
 
 @admin.register(Attachment)
-class AttachmentAdmin(admin.ModelAdmin):
+class AttachmentAdmin(ModelAdmin):
     list_display = ["file_name", "mime_type", "file_size_kb", "uploaded_by", "created_at"]
     list_filter = ["mime_type", "created_at"]
     search_fields = ["file_name", "uploaded_by__name"]

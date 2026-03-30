@@ -1,13 +1,14 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
 from .models import Project, ProjectMember
 
 
-class ProjectMemberInline(admin.TabularInline):
+class ProjectMemberInline(TabularInline):
     model = ProjectMember
     extra = 1
 
 
 @admin.register(Project)
-class ProjectAdmin(admin.ModelAdmin):
+class ProjectAdmin(ModelAdmin):
     list_display = ("name", "status", "created_at")
     inlines = [ProjectMemberInline]

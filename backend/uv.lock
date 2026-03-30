@@ -128,6 +128,7 @@ dependencies = [
     { name = "django-filter" },
     { name = "django-page-perms" },
     { name = "django-solo" },
+    { name = "django-unfold" },
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
     { name = "openai" },
@@ -152,6 +153,7 @@ requires-dist = [
     { name = "django-filter", specifier = ">=24.0,<25.0" },
     { name = "django-page-perms", editable = "../packages/django-page-perms" },
     { name = "django-solo", specifier = ">=2.3,<3.0" },
+    { name = "django-unfold", specifier = ">=0.87" },
     { name = "djangorestframework", specifier = ">=3.15,<4.0" },
     { name = "djangorestframework-simplejwt", specifier = ">=5.3,<6.0" },
     { name = "openai", specifier = ">=2.29.0,<3.0" },
@@ -236,6 +238,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/aa/b3/1128d46ca1956dca02b7425bd5bc753c3a31ed21be6c3bb19b8d4c5316c9/django_solo-2.5.1.tar.gz", hash = "sha256:ca3b2e44dbb4726446941ca8d765c247123f709f051d07e62eacf97330ffde01", size = 13662 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/59/aa/45058bdec53ce3df577be9bd40c630067788923284becc6cca6fc592d4db/django_solo-2.5.1-py3-none-any.whl", hash = "sha256:23bfe48950587b409ec4b4ef95e5e62c1c6c590dd958d8d8b99d37d5ccb53ca8", size = 16882 },
+]
+
+[[package]]
+name = "django-unfold"
+version = "0.87.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/8e/74d2772b46236f062772c23c527cc2b4c33296a8b8306a4856b7e93830f6/django_unfold-0.87.0.tar.gz", hash = "sha256:011048047eea2e789e087660203ca221243885e0c93dbcb47539ff80dde9b76c", size = 1117584 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/8d/76967f4593eec3422378eccf1ae24279a194afb5b1ab2daaece9f00c5e44/django_unfold-0.87.0-py3-none-any.whl", hash = "sha256:7ac7eac54d2a6f9eab98e3a90bf0696996ef1638a13b053226e5a007f895aadb", size = 1239731 },
 ]
 
 [[package]]
