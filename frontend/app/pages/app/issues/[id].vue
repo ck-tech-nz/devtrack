@@ -59,14 +59,14 @@
                 <label>原因分析</label>
                 <UButton v-if="isFieldDirty('cause')" size="xs" variant="soft" :loading="savingField === 'cause'" @click="saveField('cause')">保存</UButton>
               </div>
-              <UTextarea v-model="form.cause" :rows="3" placeholder="问题原因" />
+              <UTextarea v-model="form.cause" :rows="3" :placeholder="latestAiCause ? `[AI] ${latestAiCause}` : '问题原因'" />
             </div>
             <div class="form-row">
               <div class="flex items-center justify-between">
                 <label>解决方案</label>
                 <UButton v-if="isFieldDirty('solution')" size="xs" variant="soft" :loading="savingField === 'solution'" @click="saveField('solution')">保存</UButton>
               </div>
-              <UTextarea v-model="form.solution" :rows="3" placeholder="解决办法" />
+              <UTextarea v-model="form.solution" :rows="3" :placeholder="latestAiSolution ? `[AI] ${latestAiSolution}` : '解决办法'" />
             </div>
           </div>
         </div>
@@ -414,6 +414,15 @@ function fieldLabel(field: string) {
   const labels: Record<string, string> = { cause: '原因分析', solution: '解决方案', remark: '备注' }
   return labels[field] || field
 }
+
+const latestAiCause = computed(() => {
+  const done = analyses.value.find(a => a.status === 'done' && a.results?.cause)
+  return done?.results?.cause || ''
+})
+const latestAiSolution = computed(() => {
+  const done = analyses.value.find(a => a.status === 'done' && a.results?.solution)
+  return done?.results?.solution || ''
+})
 
 import MarkdownIt from 'markdown-it'
 const md = new MarkdownIt({ html: false, linkify: true })

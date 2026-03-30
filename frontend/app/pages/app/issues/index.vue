@@ -213,10 +213,10 @@
           <EditableCell :value="row.original.remark" @save="(v: string) => inlineUpdate(row.original.id, 'remark', v)" />
         </template>
         <template #cause-cell="{ row }">
-          <EditableCell :value="row.original.cause" @save="(v: string) => inlineUpdate(row.original.id, 'cause', v)" />
+          <EditableCell :value="row.original.cause" :placeholder="row.original.ai_cause" @save="(v: string) => inlineUpdate(row.original.id, 'cause', v)" />
         </template>
         <template #solution-cell="{ row }">
-          <EditableCell :value="row.original.solution" @save="(v: string) => inlineUpdate(row.original.id, 'solution', v)" />
+          <EditableCell :value="row.original.solution" :placeholder="row.original.ai_solution" @save="(v: string) => inlineUpdate(row.original.id, 'solution', v)" />
         </template>
         <template #created_at-cell="{ row }">
           {{ row.original.created_at ? row.original.created_at.slice(0, 10) : '-' }}

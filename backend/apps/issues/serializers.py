@@ -53,6 +53,8 @@ class IssueListSerializer(serializers.ModelSerializer):
     helpers_names = serializers.SerializerMethodField()
     resolution_hours = serializers.SerializerMethodField()
     github_issues = GitHubIssueLinkSerializer(many=True, read_only=True)
+    ai_cause = serializers.CharField(read_only=True, default='')
+    ai_solution = serializers.CharField(read_only=True, default='')
 
     class Meta:
         model = Issue
@@ -60,6 +62,7 @@ class IssueListSerializer(serializers.ModelSerializer):
             "id", "project", "repo", "title", "priority",
             "status", "labels", "reporter", "reporter_name",
             "assignee", "assignee_name", "helpers", "helpers_names", "remark", "cause", "solution",
+            "ai_cause", "ai_solution",
             "resolution_hours", "created_at", "updated_at", "github_issues",
         ]
 

@@ -8,8 +8,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.db.models import Count, Avg, F
-from django.db.models.functions import TruncDate
+from django.db.models import Count, Avg, F, Subquery, OuterRef, Value, TextField
+from django.db.models.fields.json import KeyTextTransform
+from django.db.models.functions import TruncDate, Coalesce
 from apps.repos.models import Repo, GitHubIssue
 from apps.ai.models import Analysis
 from apps.ai.services import IssueAnalysisService
@@ -23,6 +24,29 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+def _with_ai_fields(qs):
+    """Annotate issues with cause/solution from latest completed AI analysis."""
+    latest = (
+        Analysis.objects.filter(
+            issue_id=OuterRef('pk'),
+            analysis_type='issue_code_analysis',
+            status='done',
+        ).order_by('-created_at')
+    )
+    return qs.annotate(
+        ai_cause=Coalesce(
+            Subquery(latest.annotate(_v=KeyTextTransform('cause', 'parsed_result')).values('_v')[:1]),
+            Value(''),
+            output_field=TextField(),
+        ),
+        ai_solution=Coalesce(
+            Subquery(latest.annotate(_v=KeyTextTransform('solution', 'parsed_result')).values('_v')[:1]),
+            Value(''),
+            output_field=TextField(),
+        ),
+    )
 
 
 class IssueListCreateView(generics.ListCreateAPIView):
@@ -40,7 +64,7 @@ class IssueListCreateView(generics.ListCreateAPIView):
         return IssueListSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = _with_ai_fields(super().get_queryset())
         labels = self.request.query_params.get("labels")
         if labels:
             qs = qs.filter(labels__contains=[labels])
@@ -53,6 +77,9 @@ class IssueListCreateView(generics.ListCreateAPIView):
 class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Issue.objects.select_related("reporter", "assignee").prefetch_related("attachments")
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+
+    def get_queryset(self):
+        return _with_ai_fields(super().get_queryset())
 
     def get_serializer_class(self):
         if self.request.method in ("PATCH", "PUT"):

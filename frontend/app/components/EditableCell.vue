@@ -11,15 +11,17 @@
       />
     </template>
     <template v-else>
-      <span class="cell-text" :class="{ 'text-gray-300': !value }" :title="value || ''">
-        {{ value || '-' }}
+      <span v-if="value" class="cell-text" :title="value">{{ value }}</span>
+      <span v-else-if="placeholder" class="cell-text cell-ai" :title="placeholder">
+        <span class="ai-tag">AI</span>{{ placeholder }}
       </span>
+      <span v-else class="cell-text text-gray-300">-</span>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ value?: string | null }>()
+const props = defineProps<{ value?: string | null; placeholder?: string | null }>()
 const emit = defineEmits<{ save: [value: string] }>()
 
 const editing = ref(false)
@@ -65,6 +67,27 @@ function cancel() {
   border-radius: 0.25rem;
   outline: none;
   background: white;
+}
+.cell-ai {
+  color: #9ca3af;
+  font-style: italic;
+}
+.ai-tag {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+  padding: 1px 3px;
+  margin-right: 4px;
+  border-radius: 2px;
+  background: #dbeafe;
+  color: #3b82f6;
+  vertical-align: middle;
+}
+:root.dark .ai-tag {
+  background: #1e3a5f;
+  color: #60a5fa;
 }
 :root.dark .editable-input {
   background: #1f2937;
