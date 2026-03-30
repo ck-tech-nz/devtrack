@@ -16,6 +16,10 @@ db.sqlite3
 .pytest_cache/
 staticfiles/
 
+# Local tool data
+.entire/
+.claude/settings.local.json
+
 # DB backups
 .backups/
 db-backup.yml
