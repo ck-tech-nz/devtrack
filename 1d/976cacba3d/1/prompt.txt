@@ -1,0 +1,103 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/db-backup.yml in the IDE. This may or may not be related to the current task.</ide_opened_file>
+https://devtrakr.matrixai.xin/app/issues/38
+
+AI 分析给出的内容是:
+```
+原因分析
+我来分析这个代码问题。首先让我查看项目结构和相关文件，了解当前的计划详情页面实现。 让我搜索相关的前端组件和页面： 让我先查看项目结构： 找到了计划详情页面！让我查看 plans/detail.tsx 文件： 现在让我查看 PlanFlowChart 组件，这可能是执行进度显示的关键组件： 现在让我查看是否有相关的样式文件或图片，了解当前的UI问题： 让我查看项目的package.json，了解使用了哪些UI库： 现在我已经了解了代码结构。让我分析问题：
+
+问题分析
+问题位置: frontend/src/pages/plans/detail.tsx:352-355 和 frontend/src/components/PlanFlowChart.tsx:136-140
+
+当前实现:
+
+在 PlanDetailPage 组件中，使用 PlanFlowChart 组件显示执行进度
+PlanFlowChart 使用 Ant Design 的 Steps 组件水平展示所有动作步骤
+当步骤数量较多时，会出现元素挤压问题，导致内容显示不全
+问题原因:
+
+Steps 组件是水平布局，每个步骤占用固定宽度
+当动作数量多时，步骤会挤压在一起，难以阅读
+当前设计将所有内容（标题和进度）放在同一行，空间不足
+解决方案
+根据需求描述，建议采用轮播（走马灯）+ 标题切换的方案：
+
+方案1：使用 Ant Design Carousel + Tabs（推荐）
+标题部分: 使用 Tabs 组件显示阶段标题（如 P1、P2、P3）
+内容部分: 使用 Carousel 组件轮播显示每个阶段的执行进度
+交互: 点击标签切换到对应阶段的轮播内容
+方案2：使用 Ant Design Steps 垂直布局 + 分页
+垂直布局: 将 Steps 改为垂直方向
+分页显示: 每个阶段显示一页，使用分页器切换
+具体实现建议：
+修改 PlanFlowChart.tsx:
+
+将水平 Steps 改为 Carousel + Tabs 组合
+按 phase_id 分组动作
+每个阶段作为一个轮播项
+阶段标题作为标签页
+代码修改示例:
+
+// 按阶段分组
+const phases = groupByPhase(actions);
+
+// 标签页
+<Tabs 
+  items={phases.map(phase => ({ key: phase.id, label: phase.name }))}
+  onChange={setActivePhase}
+/>
+
+// 轮播内容
+<Carousel afterChange={setActivePhaseIndex}>
+  {phases.map(phase => (
+    <div key={phase.id}>
+      <Steps direction="vertical" items={phase.steps} />
+    </div>
+  ))}
+</Carousel>
+文件修改:
+
+frontend/src/components/PlanFlowChart.tsx - 重构为轮播+标签布局
+frontend/src/pages/plans/detail.tsx - 调整布局结构
+优势:
+
+解决元素挤压问题
+提供清晰的阶段切换
+改善用户体验
+保持响应式设计
+需要我实现这个优化方案吗？
+```
+
+我们目前用的提示词模版跟本地的一样,在这里http://localhost:3000/api/admin/ai/prompt/2/change/
+请帮我升级模版, 目前我要的输出比较简单,就是两个输出:原因分析和解决方案.
+解决方案最好是能直接复制粘贴到IDE 给Claude 运行的那种提示词.
+我不需要现在这样的一个长篇大论,也不可能让opencode执行修改,因为它只有只读权限.
+
+---
+
+目前的提示词:
+```
+你是一个资深软件工程师和代码分析专家。用户会给你一个问题（Issue）的信息，你需要分析关联代码仓库中的代码，找出问题的根因并给出解决方案。
+
+请严格按照以下JSON格式返回（不要包含markdown标记）：
+
+{
+  "target_field": "cause或solution或remark",
+  "content": "你的分析内容"
+}
+
+target_field 选择规则：
+- cause: 当你找到了问题的根本原因时，写入原因分析
+- solution: 当你有具体的修复建议或代码修改方案时，写入解决方案
+- remark: 当你有补充说明、观察或建议但不属于原因/方案时，写入备注
+
+分析要求：
+- 引用具体的文件路径和代码行
+- 给出明确的修改建议
+- 用中文回答
+```
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/ai/migrations/0005_update_issue_analysis_prompt.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+检查一下AI分析功能,它支持多个issue同时分析吗?
