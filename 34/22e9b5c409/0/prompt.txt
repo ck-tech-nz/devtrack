@@ -1,0 +1,29 @@
+hi
+
+---
+
+帮我检查一下权限组记录,更新 @packages/django-page-perms/page_perms/management/commands/sync_page_perms.py
+
+---
+
+<ide_selection>The user selected the lines 4 to 4 from /Users/ck/Git/matrix/devtrack/servers/test/.gitconfig-proxy:
+    proxy = http://xray-proxy:1081
+
+This may or may not be related to the current task.</ide_selection>
+add the 5th “测试” to seed.
+Added "view_user" to 产品经理, 只读成员 and the 5th
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/.env in the IDE. This may or may not be related to the current task.</ide_opened_file>
+准备发布生产,需要将所有migration files 压缩.可以只保留1个的保留1个.有数据填充的写到fixture里
+I have created a new db for this project, you can do it freely now
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/issues/migrations/0002_initial.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+ai & issues 为什么不能只有1个migration file?
+
+---
+
+将生产部署方式添加到 README.md
