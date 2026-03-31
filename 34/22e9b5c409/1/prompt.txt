@@ -1,0 +1,14 @@
+分析出 cause, solution
+如果这个issue 的cause, solution 字段有空值,就帮他作为placeholder 展示出来.
+同时在 issue list 页面的 cause, solution field 也用 AI注释展示出来.
+一旦用户自己填了cause or solution 就以用户的为准, 反正 cause, solution 以展示在AI 区域了不怕
+
+---
+
+push to env/test
+
+---
+
+好像不对
+AI 分析那里应该展示渲染后的 md 文本.
+当然你可以同时要求ai给出 json,但你也没有把json 输出放到 placeholder

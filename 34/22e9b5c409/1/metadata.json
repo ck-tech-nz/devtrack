@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "3422e9b5c409",
+  "session_id": "ff7cdeed-b03d-4e81-982b-a67493d16cbe",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-31T00:04:45.067166Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "backend/apps/ai/migrations/0005_update_issue_analysis_prompt.py"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "d869143aab99",
+  "checkpoint_transcript_start": 251,
+  "transcript_lines_at_start": 251,
+  "token_usage": {
+    "input_tokens": 1,
+    "cache_creation_tokens": 364,
+    "cache_read_tokens": 111595,
+    "output_tokens": 215,
+    "api_call_count": 1
+  },
+  "session_metrics": {
+    "turn_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-31T00:04:44.793665Z",
+    "agent_lines": 0,
+    "human_added": 542,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 542,
+    "agent_percentage": 0
+  }
+}
