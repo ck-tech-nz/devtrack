@@ -27,3 +27,8 @@ ai & issues 为什么不能只有1个migration file?
 ---
 
 将生产部署方式添加到 README.md
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/README.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+push
