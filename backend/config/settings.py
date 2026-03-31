@@ -155,10 +155,11 @@ PAGE_PERMS = {
         {"path": "/app/about", "label": "关于系统", "icon": "i-heroicons-information-circle", "permission": None, "sort_order": 100, "meta": {"superuserOnly": True}},
     ],
     "SEED_GROUPS": {
-        "管理员": {"apps": ["projects", "issues", "settings", "repos", "ai", "users"]},
-        "开发者": {"permissions": ["view_project", "view_issue", "add_issue", "change_issue", "view_activity", "view_dashboard", "view_analysis", "add_analysis"]},
-        "产品经理": {"inherit": "开发者", "permissions": ["add_project", "change_project", "manage_project_members"]},
+        "管理员": {"apps": ["projects", "issues", "settings", "repos", "ai", "users", "tools"]},
+        "开发者": {"permissions": ["view_project", "view_issue", "add_issue", "change_issue", "view_activity", "view_dashboard", "view_analysis", "add_analysis", "view_user"]},
+        "产品经理": {"inherit": "开发者", "permissions": ["add_project", "change_project", "manage_project_members", "view_user"]},
         "只读成员": {"permissions_startswith": ["view_"]},
+        "测试": {"permissions": ["view_project", "view_issue", "add_issue", "change_issue", "view_activity", "view_dashboard", "view_analysis", "add_analysis", "view_user"]},
     },
 }
 
