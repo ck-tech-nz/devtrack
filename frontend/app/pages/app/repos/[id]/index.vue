@@ -237,6 +237,166 @@
           </div>
         </div>
       </template>
+
+      <template #insights>
+        <div class="mt-4">
+          <!-- Loading -->
+          <div v-if="insightsLoading" class="flex items-center justify-center py-10">
+            <div class="text-sm text-gray-400 dark:text-gray-500">加载开发者洞察中...</div>
+          </div>
+          <!-- Not Cloned -->
+          <div v-else-if="repo.clone_status !== 'cloned'" class="flex items-center justify-center py-10">
+            <div class="text-sm text-gray-400 dark:text-gray-500">请先同步代码后查看开发者洞察</div>
+          </div>
+          <!-- Individual Detail View -->
+          <div v-else-if="selectedDeveloper && developerDetail" class="space-y-4">
+            <div class="flex items-center justify-between">
+              <button class="text-sm text-primary hover:underline" @click="backToTeam">← 返回团队总览</button>
+              <USelect v-model="insightsDays" :items="daysOptions" value-key="value" size="xs" />
+            </div>
+            <!-- Header -->
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <span class="text-primary font-semibold">{{ developerDetail.author_name?.slice(0, 1)?.toUpperCase() }}</span>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ developerDetail.author_name }}</h3>
+                <p class="text-xs text-gray-400 dark:text-gray-500">{{ developerDetail.author_email }}<span v-if="developerDetail.user_name"> · {{ developerDetail.user_name }}</span></p>
+              </div>
+            </div>
+            <!-- Radar Chart -->
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-4">
+              <ChartsRadarChart
+                :indicators="[
+                  { name: '贡献量', max: 100 },
+                  { name: '效率', max: 100 },
+                  { name: '能力', max: 100 },
+                  { name: '质量', max: 100 },
+                ]"
+                :values="[
+                  developerDetail.scores.contribution,
+                  developerDetail.scores.efficiency,
+                  developerDetail.scores.capability,
+                  developerDetail.scores.quality,
+                ]"
+                :height="280"
+              />
+            </div>
+            <!-- Detail Cards -->
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4">
+                <p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2">贡献量</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">提交数: {{ developerDetail.details.commit_count }}</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">代码行数: +{{ developerDetail.details.additions }} / -{{ developerDetail.details.deletions }}</p>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-4">
+                <p class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">效率</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">频率: {{ developerDetail.details.commit_frequency }}/周</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">活跃天数: {{ developerDetail.details.active_days_ratio }}%</p>
+              </div>
+              <div class="bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4">
+                <p class="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2">能力</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">涉及目录: {{ developerDetail.details.directory_count }} 个</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                  类型:
+                  <span v-for="(count, type) in developerDetail.details.commit_types" :key="type" class="mr-1">
+                    {{ type }} {{ count }}
+                  </span>
+                </p>
+              </div>
+              <div class="bg-purple-50 dark:bg-purple-950/30 rounded-xl p-4">
+                <p class="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-2">质量</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">Fix 占比: {{ developerDetail.details.fix_ratio }}%</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">规范度: {{ developerDetail.details.conventional_ratio }}%</p>
+              </div>
+            </div>
+            <!-- AI Placeholder -->
+            <div class="border border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <p class="text-xs font-semibold text-gray-400 dark:text-gray-500">AI 洞察 (即将推出)</p>
+              <p class="text-xs text-gray-300 dark:text-gray-600 mt-1 italic">基于提交历史和 Issue 数据的综合分析...</p>
+            </div>
+          </div>
+          <!-- Loading Detail -->
+          <div v-else-if="selectedDeveloper && developerDetailLoading" class="flex items-center justify-center py-10">
+            <div class="text-sm text-gray-400 dark:text-gray-500">加载开发者详情中...</div>
+          </div>
+          <!-- Team Overview -->
+          <div v-else-if="insightsData" class="space-y-4">
+            <!-- Time filter -->
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">开发者洞察</span>
+              <USelect v-model="insightsDays" :items="daysOptions" value-key="value" size="xs" />
+            </div>
+            <!-- Unlinked authors alert -->
+            <UAlert
+              v-if="insightsData.unlinked_count > 0"
+              color="warning"
+              variant="subtle"
+              icon="i-heroicons-exclamation-triangle"
+              :title="`${insightsData.unlinked_count} 位作者未关联用户`"
+              :actions="[{ label: '去关联', click: () => { showLinkModal = true; fetchUsers() } }]"
+            />
+            <!-- Developer Cards -->
+            <div class="space-y-3">
+              <div
+                v-for="dev in insightsData.developers"
+                :key="dev.author_email"
+                class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-4 cursor-pointer hover:border-primary transition-colors"
+                @click="selectDeveloper(dev)"
+              >
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span class="text-primary text-sm font-semibold">{{ dev.author_name?.slice(0, 1)?.toUpperCase() }}</span>
+                    </div>
+                    <div>
+                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ dev.author_name }}</span>
+                      <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">{{ dev.stats.commit_count }} commits</span>
+                      <span v-if="dev.user_name" class="text-xs text-gray-400 dark:text-gray-500 ml-1">· {{ dev.user_name }}</span>
+                    </div>
+                  </div>
+                  <span class="text-xs text-primary">查看详情 →</span>
+                </div>
+                <!-- Score bars -->
+                <div class="grid grid-cols-4 gap-3">
+                  <div v-for="(dim, key) in { contribution: '贡献量', efficiency: '效率', capability: '能力', quality: '质量' }" :key="key">
+                    <div class="flex justify-between text-[11px] mb-1">
+                      <span class="text-gray-500 dark:text-gray-400">{{ dim }}</span>
+                      <span class="font-semibold" :class="scoreColor(key as string)">{{ dev.scores[key] }}</span>
+                    </div>
+                    <div class="h-1 bg-gray-100 dark:bg-gray-800 rounded-full">
+                      <div class="h-full rounded-full transition-all" :class="scoreBarColor(key as string)" :style="{ width: dev.scores[key] + '%' }" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Link Authors Slideover -->
+          <USlideover v-model:open="showLinkModal" title="关联 Git 作者" side="right">
+            <template #content>
+              <div class="p-6 space-y-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">关联 Git 作者到系统用户</h3>
+                <div v-for="author in insightsData?.unlinked_authors" :key="author.id" class="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ author.author_name }}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ author.author_email }}</p>
+                  </div>
+                  <USelect
+                    :items="allUsers.map((u: any) => ({ label: u.name || u.username, value: u.id }))"
+                    value-key="value"
+                    placeholder="选择用户"
+                    size="sm"
+                    class="w-40"
+                    @update:model-value="(val: any) => linkAuthor(author.id, val)"
+                  />
+                </div>
+              </div>
+            </template>
+          </USlideover>
+        </div>
+      </template>
     </UTabs>
 
     <!-- Info Slideover -->
@@ -301,6 +461,16 @@ const activeTab = ref('issues')
 const gitLog = ref<any[]>([])
 const gitLogLoading = ref(false)
 
+// Developer insights state
+const insightsData = ref<any>(null)
+const insightsLoading = ref(false)
+const selectedDeveloper = ref<any>(null)
+const developerDetail = ref<any>(null)
+const developerDetailLoading = ref(false)
+const insightsDays = ref('90')
+const showLinkModal = ref(false)
+const allUsers = ref<any[]>([])
+
 // Branches state
 const branches = ref<string[]>([])
 const selectedBranch = ref<string>('')
@@ -311,6 +481,7 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 const tabItems = [
   { label: 'Issues', slot: 'issues', value: 'issues' },
   { label: '提交记录', slot: 'git-log', value: 'git-log' },
+  { label: '开发者洞察', slot: 'insights', value: 'insights' },
 ]
 
 const tableColumns = [
@@ -426,6 +597,90 @@ async function fetchGitLog() {
   }
 }
 
+const daysOptions = [
+  { label: '30天', value: '30' },
+  { label: '90天', value: '90' },
+  { label: '全部', value: 'all' },
+]
+
+async function fetchInsights() {
+  if (repo.value?.clone_status !== 'cloned') return
+  insightsLoading.value = true
+  try {
+    insightsData.value = await api<any>(
+      `/api/repos/${route.params.id}/developer-insights/?days=${insightsDays.value}`
+    )
+  } catch (e) {
+    console.error('Failed to load insights:', e)
+  } finally {
+    insightsLoading.value = false
+  }
+}
+
+async function fetchDeveloperDetail(aliasId: number) {
+  developerDetailLoading.value = true
+  try {
+    developerDetail.value = await api<any>(
+      `/api/repos/${route.params.id}/developer-insights/${aliasId}/?days=${insightsDays.value}`
+    )
+  } catch (e) {
+    console.error('Failed to load developer detail:', e)
+  } finally {
+    developerDetailLoading.value = false
+  }
+}
+
+function selectDeveloper(dev: any) {
+  selectedDeveloper.value = dev
+  fetchDeveloperDetail(dev.alias_id)
+}
+
+function backToTeam() {
+  selectedDeveloper.value = null
+  developerDetail.value = null
+}
+
+async function fetchUsers() {
+  try {
+    allUsers.value = await api<any[]>('/api/users/')
+  } catch (e) {
+    console.error('Failed to load users:', e)
+  }
+}
+
+async function linkAuthor(aliasId: number, userId: number | null) {
+  try {
+    await api(`/api/repos/${route.params.id}/git-author-aliases/${aliasId}/`, {
+      method: 'PATCH',
+      body: { user: userId },
+    })
+    toast.add({ title: '关联成功', color: 'success' })
+    await fetchInsights()
+  } catch (e) {
+    toast.add({ title: '关联失败', color: 'error' })
+  }
+}
+
+function scoreColor(key: string): string {
+  const colors: Record<string, string> = {
+    contribution: 'text-emerald-600 dark:text-emerald-400',
+    efficiency: 'text-blue-600 dark:text-blue-400',
+    capability: 'text-amber-600 dark:text-amber-400',
+    quality: 'text-purple-600 dark:text-purple-400',
+  }
+  return colors[key] || ''
+}
+
+function scoreBarColor(key: string): string {
+  const colors: Record<string, string> = {
+    contribution: 'bg-emerald-500',
+    efficiency: 'bg-blue-500',
+    capability: 'bg-amber-500',
+    quality: 'bg-purple-500',
+  }
+  return colors[key] || ''
+}
+
 async function handleSync() {
   syncing.value = true
   try {
@@ -495,10 +750,22 @@ async function pollRepoStatus() {
   }
 }
 
-// Fetch git log when switching to git-log tab
+// Fetch git log when switching to git-log tab; fetch insights when switching to insights tab
 watch(activeTab, (val) => {
   if (val === 'git-log' && repo.value?.clone_status === 'cloned' && !gitLog.value.length) {
     fetchGitLog()
+  }
+  if (val === 'insights' && repo.value?.clone_status === 'cloned' && !insightsData.value) {
+    fetchInsights()
+  }
+})
+
+watch(insightsDays, () => {
+  if (activeTab.value === 'insights') {
+    fetchInsights()
+    if (selectedDeveloper.value) {
+      fetchDeveloperDetail(selectedDeveloper.value.alias_id)
+    }
   }
 })
 
