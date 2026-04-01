@@ -1,0 +1,44 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/.env in the IDE. This may or may not be related to the current task.</ide_opened_file>
+hi
+
+---
+
+/brainstorming  根据提交记录做一个多维度的能力评估:
+- 代码贡献量
+- 效率
+- 能力
+-  质量
+
+---
+
+1. build it in repo app
+2. I wlll ask the developer to update their name and email in their repo .git/config. then you can use their email or author name to link to User account.
+3. then update the leaderboard or add new tab.
+4. add analytics
+go try it
+
+---
+
+http://localhost:65527 刚刚离开太久了现在打不开了
+
+---
+
+看不到
+- 先做单个仓库维度
+- 思考一下Linear App 的模式,如何利用现有的数据和AI能力,获得对团队成员更深入的洞察
+
+---
+
+C
+
+---
+
+A
+
+---
+
+合理
+
+---
+
+这似乎是对仓库/Team的评估,对人呢?
