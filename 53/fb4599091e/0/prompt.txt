@@ -1,0 +1,36 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/users/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+对于测试角色,待办区域展示其负责的问题和已解决的问题
+对于已解决的问题,允许测试角色关闭
+
+---
+
+continue
+
+---
+
+如果当前用户是问题的负责人或者协助人 (helper),本来就应该显示在待办,没有的话请实现
+所有"已解决"的问题都展示给测试角色（不限于负责人/协助人）
+
+---
+
+1, yes
+2. 好, 但关闭一个又回显示8个就好
+3. 确定
+
+---
+
+注意,已关闭问题的就不要显示在待办了
+其他OK
+
+---
+
+没问题了
+
+---
+
+交换一下label 和switch 开关的位置
+
+---
+
+查看已完成改为查看已关闭.
+以解决但没有关闭还是要现实
