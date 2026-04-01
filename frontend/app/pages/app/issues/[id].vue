@@ -171,16 +171,62 @@
               <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" @update:model-value="(v: string[]) => autoSave('helpers', v)" />
             </div>
           </div>
-          <div v-if="labelItems.length" class="space-y-1.5">
-            <label class="text-xs font-medium text-gray-400 dark:text-gray-500">标签</label>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                v-for="lbl in labelItems"
+          <div class="space-y-1.5">
+            <UPopover v-model:open="showLabelPicker" :popper="{ placement: 'bottom-start' }">
+              <button class="flex items-center justify-between w-full group cursor-pointer">
+                <label class="text-xs font-medium text-gray-400 dark:text-gray-500 cursor-pointer">标签</label>
+                <UIcon name="i-heroicons-cog-6-tooth" class="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+              </button>
+              <template #panel>
+                <div class="w-72 p-0">
+                  <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                    <p class="text-xs font-semibold text-gray-900 dark:text-gray-100">应用标签</p>
+                  </div>
+                  <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                    <UInput v-model="labelSearchQuery" placeholder="筛选标签" size="xs" icon="i-heroicons-magnifying-glass" />
+                  </div>
+                  <div class="max-h-64 overflow-y-auto">
+                    <button
+                      v-for="name in filteredLabelNames"
+                      :key="name"
+                      class="flex items-start gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      @click="toggleLabel(name)"
+                    >
+                      <UIcon
+                        :name="form.labels.includes(name) ? 'i-heroicons-check' : ''"
+                        class="w-4 h-4 mt-0.5 shrink-0"
+                        :class="form.labels.includes(name) ? 'text-gray-900 dark:text-gray-100' : 'text-transparent'"
+                      />
+                      <span
+                        class="w-3 h-3 rounded-full mt-1 shrink-0"
+                        :style="{ backgroundColor: labelItems[name]?.background || '#ccc' }"
+                      />
+                      <div class="min-w-0">
+                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ name }}</div>
+                        <div v-if="labelItems[name]?.description" class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ labelItems[name].description }}</div>
+                      </div>
+                    </button>
+                    <div v-if="!filteredLabelNames.length" class="px-3 py-4 text-center text-xs text-gray-400">无匹配标签</div>
+                  </div>
+                  <button
+                    class="w-full px-3 py-2 text-xs text-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    @click="showLabelPicker = false; showLabelManager = true"
+                  >编辑标签</button>
+                </div>
+              </template>
+            </UPopover>
+            <!-- Applied labels as colored pills -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span
+                v-for="lbl in form.labels"
                 :key="lbl"
-                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                :class="form.labels.includes(lbl) ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'"
-                @click="toggleLabel(lbl)"
-              >{{ lbl }}</button>
+                class="px-2 py-0.5 rounded-full text-xs font-medium"
+                :style="{
+                  backgroundColor: labelItems[lbl]?.background || '#e5e7eb',
+                  color: labelItems[lbl]?.foreground || '#374151',
+                }"
+              >{{ lbl }}</span>
+              <span v-if="!form.labels.length" class="text-xs text-gray-400 dark:text-gray-500">无标签</span>
             </div>
           </div>
         </div>
@@ -437,7 +483,18 @@ onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
 })
 const users = ref<any[]>([])
-const labelItems = ref<string[]>([])
+const labelItems = ref<Record<string, { foreground: string; background: string; description: string }>>({})
+
+const showLabelPicker = ref(false)
+const labelSearchQuery = ref('')
+const showLabelManager = ref(false)
+
+const filteredLabelNames = computed(() => {
+  const names = Object.keys(labelItems.value)
+  if (!labelSearchQuery.value) return names
+  const q = labelSearchQuery.value.toLowerCase()
+  return names.filter(n => n.toLowerCase().includes(q) || labelItems.value[n]?.description.toLowerCase().includes(q))
+})
 const repos = ref<any[]>([])
 const allGHIssues = ref<any[]>([])
 const descriptionEditor = ref<{ setMode: (m: 'edit' | 'preview') => void } | null>(null)
@@ -725,7 +782,7 @@ onMounted(async () => {
   ])
   issue.value = issueData
   users.value = usersData || []
-  labelItems.value = settingsData?.labels || []
+  labelItems.value = settingsData?.labels || {}
   repos.value = reposData?.results || reposData || []
   if (issueData) populateForm(issueData)
   loading.value = false
