@@ -92,20 +92,24 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
     helpers = serializers.PrimaryKeyRelatedField(
         many=True, queryset=User.objects.all(), required=False,
     )
+    attachment_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, write_only=True, default=list,
+    )
 
     class Meta:
         model = Issue
         fields = [
             "id", "project", "repo", "title", "description", "priority", "status",
             "labels", "assignee", "helpers", "remark", "estimated_completion",
-            "actual_hours", "cause", "solution",
+            "actual_hours", "cause", "solution", "attachment_ids",
         ]
         read_only_fields = ["id"]
 
     def validate_labels(self, value):
         site_settings = SiteSettings.get_solo()
-        valid = set(site_settings.labels.keys()) if isinstance(site_settings.labels, dict) else set(site_settings.labels)
-        invalid = [l for l in value if l not in valid]
+        labels = site_settings.labels
+        valid = set(labels.keys()) if isinstance(labels, dict) else set(labels)
+        invalid = [label for label in value if label not in valid]
         if invalid:
             raise serializers.ValidationError(f"无效的标签: {invalid}")
         return value
@@ -124,6 +128,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         helpers = validated_data.pop("helpers", [])
+        attachment_ids = validated_data.pop("attachment_ids", [])
         validated_data["reporter"] = self.context["request"].user
         issue = super().create(validated_data)
         if helpers:
@@ -133,7 +138,12 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
             issue=issue,
             action="created",
         )
-        _sync_attachments(issue, self.context["request"].user)
+        if attachment_ids:
+            from apps.tools.models import Attachment
+            atts = Attachment.objects.filter(
+                id__in=attachment_ids, uploaded_by=self.context["request"].user,
+            )
+            issue.attachments.add(*atts)
         return issue
 
     def update(self, instance, validated_data):

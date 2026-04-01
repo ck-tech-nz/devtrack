@@ -19,7 +19,6 @@ class TestAttachmentModel:
     def test_attachment_survives_user_deletion(self):
         """uploaded_by SET_NULL: deleting user keeps attachment"""
         from tests.factories import UserFactory
-        from apps.tools.models import Attachment
         user = UserFactory()
         a = AttachmentFactory(uploaded_by=user)
         user.delete()
@@ -40,27 +39,49 @@ class TestAttachmentModel:
 @pytest.mark.django_db
 class TestAttachmentSync:
     def test_create_issue_links_matching_attachments(self, auth_client, auth_user, site_settings, settings):
-        from apps.tools.models import Attachment
         from apps.issues.models import Issue
         from tests.factories import ProjectFactory
-        settings.MINIO_PUBLIC_URL = "http://minio:9000"
         project = ProjectFactory()
         att = AttachmentFactory(
             uploaded_by=auth_user,
             file_url="http://minio:9000/devtrack-uploads/2026/03/27/abc.png",
         )
-        description = "截图: ![img](http://minio:9000/devtrack-uploads/2026/03/27/abc.png)"
         response = auth_client.post("/api/issues/", {
             "project": project.id,
             "title": "测试问题",
-            "description": description,
+            "description": "截图: ![img](http://minio:9000/devtrack-uploads/2026/03/27/abc.png)",
             "priority": "P1",
             "status": "待处理",
             "labels": [],
+            "attachment_ids": [str(att.id)],
         }, format="json")
         assert response.status_code == 201
         issue = Issue.objects.get(id=response.data["id"])
         assert issue.attachments.filter(id=att.id).exists()
+
+    def test_create_issue_links_attachments_by_id(self, auth_client, auth_user, site_settings):
+        from apps.issues.models import Issue
+        from tests.factories import ProjectFactory
+        project = ProjectFactory()
+        att1 = AttachmentFactory(uploaded_by=auth_user, file_url="/uploads/2026/04/02/a.png")
+        att2 = AttachmentFactory(uploaded_by=auth_user, file_url="/uploads/2026/04/02/b.png")
+        other_user_att = AttachmentFactory(file_url="/uploads/2026/04/02/c.png")
+        response = auth_client.post("/api/issues/", {
+            "project": project.id,
+            "title": "附件测试",
+            "description": "![a](/uploads/2026/04/02/a.png)",
+            "priority": "P1",
+            "status": "待处理",
+            "labels": [],
+            "attachment_ids": [str(att1.id), str(att2.id), str(other_user_att.id)],
+        }, format="json")
+        assert response.status_code == 201
+        issue = Issue.objects.get(id=response.data["id"])
+        linked = set(issue.attachments.values_list("id", flat=True))
+        # Only att1 and att2 linked (owned by auth_user), other_user_att filtered out
+        assert att1.id in linked
+        assert att2.id in linked
+        assert other_user_att.id not in linked
 
     def test_detail_response_includes_attachments(self, auth_client, site_settings):
         from tests.factories import IssueFactory
@@ -73,7 +94,6 @@ class TestAttachmentSync:
         assert len(response.data["attachments"]) == 2
 
     def test_update_issue_links_new_attachments(self, auth_client, auth_user, site_settings, settings):
-        from apps.issues.models import Issue
         from tests.factories import IssueFactory
         settings.MINIO_PUBLIC_URL = "http://minio:9000"
         issue = IssueFactory()
