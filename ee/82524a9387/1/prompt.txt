@@ -1,0 +1,4 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/.env in the IDE. This may or may not be related to the current task.</ide_opened_file>
+创建时间这一栏改为统计值: 历时
+- 如果有预计完成时间,显示一个带颜色的百分比
+- 如果没有填预计完成时间,显示一个历时n 小时, 如果大于1天就 n天,小于1天是绿色,小于2天是黄色,超过2天变红色
