@@ -57,7 +57,7 @@ function cancel() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 10rem;
+  max-width: 100%;
 }
 .editable-input {
   width: 100%;

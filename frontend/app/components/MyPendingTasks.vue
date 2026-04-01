@@ -18,29 +18,25 @@
     </div>
     <transition name="slide">
       <div v-show="!collapsed" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        <div
+        <NuxtLink
           v-for="task in tasks"
           :key="task.id"
-          class="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg p-3.5 hover:border-crystal-200 dark:hover:border-crystal-800 hover:shadow-sm transition-all"
+          :to="`/app/issues/${task.id}`"
+          class="group block bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg p-3.5 hover:border-crystal-200 dark:hover:border-crystal-800 hover:shadow-sm transition-all"
         >
-          <NuxtLink
-            :to="`/app/issues/${task.id}`"
-            class="block"
-          >
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">#{{ task.id }}</span>
-              <UBadge
-                :color="priorityColor(task.priority)"
-                variant="subtle"
-                size="xs"
-              >
-                {{ priorityLabel(task.priority) }}
-              </UBadge>
-            </div>
-            <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2 group-hover:text-crystal-600 dark:group-hover:text-crystal-400 transition-colors">
-              {{ task.title }}
-            </p>
-          </NuxtLink>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">#{{ task.id }}</span>
+            <UBadge
+              :color="priorityColor(task.priority)"
+              variant="subtle"
+              size="xs"
+            >
+              {{ priorityLabel(task.priority) }}
+            </UBadge>
+          </div>
+          <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2 group-hover:text-crystal-600 dark:group-hover:text-crystal-400 transition-colors">
+            {{ task.title }}
+          </p>
           <div class="flex items-center justify-between mt-2.5">
             <UBadge
               :color="statusColor(task.status)"
@@ -55,14 +51,14 @@
                 color="neutral"
                 variant="ghost"
                 :loading="closingId === task.id"
-                @click="closeIssue(task)"
+                @click.stop.prevent="closeIssue(task)"
               >
                 关闭
               </UButton>
             </template>
             <span v-else-if="task.project_name" class="text-[11px] text-gray-400 dark:text-gray-500 truncate ml-2">{{ task.project_name }}</span>
           </div>
-        </div>
+        </NuxtLink>
       </div>
     </transition>
   </div>

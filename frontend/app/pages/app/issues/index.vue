@@ -172,6 +172,7 @@
         v-model:row-selection="rowSelection"
         :data="issues"
         :columns="columns"
+        class="issues-table"
         :ui="{ th: 'text-xs whitespace-nowrap', td: 'text-sm' }"
       >
         <template #select-header="{ table }">
@@ -204,10 +205,10 @@
           </div>
         </template>
         <template #assignee_name-cell="{ row }">
-          {{ row.original.assignee_name || '-' }}
+          <span class="block truncate" :title="row.original.assignee_name">{{ row.original.assignee_name || '-' }}</span>
         </template>
         <template #reporter_name-cell="{ row }">
-          {{ row.original.reporter_name || '-' }}
+          <span class="block truncate" :title="row.original.reporter_name">{{ row.original.reporter_name || '-' }}</span>
         </template>
         <template #remark-cell="{ row }">
           <EditableCell :value="row.original.remark" @save="(v: string) => inlineUpdate(row.original.id, 'remark', v)" />
@@ -708,4 +709,22 @@ async function checkAnalyzingIssues() {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+/*
+ * Issues table: fixed layout so we control column widths.
+ * Columns: select | ID | 标题 | 负责人 | 原因分析 | 解决方案 | 备注 | 优先级 | 状态 | 提出人 | 历时 | 解决耗时
+ * Narrow cols get fixed width; 标题/原因/方案 share remaining space.
+ */
+.issues-table :deep(table) { table-layout: fixed; width: 100%; }
+.issues-table :deep(:is(th, td):nth-child(1)) { width: 2.5%; }   /* select */
+.issues-table :deep(:is(th, td):nth-child(2)) { width: 3.5%; }   /* ID */
+/* 3: 标题 — auto */
+.issues-table :deep(:is(th, td):nth-child(4)) { width: 6%; }     /* 负责人 */
+/* 5: 原因分析 — auto */
+/* 6: 解决方案 — auto */
+.issues-table :deep(:is(th, td):nth-child(7)) { width: 4.5%; }   /* 备注 */
+.issues-table :deep(:is(th, td):nth-child(8)) { width: 4.5%; }   /* 优先级 */
+.issues-table :deep(:is(th, td):nth-child(9)) { width: 5.5%; }   /* 状态 */
+.issues-table :deep(:is(th, td):nth-child(10)) { width: 6%; }    /* 提出人 */
+.issues-table :deep(:is(th, td):nth-child(11)) { width: 7%; }    /* 历时 */
+.issues-table :deep(:is(th, td):nth-child(12)) { width: 5%; }    /* 解决耗时 */
 </style>
