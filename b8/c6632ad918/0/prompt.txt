@@ -1,0 +1,17 @@
+/brainstorming when creating new issue there is not issue id the attachment can't bind to this issue, how
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/frontend/app/pages/app/issues/[id].vue in the IDE. This may or may not be related to the current task.</ide_opened_file>
+xperiencing that uploaded images during issue creation are NOT getting linked to the issue after it's created, yes.
+
+don't worry the old records, just make sure from now on, attached image are correctly link after issue created.
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/issues/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+B
+
+---
+
+yes, and it's useful, cause when issue is deleted we can delete this attachment from minio to save the space
