@@ -70,3 +70,47 @@ class GitHubIssue(models.Model):
 
     def __str__(self):
         return f"#{self.github_id} {self.title}"
+
+
+class Commit(models.Model):
+    repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="commits")
+    hash = models.CharField(max_length=40, verbose_name="提交哈希")
+    author_name = models.CharField(max_length=200, verbose_name="作者名")
+    author_email = models.CharField(max_length=254, verbose_name="作者邮箱")
+    date = models.DateTimeField(verbose_name="提交时间")
+    message = models.TextField(verbose_name="提交信息")
+    additions = models.IntegerField(default=0, verbose_name="新增行数")
+    deletions = models.IntegerField(default=0, verbose_name="删除行数")
+    files_changed = models.JSONField(default=list, verbose_name="变更文件")
+
+    class Meta:
+        verbose_name = "提交记录"
+        verbose_name_plural = "提交记录"
+        unique_together = ("repo", "hash")
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.hash[:7]} {self.message[:50]}"
+
+
+class GitAuthorAlias(models.Model):
+    repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="author_aliases")
+    author_email = models.CharField(max_length=254, verbose_name="作者邮箱")
+    author_name = models.CharField(max_length=200, verbose_name="作者名")
+    user = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="git_aliases",
+        verbose_name="关联用户",
+    )
+
+    class Meta:
+        verbose_name = "Git 作者映射"
+        verbose_name_plural = "Git 作者映射"
+        unique_together = ("repo", "author_email")
+
+    def __str__(self):
+        label = self.user.name if self.user else "未关联"
+        return f"{self.author_name} <{self.author_email}> → {label}"

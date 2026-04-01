@@ -1,6 +1,6 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import Repo, GitHubIssue
+from .models import Repo, GitHubIssue, Commit, GitAuthorAlias
 
 
 @admin.register(Repo)
@@ -19,3 +19,30 @@ class GitHubIssueAdmin(ModelAdmin):
     )
     list_filter = ("state", "repo")
     search_fields = ("title",)
+
+
+@admin.register(Commit)
+class CommitAdmin(ModelAdmin):
+    list_display = ("repo", "hash_short", "author_name", "date", "message_short")
+    list_filter = ("repo",)
+    search_fields = ("hash", "author_name", "message")
+    readonly_fields = (
+        "repo", "hash", "author_name", "author_email", "date",
+        "message", "additions", "deletions", "files_changed",
+    )
+
+    @admin.display(description="哈希")
+    def hash_short(self, obj):
+        return obj.hash[:7]
+
+    @admin.display(description="信息")
+    def message_short(self, obj):
+        return obj.message[:60]
+
+
+@admin.register(GitAuthorAlias)
+class GitAuthorAliasAdmin(ModelAdmin):
+    list_display = ("repo", "author_name", "author_email", "user")
+    list_filter = ("repo",)
+    search_fields = ("author_name", "author_email")
+    autocomplete_fields = ("user",)
