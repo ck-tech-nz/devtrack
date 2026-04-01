@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
 from apps.projects.models import Project, ProjectMember
 from apps.issues.models import Issue, Activity
-from apps.repos.models import Repo, GitHubIssue
+from apps.repos.models import Repo, GitHubIssue, Commit, GitAuthorAlias
 from apps.ai.models import LLMConfig, Prompt, Analysis
 from apps.tools.models import Attachment
 from django.utils import timezone as tz
@@ -104,6 +104,31 @@ class GitHubIssueFactory(factory.django.DjangoModelFactory):
     github_created_at = factory.LazyFunction(tz.now)
     github_updated_at = factory.LazyFunction(tz.now)
     synced_at = factory.LazyFunction(tz.now)
+
+
+class CommitFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Commit
+
+    repo = factory.SubFactory(RepoFactory)
+    hash = factory.LazyFunction(lambda: fake.sha1())
+    author_name = factory.LazyFunction(lambda: fake.name())
+    author_email = factory.LazyFunction(lambda: fake.email())
+    date = factory.LazyFunction(tz.now)
+    message = factory.LazyFunction(lambda: fake.sentence())
+    additions = factory.LazyFunction(lambda: fake.random_int(1, 200))
+    deletions = factory.LazyFunction(lambda: fake.random_int(0, 100))
+    files_changed = factory.LazyFunction(lambda: [f"src/{fake.file_name()}"])
+
+
+class GitAuthorAliasFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = GitAuthorAlias
+
+    repo = factory.SubFactory(RepoFactory)
+    author_email = factory.LazyFunction(lambda: fake.email())
+    author_name = factory.LazyFunction(lambda: fake.name())
+    user = None
 
 
 class LLMConfigFactory(factory.django.DjangoModelFactory):
