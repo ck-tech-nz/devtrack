@@ -104,7 +104,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
 
     def validate_labels(self, value):
         site_settings = SiteSettings.get_solo()
-        valid = set(site_settings.labels)
+        valid = set(site_settings.labels.keys()) if isinstance(site_settings.labels, dict) else set(site_settings.labels)
         invalid = [l for l in value if l not in valid]
         if invalid:
             raise serializers.ValidationError(f"无效的标签: {invalid}")
