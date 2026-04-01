@@ -15,7 +15,9 @@ USER_SETTINGS_SCHEMA = {
 @admin.register(User)
 class UserAdmin(ModelAdmin, BaseUserAdmin):
     list_display = ("username", "name", "email", "is_staff")
-    fieldsets = BaseUserAdmin.fieldsets + (("扩展信息", {"fields": ("name", "github_id", "avatar", "settings")}),)
+    fieldsets = BaseUserAdmin.fieldsets + (
+        ("扩展信息", {"fields": ("name", "github_id", "avatar", "is_bot", "settings")}),
+    )
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == "settings":

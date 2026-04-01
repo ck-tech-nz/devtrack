@@ -5,8 +5,8 @@
       <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
       <div class="flex items-center justify-between md:justify-end space-x-3">
         <label class="flex items-center gap-1.5 cursor-pointer select-none">
+          <span class="text-sm text-gray-500 dark:text-gray-400">查看已关闭</span>
           <USwitch v-model="showCompleted" size="lg" />
-          <span class="text-sm text-gray-500 dark:text-gray-400">查看已完成</span>
         </label>
         <div class="relative">
           <USelect v-model="filterAssignee" :items="filterAssigneeOptions" size="sm" class="w-28" value-key="value" placeholder="负责人" />
@@ -500,7 +500,7 @@ async function fetchIssues() {
     params.set('page', String(page.value))
     params.set('page_size', String(pageSize))
     if (!showCompleted.value && !filterStatus.value) {
-      params.set('exclude_statuses', '已解决,已关闭')
+      params.set('exclude_statuses', '已关闭')
     }
     if (filterAssignee.value) params.set('assignee', filterAssignee.value)
     if (filterPriority.value) params.set('priority', filterPriority.value)

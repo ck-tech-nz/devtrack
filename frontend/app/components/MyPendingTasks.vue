@@ -14,36 +14,51 @@
     </div>
     <transition name="slide">
       <div v-show="!collapsed" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        <NuxtLink
+        <div
           v-for="task in tasks"
           :key="task.id"
-          :to="`/app/issues/${task.id}`"
           class="group bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg p-3.5 hover:border-crystal-200 dark:hover:border-crystal-800 hover:shadow-sm transition-all"
         >
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">#{{ task.id }}</span>
-            <UBadge
-              :color="priorityColor(task.priority)"
-              variant="subtle"
-              size="xs"
-            >
-              {{ priorityLabel(task.priority) }}
-            </UBadge>
-          </div>
-          <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2 group-hover:text-crystal-600 dark:group-hover:text-crystal-400 transition-colors">
-            {{ task.title }}
-          </p>
+          <NuxtLink
+            :to="`/app/issues/${task.id}`"
+            class="block"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">#{{ task.id }}</span>
+              <UBadge
+                :color="priorityColor(task.priority)"
+                variant="subtle"
+                size="xs"
+              >
+                {{ priorityLabel(task.priority) }}
+              </UBadge>
+            </div>
+            <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2 group-hover:text-crystal-600 dark:group-hover:text-crystal-400 transition-colors">
+              {{ task.title }}
+            </p>
+          </NuxtLink>
           <div class="flex items-center justify-between mt-2.5">
             <UBadge
-              :color="task.status === '待处理' ? 'warning' : 'info'"
+              :color="statusColor(task.status)"
               variant="subtle"
               size="xs"
             >
               {{ task.status }}
             </UBadge>
-            <span v-if="task.project_name" class="text-[11px] text-gray-400 dark:text-gray-500 truncate ml-2">{{ task.project_name }}</span>
+            <template v-if="task.status === '已解决' && isTester">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :loading="closingId === task.id"
+                @click="closeIssue(task)"
+              >
+                关闭
+              </UButton>
+            </template>
+            <span v-else-if="task.project_name" class="text-[11px] text-gray-400 dark:text-gray-500 truncate ml-2">{{ task.project_name }}</span>
           </div>
-        </NuxtLink>
+        </div>
       </div>
     </transition>
   </div>
@@ -51,36 +66,61 @@
 
 <script setup lang="ts">
 const { api } = useApi()
-const { user } = useAuth()
+const { user, hasGroup } = useAuth()
 
 const tasks = ref<any[]>([])
 const collapsed = ref(false)
+const closingId = ref<number | null>(null)
 
-onMounted(async () => {
+const isTester = computed(() => hasGroup('测试'))
+
+function statusColor(status: string) {
+  if (status === '待处理') return 'warning'
+  if (status === '进行中') return 'info'
+  if (status === '已解决') return 'success'
+  return 'neutral'
+}
+
+async function loadTasks() {
   if (!user.value) return
   try {
     const uid = user.value.id
-    const [ap, ai, hp, hi] = await Promise.all([
+    const fetches: Promise<any>[] = [
       api<any>(`/api/issues/?assignee=${uid}&status=待处理&page_size=8`),
       api<any>(`/api/issues/?assignee=${uid}&status=进行中&page_size=8`),
       api<any>(`/api/issues/?helpers=${uid}&status=待处理&page_size=8`),
       api<any>(`/api/issues/?helpers=${uid}&status=进行中&page_size=8`),
-    ])
+    ]
+    if (isTester.value) {
+      fetches.push(api<any>(`/api/issues/?status=已解决&page_size=8`))
+    }
+    const results = await Promise.all(fetches)
     const seen = new Set<number>()
     const merged: any[] = []
-    for (const item of [
-      ...(ap.results || ap || []),
-      ...(ai.results || ai || []),
-      ...(hp.results || hp || []),
-      ...(hi.results || hi || []),
-    ]) {
-      if (!seen.has(item.id)) { seen.add(item.id); merged.push(item) }
+    for (const res of results) {
+      for (const item of (res.results || res || [])) {
+        if (!seen.has(item.id)) { seen.add(item.id); merged.push(item) }
+      }
     }
     tasks.value = merged.slice(0, 8)
   } catch (e) {
     console.error('Failed to load pending tasks:', e)
   }
-})
+}
+
+async function closeIssue(task: any) {
+  closingId.value = task.id
+  try {
+    await api(`/api/issues/${task.id}/close-with-github/`, { method: 'POST' })
+    await loadTasks()
+  } catch (e) {
+    console.error('Failed to close issue:', e)
+  } finally {
+    closingId.value = null
+  }
+}
+
+onMounted(loadTasks)
 </script>
 
 <style scoped>
