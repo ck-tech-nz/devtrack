@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -8,10 +9,11 @@ import tempfile
 
 import requests
 from django.conf import settings as django_settings
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .models import Repo, GitHubIssue
+from .models import Repo, GitHubIssue, Commit, GitAuthorAlias
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +179,10 @@ class RepoCloneService:
             repo.clone_status = "cloned"
             repo.cloned_at = timezone.now()
             repo.save(update_fields=["clone_status", "clone_error", "current_branch", "cloned_at", "default_branch"])
+            try:
+                self.sync_commits(repo)
+            except Exception:
+                logger.exception("sync_commits failed for %s", repo.full_name)
         except CalledProcessError as e:
             repo.clone_status = "failed"
             repo.clone_error = e.stderr or str(e)
@@ -225,6 +231,112 @@ class RepoCloneService:
         if result.returncode != 0:
             return []
         return [b.strip() for b in result.stdout.strip().split("\n") if b.strip()]
+
+    def sync_commits(self, repo):
+        local_path = repo.local_path
+        if not os.path.exists(local_path):
+            return
+
+        existing_hashes = set(
+            Commit.objects.filter(repo=repo).values_list("hash", flat=True)
+        )
+
+        result = subprocess.run(
+            ["git", "-C", local_path, "log",
+             "--format=%H%x00%ae%x00%an%x00%aI%x00%s", "--stat"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            return
+
+        parsed = self._parse_git_log_stat(result.stdout)
+
+        new_commits = [
+            Commit(
+                repo=repo,
+                hash=c["hash"],
+                author_email=c["author_email"],
+                author_name=c["author_name"],
+                date=c["date"],
+                message=c["message"],
+                additions=c["additions"],
+                deletions=c["deletions"],
+                files_changed=c["files_changed"],
+            )
+            for c in parsed
+            if c["hash"] not in existing_hashes
+        ]
+        Commit.objects.bulk_create(new_commits, ignore_conflicts=True)
+
+        User = get_user_model()
+        seen = {}
+        for c in parsed:
+            key = c["author_email"]
+            if key not in seen:
+                seen[key] = c["author_name"]
+
+        for email, name in seen.items():
+            alias, created = GitAuthorAlias.objects.get_or_create(
+                repo=repo,
+                author_email=email,
+                defaults={"author_name": name},
+            )
+            if created and alias.user is None:
+                matched_user = User.objects.filter(email=email).first()
+                if matched_user:
+                    alias.user = matched_user
+                    alias.save(update_fields=["user"])
+
+    @staticmethod
+    def _parse_git_log_stat(output):
+        """解析 git log --format=... --stat 的输出，返回提交列表。"""
+        stat_summary_re = re.compile(
+            r"\s*\d+ files? changed"
+            r"(?:,\s*(\d+) insertions?\(\+\))?"
+            r"(?:,\s*(\d+) deletions?\(-\))?"
+        )
+        file_line_re = re.compile(r"\s*(.+?)\s+\|")
+
+        commits = []
+        current = None
+        for line in output.split("\n"):
+            # Format header line: hash\x00email\x00name\x00date\x00message
+            if "\x00" in line:
+                if current is not None:
+                    commits.append(current)
+                parts = line.split("\x00", 4)
+                if len(parts) == 5:
+                    current = {
+                        "hash": parts[0],
+                        "author_email": parts[1],
+                        "author_name": parts[2],
+                        "date": parts[3],
+                        "message": parts[4],
+                        "additions": 0,
+                        "deletions": 0,
+                        "files_changed": [],
+                    }
+                else:
+                    current = None
+                continue
+
+            if current is None:
+                continue
+
+            m = stat_summary_re.match(line)
+            if m:
+                current["additions"] = int(m.group(1) or 0)
+                current["deletions"] = int(m.group(2) or 0)
+                continue
+
+            fm = file_line_re.match(line)
+            if fm:
+                current["files_changed"].append(fm.group(1).strip())
+
+        if current is not None:
+            commits.append(current)
+
+        return commits
 
     @staticmethod
     def _detect_default_branch(local_path):
