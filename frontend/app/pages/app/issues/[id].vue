@@ -436,78 +436,84 @@
     </UModal>
 
     <!-- Label Management Modal -->
-    <UModal v-model:open="showLabelManager" title="管理标签">
+    <UModal v-model:open="showLabelManager" :title="editingLabel || addingLabel ? (addingLabel ? '新增标签' : '编辑标签') : '管理标签'">
       <template #content>
-        <div class="p-5 space-y-4">
+        <!-- Edit / Add view -->
+        <div v-if="editingLabel || addingLabel" class="p-5 space-y-5">
+          <!-- Preview area -->
+          <div class="flex items-center justify-center py-6 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+            <span
+              class="px-3 py-1 rounded-full text-sm font-medium shadow-sm transition-all"
+              :style="{ backgroundColor: editForm.background, color: editForm.foreground }"
+            >{{ editForm.name || '预览' }}</span>
+          </div>
+
+          <!-- Name -->
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">名称</label>
+            <UInput v-model="editForm.name" placeholder="标签名称" />
+          </div>
+
+          <!-- Description -->
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">描述</label>
+            <UInput v-model="editForm.description" placeholder="可选的简短描述" />
+          </div>
+
+          <!-- Color -->
+          <div class="space-y-1.5">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">颜色</label>
+            <div class="flex items-center gap-4">
+              <div class="flex items-center gap-2">
+                <label class="relative w-8 h-8 rounded-lg cursor-pointer overflow-hidden shadow-sm ring-1 ring-gray-200 dark:ring-gray-700" :style="{ backgroundColor: editForm.background }">
+                  <input type="color" v-model="editForm.background" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                </label>
+                <UInput v-model="editForm.background" size="sm" class="w-28" placeholder="#000000" />
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-400">文字</span>
+                <label class="relative w-8 h-8 rounded-lg cursor-pointer overflow-hidden shadow-sm ring-1 ring-gray-200 dark:ring-gray-700" :style="{ backgroundColor: editForm.foreground }">
+                  <input type="color" v-model="editForm.foreground" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                </label>
+                <UInput v-model="editForm.foreground" size="sm" class="w-28" placeholder="#ffffff" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <UButton variant="outline" color="neutral" @click="cancelEditLabel">取消</UButton>
+            <UButton :loading="labelSaving" :disabled="!editForm.name.trim()" @click="saveLabelEdit">保存</UButton>
+          </div>
+        </div>
+
+        <!-- List view -->
+        <div v-else class="p-5 space-y-3">
           <div class="flex items-center justify-end">
-            <UButton size="xs" icon="i-heroicons-plus" @click="startAddLabel">新增</UButton>
+            <UButton size="sm" icon="i-heroicons-plus" @click="startAddLabel">新增标签</UButton>
           </div>
 
-          <!-- Add new label form -->
-          <div v-if="addingLabel" class="rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-3 space-y-2">
-            <UInput v-model="editForm.name" placeholder="标签名称" size="sm" />
-            <UInput v-model="editForm.description" placeholder="描述" size="sm" />
-            <div class="flex items-center gap-3">
-              <div class="flex items-center gap-1.5">
-                <label class="text-xs text-gray-500">背景</label>
-                <input type="color" v-model="editForm.background" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
-                <UInput v-model="editForm.background" size="xs" class="w-24" />
+          <div class="space-y-0.5 max-h-[28rem] overflow-y-auto -mx-2">
+            <div
+              v-for="(props, name) in labelItems"
+              :key="name"
+              class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 group transition-colors"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <span
+                  class="px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0"
+                  :style="{ backgroundColor: props.background, color: props.foreground }"
+                >{{ name }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ props.description }}</span>
               </div>
-              <div class="flex items-center gap-1.5">
-                <label class="text-xs text-gray-500">文字</label>
-                <input type="color" v-model="editForm.foreground" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
-                <UInput v-model="editForm.foreground" size="xs" class="w-24" />
+              <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <UButton size="xs" variant="ghost" icon="i-heroicons-pencil-square" @click="startEditLabel(name as string)" />
+                <UButton size="xs" variant="ghost" color="error" icon="i-heroicons-trash" @click="deleteLabel(name as string)" />
               </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded-full text-xs font-medium" :style="{ backgroundColor: editForm.background, color: editForm.foreground }">{{ editForm.name || '预览' }}</span>
-            </div>
-            <div class="flex items-center gap-2 justify-end">
-              <UButton size="xs" variant="ghost" @click="cancelEditLabel">取消</UButton>
-              <UButton size="xs" :loading="labelSaving" :disabled="!editForm.name.trim()" @click="saveLabelEdit">保存</UButton>
             </div>
           </div>
 
-          <!-- Label list -->
-          <div class="space-y-1 max-h-96 overflow-y-auto">
-            <div v-for="(props, name) in labelItems" :key="name">
-              <!-- Display mode -->
-              <div v-if="editingLabel !== name" class="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group">
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class="px-2 py-0.5 rounded-full text-xs font-medium shrink-0" :style="{ backgroundColor: props.background, color: props.foreground }">{{ name }}</span>
-                  <span class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ props.description }}</span>
-                </div>
-                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <UButton size="xs" variant="ghost" icon="i-heroicons-pencil-square" @click="startEditLabel(name as string)" />
-                  <UButton size="xs" variant="ghost" color="error" icon="i-heroicons-trash" @click="deleteLabel(name as string)" />
-                </div>
-              </div>
-              <!-- Edit mode -->
-              <div v-else class="rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-3 space-y-2">
-                <UInput v-model="editForm.name" placeholder="标签名称" size="sm" />
-                <UInput v-model="editForm.description" placeholder="描述" size="sm" />
-                <div class="flex items-center gap-3">
-                  <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">背景</label>
-                    <input type="color" v-model="editForm.background" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
-                    <UInput v-model="editForm.background" size="xs" class="w-24" />
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">文字</label>
-                    <input type="color" v-model="editForm.foreground" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
-                    <UInput v-model="editForm.foreground" size="xs" class="w-24" />
-                  </div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded-full text-xs font-medium" :style="{ backgroundColor: editForm.background, color: editForm.foreground }">{{ editForm.name || '预览' }}</span>
-                </div>
-                <div class="flex items-center gap-2 justify-end">
-                  <UButton size="xs" variant="ghost" @click="cancelEditLabel">取消</UButton>
-                  <UButton size="xs" :loading="labelSaving" :disabled="!editForm.name.trim()" @click="saveLabelEdit">保存</UButton>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div v-if="!Object.keys(labelItems).length" class="py-8 text-center text-sm text-gray-400">暂无标签</div>
         </div>
       </template>
     </UModal>
