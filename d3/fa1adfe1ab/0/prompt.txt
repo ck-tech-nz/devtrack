@@ -190,3 +190,224 @@ GitAuthorAlias 是干什么用的
 ---
 
 我是管理员,我去哪里操作关联
+
+---
+
+Unchecked runtime.lastError: The message port closed before a response was received.
+runtime-core.esm-bundler.js?v=fad3c318:7233 <Suspense> is an experimental feature and its API will likely change.
+runtime-core.esm-bundler.js?v=fad3c318:50 [Vue warn]: Property "issueDuration" was accessed during render but is not defined on instance. 
+  at <Primitive as=undefined class="relative overflow-auto" > 
+  at <UTable row-selection= Object onUpdate:rowSelection=fn data= Array(20)  ... > 
+  at <Index onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouteProvider key="/app/issues" vnode= Object route= Object  ... > 
+  at <RouterView name=undefined route=undefined > 
+  at <NuxtPage> 
+  at <Default ref=Ref< Proxy(Object) > > 
+  at <AsyncComponentWrapper ref=Ref< Proxy(Object) > > 
+  at <LayoutLoader key="default" layoutProps= Object name="default" > 
+  at <NuxtLayoutProvider layoutProps= Object key="default" name="default"  ... > 
+  at <NuxtLayout> 
+  at <ToastProvider swipe-direction="right" duration=5000 > 
+  at <Toaster key=0 > 
+  at <TooltipProvider> 
+  at <ConfigProvider use-id=fn<use-id> dir=undefined locale=undefined > 
+  at <App> 
+  at <App key=4 > 
+  at <NuxtRoot>
+warn$1 @ runtime-core.esm-bundler.js?v=fad3c318:50
+default.vue:16 [PAGE ERROR] TypeError: _ctx.issueDuration is not a function
+    at index.vue?t=1775028932162:1104:91
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at renderSlot (runtime-core.esm-bundler.js?v=fad3c318:3281:53)
+    at Table.vue:399:25
+    at renderList (runtime-core.esm-bundler.js?v=fad3c318:3201:16)
+    at Table.vue:384:77
+    at renderList (runtime-core.esm-bundler.js?v=fad3c318:3201:16)
+    at Table.vue:362:77
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at normalizeChildren (runtime-core.esm-bundler.js?v=fad3c318:7888:34)
+(anonymous) @ default.vue:16
+runtime-core.esm-bundler.js?v=fad3c318:50 [Vue warn]: Property "issueDuration" was accessed during render but is not defined on instance. 
+  at <Primitive as=undefined class="relative overflow-auto" > 
+  at <UTable row-selection= Object onUpdate:rowSelection=fn data= Array(20)  ... > 
+  at <Index onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouteProvider key="/app/issues" vnode= Object route= Object  ... > 
+  at <RouterView name=undefined route=undefined > 
+  at <NuxtPage> 
+  at <Default ref=Ref< Proxy(Object) > > 
+  at <AsyncComponentWrapper ref=Ref< Proxy(Object) > > 
+  at <LayoutLoader key="default" layoutProps= Object name="default" > 
+  at <NuxtLayoutProvider layoutProps= Object key="default" name="default"  ... > 
+  at <NuxtLayout> 
+  at <ToastProvider swipe-direction="right" duration=5000 > 
+  at <Toaster key=0 > 
+  at <TooltipProvider> 
+  at <ConfigProvider use-id=fn<use-id> dir=undefined locale=undefined > 
+  at <App> 
+  at <App key=4 > 
+  at <NuxtRoot>
+warn$1 @ runtime-core.esm-bundler.js?v=fad3c318:50
+default.vue:16 [PAGE ERROR] TypeError: _ctx.issueDuration is not a function
+    at index.vue?t=1775028932162:1104:91
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at renderSlot (runtime-core.esm-bundler.js?v=fad3c318:3281:53)
+    at Table.vue:399:25
+    at renderList (runtime-core.esm-bundler.js?v=fad3c318:3201:16)
+    at Table.vue:384:77
+    at renderList (runtime-core.esm-bundler.js?v=fad3c318:3201:16)
+    at Table.vue:362:77
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at normalizeChildren (runtime-core.esm-bundler.js?v=fad3c318:7888:34)
+(anonymous) @ default.vue:16
+runtime-core.esm-bundler.js?v=fad3c318:50 [Vue warn]: Property "issueDuration" was accessed during render but is not defined on instance. 
+  at <Primitive as=undefined class="relative overflow-auto" > 
+  at <UTable row-selection= Object onUpdate:rowSelection=fn data= Array(20)  ... > 
+  at <Index onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouteProvider key="/app/issues" vnode= Object route= Object  ... > 
+  at <RouterView name=undefined route=undefined > 
+  at <NuxtPage> 
+  at <Default ref=Ref< Proxy(Object) > > 
+  at <AsyncComponentWrapper ref=Ref< Proxy(Object) > > 
+  at <LayoutLoader key="default" layoutProps= Object name="default" > 
+  at <NuxtLayoutProvider layoutProps= Object key="default" name="default"  ... > 
+  at <NuxtLayout> 
+  at <ToastProvider swipe-direction="right" duration=5000 > 
+  at <Toaster key=0 > 
+  at <TooltipProvider> 
+  at <ConfigProvider use-id=fn<use-id> dir=undefined locale=undefined > 
+  at <App> 
+  at <App key=4 > 
+  at <NuxtRoot>
+warn$1 @ runtime-core.esm-bundler.js?v=fad3c318:50
+default.vue:16 [PAGE ERROR] TypeError: _ctx.issueDuration is not a function
+    at index.vue?t=1775028932162:1104:91
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at renderSlot (runtime-core.esm-bundler.js?v=fad3c318:3281:53)
+    at Table.vue:399:25
+    at renderList (runtime-core.esm-bundler.js?v=fad3c318:3201:16)
+    at Table.vue:384:77
+    at renderList (runtime-core.esm-bundler.js?v=fad3c318:3201:16)
+    at Table.vue:362:77
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at normalizeChildren (runtime-core.esm-bundler.js?v=fad3c318:7888:34)
+(anonymous) @ default.vue:16
+runtime-core.esm-bundler.js?v=fad3c318:50 [Vue warn]: Failed to resolve component: ProjectsKanbanBoard
+If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
+  at <[id] onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouteProvider key="/app/projects/1()" vnode= Object route= Object  ... > 
+  at <RouterView name=undefined route=undefined > 
+  at <NuxtPage> 
+  at <Default ref=Ref< Proxy(Object) > > 
+  at <AsyncComponentWrapper ref=Ref< Proxy(Object) > > 
+  at <LayoutLoader key="default" layoutProps= Object name="default" > 
+  at <NuxtLayoutProvider layoutProps= Object key="default" name="default"  ... > 
+  at <NuxtLayout> 
+  at <ToastProvider swipe-direction="right" duration=5000 > 
+  at <Toaster key=0 > 
+  at <TooltipProvider> 
+  at <ConfigProvider use-id=fn<use-id> dir=undefined locale=undefined > 
+  at <App> 
+  at <App key=4 > 
+  at <NuxtRoot>
+warn$1 @ runtime-core.esm-bundler.js?v=fad3c318:50
+runtime-core.esm-bundler.js?v=fad3c318:50 [Vue warn]: Failed to resolve component: ProjectsKanbanBoard
+If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
+  at <[id] onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouteProvider key="/app/projects/1()" vnode= Object route= Object  ... > 
+  at <RouterView name=undefined route=undefined > 
+  at <NuxtPage> 
+  at <Default ref=Ref< Proxy(Object) > > 
+  at <AsyncComponentWrapper ref=Ref< Proxy(Object) > > 
+  at <LayoutLoader key="default" layoutProps= Object name="default" > 
+  at <NuxtLayoutProvider layoutProps= Object key="default" name="default"  ... > 
+  at <NuxtLayout> 
+  at <ToastProvider swipe-direction="right" duration=5000 > 
+  at <Toaster key=0 > 
+  at <TooltipProvider> 
+  at <ConfigProvider use-id=fn<use-id> dir=undefined locale=undefined > 
+  at <App> 
+  at <App key=4 > 
+  at <NuxtRoot>
+warn$1 @ runtime-core.esm-bundler.js?v=fad3c318:50
+runtime-core.esm-bundler.js?v=fad3c318:50 [Vue warn]: Failed to resolve component: ProjectsKanbanBoard
+If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
+  at <[id] onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouteProvider key="/app/projects/1()" vnode= Object route= Object  ... > 
+  at <RouterView name=undefined route=undefined > 
+  at <NuxtPage> 
+  at <Default ref=Ref< Proxy(Object) > > 
+  at <AsyncComponentWrapper ref=Ref< Proxy(Object) > > 
+  at <LayoutLoader key="default" layoutProps= Object name="default" > 
+  at <NuxtLayoutProvider layoutProps= Object key="default" name="default"  ... > 
+  at <NuxtLayout> 
+  at <ToastProvider swipe-direction="right" duration=5000 > 
+  at <Toaster key=0 > 
+  at <TooltipProvider> 
+  at <ConfigProvider use-id=fn<use-id> dir=undefined locale=undefined > 
+  at <App> 
+  at <App key=4 > 
+  at <NuxtRoot>
+warn$1 @ runtime-core.esm-bundler.js?v=fad3c318:50
+runtime-core.esm-bundler.js?v=fad3c318:50 [Vue warn]: Failed to resolve component: ProjectsKanbanBoard
+If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
+  at <[id] onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) > > 
+  at <RouteProvider key="/app/projects/1()" vnode= Object route= Object  ... > 
+  at <RouterView name=undefined route=undefined > 
+  at <NuxtPage> 
+  at <Default ref=Ref< Proxy(Object) > > 
+  at <AsyncComponentWrapper ref=Ref< Proxy(Object) > > 
+  at <LayoutLoader key="default" layoutProps= Object name="default" > 
+  at <NuxtLayoutProvider layoutProps= Object key="default" name="default"  ... > 
+  at <NuxtLayout> 
+  at <ToastProvider swipe-direction="right" duration=5000 > 
+  at <Toaster key=0 > 
+  at <TooltipProvider> 
+  at <ConfigProvider use-id=fn<use-id> dir=undefined locale=undefined > 
+  at <App> 
+  at <App key=4 > 
+  at <NuxtRoot>
+warn$1 @ runtime-core.esm-bundler.js?v=fad3c318:50
+chunk-GBWAJ4B6.js?v=fad3c318:635 [ECharts] The ticks may be not readable when set min: 0, max: 100 and alignTicks: true. (indicator_0AxisIndex: 0)
+outputLog @ chunk-GBWAJ4B6.js?v=fad3c318:635
+chunk-GBWAJ4B6.js?v=fad3c318:635 [ECharts] The ticks may be not readable when set min: 0, max: 100 and alignTicks: true. (indicator_1AxisIndex: 0)
+outputLog @ chunk-GBWAJ4B6.js?v=fad3c318:635
+chunk-GBWAJ4B6.js?v=fad3c318:635 [ECharts] The ticks may be not readable when set min: 0, max: 100 and alignTicks: true. (indicator_2AxisIndex: 0)
+outputLog @ chunk-GBWAJ4B6.js?v=fad3c318:635
+chunk-GBWAJ4B6.js?v=fad3c318:635 [ECharts] The ticks may be not readable when set min: 0, max: 100 and alignTicks: true. (indicator_3AxisIndex: 0)
+outputLog @ chunk-GBWAJ4B6.js?v=fad3c318:635
+utils.js?v=fad3c318:19 Warning: Missing `Description` or `aria-describedby="undefined"` for DialogContent.
+(anonymous) @ utils.js?v=fad3c318:19
+Unchecked runtime.lastError: The message port closed before a response was received.
+utils.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+extensionState.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+heuristicsRedefinitions.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+utils.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+heuristicsRedefinitions.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+extensionState.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+utils.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+extensionState.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+heuristicsRedefinitions.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+utils.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+extensionState.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+heuristicsRedefinitions.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
+:3000/api/users/:1  Failed to load resource: the server responded with a status of 400 (Bad Request)
+:3000/api/users/:1  Failed to load resource: the server responded with a status of 400 (Bad Request)
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+Unchecked runtime.lastError: The page keeping the extension port is moved into back/forward cache, so the message channel is closed.
+utils.js?v=fad3c318:19 Warning: Missing `Description` or `aria-describedby="undefined"` for DialogContent.
+(anonymous) @ utils.js?v=fad3c318:19
+default.vue:16 [PAGE ERROR] TypeError: $setup.allUsers.map is not a function
+    at index.vue:387:38
+    at renderList (runtime-core.esm-bundler.js?v=fad3c318:3201:16)
+    at index.vue:394:23
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at renderSlot (runtime-core.esm-bundler.js?v=fad3c318:3281:53)
+    at Slideover.vue:130:15
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+    at renderSlot (runtime-core.esm-bundler.js?v=fad3c318:3281:53)
+    at DialogContent.js?v=fad3c318:54:30
+    at renderFnWithContext (runtime-core.esm-bundler.js?v=fad3c318:709:13)
+(anonymous) @ default.vue:16
+
+---
+Django Admin 没有 /admin/repos/gitauthoralias/
