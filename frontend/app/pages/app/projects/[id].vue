@@ -199,11 +199,11 @@ onMounted(async () => {
     const [projectData, issuesData, usersData] = await Promise.all([
       api<any>(`/api/projects/${id}/`),
       api<any>(`/api/projects/${id}/issues/`),
-      api<any[]>('/api/users/').catch(() => []),
+      api<any[]>('/api/users/choices/').catch(() => []),
     ])
     project.value = projectData
     projectIssues.value = issuesData.results || issuesData || []
-    users.value = usersData?.results || usersData || []
+    users.value = usersData || []
   } catch (e) {
     console.error('Failed to load project:', e)
   } finally {

@@ -717,12 +717,12 @@ async function fetchGHIssues() {
 onMounted(async () => {
   const [issueData, usersData, settingsData, reposData] = await Promise.all([
     api<any>(`/api/issues/${route.params.id}/`).catch(() => null),
-    api<any[]>('/api/users/').catch(() => []),
+    api<any[]>('/api/users/choices/').catch(() => []),
     api<any>('/api/settings/').catch(() => ({ labels: [] })),
     api<any[]>('/api/repos/').catch(() => []),
   ])
   issue.value = issueData
-  users.value = usersData?.results || usersData || []
+  users.value = usersData || []
   labelItems.value = settingsData?.labels || []
   repos.value = reposData?.results || reposData || []
   if (issueData) populateForm(issueData)

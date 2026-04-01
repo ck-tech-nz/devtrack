@@ -86,6 +86,10 @@ class Command(BaseCommand):
                         Permission.objects.filter(codename__startswith=prefix)
                     )
 
+            if "exclude_permissions" in config:
+                for codename in config["exclude_permissions"]:
+                    perms -= set(Permission.objects.filter(codename=codename))
+
             resolved[group_name] = perms
 
         # Second pass: handle inherit (snapshot semantics)

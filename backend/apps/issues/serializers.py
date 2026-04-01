@@ -64,6 +64,7 @@ class IssueListSerializer(serializers.ModelSerializer):
             "assignee", "assignee_name", "helpers", "helpers_names", "remark", "cause", "solution",
             "ai_cause", "ai_solution",
             "resolution_hours", "created_at", "updated_at", "github_issues",
+            "estimated_completion",
         ]
 
     def get_helpers_names(self, obj):

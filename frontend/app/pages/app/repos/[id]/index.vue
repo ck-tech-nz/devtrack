@@ -642,8 +642,8 @@ function backToTeam() {
 
 async function fetchUsers() {
   try {
-    const data = await api<any>('/api/users/')
-    allUsers.value = data.results ?? data
+    const data = await api<any>('/api/users/choices/')
+    allUsers.value = data
   } catch (e) {
     console.error('Failed to load users:', e)
   }

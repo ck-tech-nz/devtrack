@@ -219,7 +219,21 @@
           <EditableCell :value="row.original.solution" :placeholder="row.original.ai_solution" @save="(v: string) => inlineUpdate(row.original.id, 'solution', v)" />
         </template>
         <template #created_at-cell="{ row }">
-          {{ row.original.created_at ? row.original.created_at.slice(0, 10) : '-' }}
+          <div class="duration-cell">
+            <div class="duration-bar">
+              <div
+                class="duration-fill"
+                :class="{ 'duration-overdue': issueDuration(row.original).pct > 100 }"
+                :style="{
+                  width: Math.min(issueDuration(row.original).pct, 100) + '%',
+                  backgroundColor: issueDuration(row.original).color,
+                }"
+              />
+            </div>
+            <span class="duration-label" :style="{ color: issueDuration(row.original).color }">
+              {{ issueDuration(row.original).label }}
+            </span>
+          </div>
         </template>
         <template #resolution_hours-cell="{ row }">
           {{ row.original.resolution_hours ? row.original.resolution_hours + 'h' : '-' }}
@@ -383,7 +397,7 @@ const columns = computed(() => {
     { accessorKey: 'priority', header: '优先级' },
     { accessorKey: 'status', header: '状态' },
     { accessorKey: 'reporter_name', header: '提出人' },
-    { accessorKey: 'created_at', header: '创建时间' },
+    { accessorKey: 'created_at', header: '历时' },
     { accessorKey: 'resolution_hours', header: '解决耗时' },
   ]
   if (showGHColumn.value) {
@@ -444,6 +458,35 @@ function formatApiError(e: any, fallback: string): string {
     if (msgs) return msgs
   }
   return e?.message || fallback
+}
+
+function issueDuration(issue: any): { pct: number; color: string; label: string } {
+  if (!issue.created_at) return { pct: 0, color: '#9ca3af', label: '-' }
+  const now = Date.now()
+  const start = new Date(issue.created_at).getTime()
+  const elapsed = now - start
+  const hours = elapsed / 3600000
+
+  const deadline = issue.estimated_completion
+    ? new Date(issue.estimated_completion).getTime()
+    : start + 3 * 86400000 // 默认3天
+  const total = deadline - start
+  const pct = total > 0 ? Math.round((elapsed / total) * 100) : 100
+
+  // 颜色: ≤50% 绿, ≤80% 黄, >80% 红
+  const color = pct <= 50 ? '#22c55e' : pct <= 80 ? '#f59e0b' : '#ef4444'
+
+  // 标签
+  let label: string
+  if (hours < 24) {
+    label = `${Math.max(1, Math.round(hours))}h`
+  } else {
+    const days = (hours / 24).toFixed(1).replace(/\.0$/, '')
+    label = `${days}d`
+  }
+  if (issue.estimated_completion) label += ` / ${issue.estimated_completion.slice(5)}`
+
+  return { pct, color, label }
 }
 
 function statusColor(s: string) {
@@ -518,12 +561,12 @@ watch([filterAssignee, filterPriority, filterStatus], () => {
 onMounted(async () => {
   const [, usersData, settingsData, projectsData, reposData] = await Promise.all([
     fetchIssues(),
-    api<any[]>('/api/users/').catch(() => []),
+    api<any[]>('/api/users/choices/').catch(() => []),
     api<any>('/api/settings/').catch(() => ({ labels: [] })),
     api<any>('/api/projects/').catch(() => ({ results: [] })),
     api<any>('/api/repos/').catch(() => ({ results: [] })),
   ])
-  users.value = usersData?.results || usersData || []
+  users.value = usersData || []
   labelOptions.value = settingsData?.labels || []
   projects.value = projectsData?.results || projectsData || []
   repos.value = reposData?.results || reposData || []
@@ -631,5 +674,38 @@ async function checkAnalyzingIssues() {
 :root.dark .filter-clear:hover {
   color: #d1d5db;
   background-color: #374151;
+}
+.duration-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 72px;
+}
+.duration-bar {
+  height: 6px;
+  border-radius: 3px;
+  background-color: #f3f4f6;
+  overflow: hidden;
+}
+:root.dark .duration-bar {
+  background-color: #374151;
+}
+.duration-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.duration-overdue {
+  animation: pulse-bar 2s ease-in-out infinite;
+}
+.duration-label {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes pulse-bar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 </style>

@@ -71,6 +71,16 @@ class RegisterView(CreateAPIView):
         )
 
 
+class UserChoicesView(APIView):
+    """轻量级用户选项接口，仅返回 id 和名称，排除机器人用户。"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        users = User.objects.filter(is_active=True, is_bot=False).order_by("name")
+        data = [{"id": u.id, "name": u.name or u.username} for u in users]
+        return Response(data)
+
+
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
