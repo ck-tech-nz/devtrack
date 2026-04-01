@@ -1,0 +1,4 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/packages/django-page-perms/page_perms/management/commands/sync_page_perms.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+为了能在这里选择到用户(id, name),我对开发 & 测试开放了用户 view权限.这是不对的.
+应该增加一个 user_choices 接口,不需要权限但过滤 is_bot == True.
+然后从 @packages/django-page-perms/page_perms/management/commands/sync_page_perms.py  中去掉除管理员以外的角色享有 users.view_user 权限
