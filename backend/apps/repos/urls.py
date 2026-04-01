@@ -3,6 +3,8 @@ from .views import (
     RepoListCreateView, RepoDetailView, GitHubIssueListView,
     RepoSyncView, GitHubIssueDetailView,
     RepoCloneView, RepoGitLogView, RepoBranchesView,
+    DeveloperInsightsListView, DeveloperInsightsDetailView,
+    SyncCommitsView, GitAuthorAliasPatchView,
 )
 
 urlpatterns = [
@@ -13,5 +15,9 @@ urlpatterns = [
     path("<int:pk>/clone/", RepoCloneView.as_view(), name="repo-clone"),
     path("<int:pk>/git-log/", RepoGitLogView.as_view(), name="repo-git-log"),
     path("<int:pk>/branches/", RepoBranchesView.as_view(), name="repo-branches"),
+    path("<int:pk>/sync-commits/", SyncCommitsView.as_view(), name="repo-sync-commits"),
+    path("<int:pk>/developer-insights/", DeveloperInsightsListView.as_view(), name="developer-insights-list"),
+    path("<int:pk>/developer-insights/<int:alias_id>/", DeveloperInsightsDetailView.as_view(), name="developer-insights-detail"),
+    path("<int:pk>/git-author-aliases/<int:alias_id>/", GitAuthorAliasPatchView.as_view(), name="git-author-alias-patch"),
     path("<int:pk>/", RepoDetailView.as_view(), name="repo-detail"),
 ]

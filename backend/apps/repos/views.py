@@ -6,8 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.permissions import FullDjangoModelPermissions
-from .models import Repo, GitHubIssue
-from .serializers import RepoSerializer, GitHubIssueBriefSerializer, GitHubIssueDetailSerializer
+from .models import Repo, GitHubIssue, GitAuthorAlias
+from .serializers import RepoSerializer, GitHubIssueBriefSerializer, GitHubIssueDetailSerializer, GitAuthorAliasSerializer
+from .insights import DeveloperInsightsService
 from concurrent.futures import ThreadPoolExecutor
 from .services import GitHubSyncService, RepoCloneService
 
@@ -158,3 +159,70 @@ class RepoBranchesView(APIView):
             return Response({"detail": "请先同步代码"}, status=status.HTTP_400_BAD_REQUEST)
         branches = RepoCloneService().get_branches(repo)
         return Response(branches)
+
+
+class DeveloperInsightsListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            repo = Repo.objects.get(pk=pk)
+        except Repo.DoesNotExist:
+            return Response({"detail": "仓库不存在"}, status=status.HTTP_404_NOT_FOUND)
+        days_param = request.query_params.get("days", "90")
+        days = None if days_param == "all" else int(days_param)
+        service = DeveloperInsightsService()
+        developers = service.team_overview(repo, days=days)
+        unlinked = service.unlinked_authors(repo)
+        return Response({
+            "developers": developers,
+            "unlinked_count": len(unlinked),
+            "unlinked_authors": unlinked,
+        })
+
+
+class DeveloperInsightsDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, alias_id):
+        try:
+            repo = Repo.objects.get(pk=pk)
+        except Repo.DoesNotExist:
+            return Response({"detail": "仓库不存在"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            days_param = request.query_params.get("days", "90")
+            days = None if days_param == "all" else int(days_param)
+            result = DeveloperInsightsService().individual_detail(repo, alias_id, days=days)
+            return Response(result)
+        except GitAuthorAlias.DoesNotExist:
+            return Response({"detail": "作者不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class SyncCommitsView(APIView):
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Repo.objects.none()
+
+    def post(self, request, pk):
+        try:
+            repo = Repo.objects.get(pk=pk)
+        except Repo.DoesNotExist:
+            return Response({"detail": "仓库不存在"}, status=status.HTTP_404_NOT_FOUND)
+        if repo.clone_status != "cloned":
+            return Response({"detail": "请先同步代码"}, status=status.HTTP_400_BAD_REQUEST)
+        RepoCloneService().sync_commits(repo)
+        return Response({"detail": "提交记录同步完成"})
+
+
+class GitAuthorAliasPatchView(APIView):
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = GitAuthorAlias.objects.none()
+
+    def patch(self, request, pk, alias_id):
+        try:
+            alias = GitAuthorAlias.objects.get(id=alias_id, repo_id=pk)
+        except GitAuthorAlias.DoesNotExist:
+            return Response({"detail": "作者映射不存在"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = GitAuthorAliasSerializer(alias, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

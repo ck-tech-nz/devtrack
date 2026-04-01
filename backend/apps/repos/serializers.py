@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Repo, GitHubIssue
+from .models import Repo, GitHubIssue, GitAuthorAlias
 
 
 class GitHubIssueBriefSerializer(serializers.ModelSerializer):
@@ -27,6 +27,15 @@ class GitHubIssueDetailSerializer(serializers.ModelSerializer):
             "github_created_at", "github_updated_at", "github_closed_at", "synced_at",
         ]
         read_only_fields = fields
+
+
+class GitAuthorAliasSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.name", read_only=True, default=None)
+
+    class Meta:
+        model = GitAuthorAlias
+        fields = ["id", "author_email", "author_name", "user", "user_name"]
+        read_only_fields = ["id", "author_email", "author_name"]
 
 
 class RepoSerializer(serializers.ModelSerializer):
