@@ -334,7 +334,7 @@
               variant="subtle"
               icon="i-heroicons-exclamation-triangle"
               :title="`${insightsData.unlinked_count} 位作者未关联用户`"
-              :actions="[{ label: '去关联', click: () => { showLinkModal = true; fetchUsers() } }]"
+              :actions="[{ label: '去关联', onClick: () => { showLinkModal = true; fetchUsers() } }]"
             />
             <!-- Developer Cards -->
             <div class="space-y-3">
