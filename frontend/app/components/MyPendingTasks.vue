@@ -40,7 +40,7 @@
           <div class="flex items-center justify-between mt-2.5">
             <UBadge
               :color="statusColor(task.status)"
-              variant="subtle"
+              variant="solid"
               size="xs"
             >
               {{ task.status }}

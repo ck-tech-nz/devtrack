@@ -14,7 +14,7 @@
     <div class="mt-2 flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
       <UBadge
         :color="issue.status === '待处理' ? 'warning' : issue.status === '进行中' ? 'info' : issue.status === '已解决' ? 'success' : 'neutral'"
-        variant="subtle"
+        variant="solid"
         size="xs"
       >
         {{ issue.status }}

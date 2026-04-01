@@ -103,6 +103,8 @@ class BatchUpdateView(APIView):
             issues.update(assignee=user)
         elif data["action"] == "set_priority":
             issues.update(priority=data["value"])
+        elif data["action"] == "set_status":
+            issues.update(status=data["value"])
 
         return Response({"updated": count})
 

@@ -169,5 +169,5 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
 
 class BatchUpdateSerializer(serializers.Serializer):
     ids = serializers.ListField(child=serializers.IntegerField())
-    action = serializers.ChoiceField(choices=["assign", "set_priority"])
+    action = serializers.ChoiceField(choices=["assign", "set_priority", "set_status"])
     value = serializers.CharField()

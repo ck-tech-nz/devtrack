@@ -489,10 +489,10 @@ const form = ref({
 
 const priorityItems = PRIORITY_ITEMS
 const statusItems = [
-  { label: '待处理', value: '待处理', activeClass: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
-  { label: '进行中', value: '进行中', activeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-  { label: '已解决', value: '已解决', activeClass: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  { label: '已关闭', value: '已关闭', activeClass: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
+  { label: '待处理', value: '待处理', activeClass: 'bg-amber-500 text-white dark:bg-amber-600 dark:text-white' },
+  { label: '进行中', value: '进行中', activeClass: 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white' },
+  { label: '已解决', value: '已解决', activeClass: 'bg-emerald-500 text-white dark:bg-emerald-600 dark:text-white' },
+  { label: '已关闭', value: '已关闭', activeClass: 'bg-gray-500 text-white dark:bg-gray-600 dark:text-white' },
 ]
 const assigneeItems = computed(() => [
   { label: '无', value: '_none' },

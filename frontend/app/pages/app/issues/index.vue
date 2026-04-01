@@ -113,6 +113,9 @@
         <UDropdownMenu :items="batchPriorityItems" :content="{ align: 'end' as const }">
           <UButton size="xs" color="primary" variant="outline">修改优先级</UButton>
         </UDropdownMenu>
+        <UDropdownMenu :items="batchStatusItems" :content="{ align: 'end' as const }">
+          <UButton size="xs" color="primary" variant="outline">修改状态</UButton>
+        </UDropdownMenu>
       </div>
     </div>
 
@@ -199,7 +202,7 @@
         </template>
         <template #status-cell="{ row }">
           <div class="flex flex-col items-start gap-1">
-            <UBadge :color="statusColor(row.original.status)" variant="subtle" size="sm">{{ row.original.status }}</UBadge>
+            <UBadge :color="statusColor(row.original.status)" variant="solid" size="sm">{{ row.original.status }}</UBadge>
             <UBadge v-if="analyzingIssueIds.has(row.original.id)" color="info" variant="subtle" size="sm" class="whitespace-nowrap">
               <UIcon name="i-heroicons-cpu-chip" class="w-3.5 h-3.5 animate-spin mr-0.5" />AI 分析中
             </UBadge>
@@ -557,6 +560,11 @@ const batchAssignItems = computed(() => [users.value.map(u => ({
 const batchPriorityItems = [PRIORITY_ITEMS.map(p => ({
   label: `${p.value} ${p.label}`,
   onSelect: () => batchUpdate('priority', p.value),
+}))]
+
+const batchStatusItems = [filterStatusOptions.map(s => ({
+  label: s.label,
+  onSelect: () => batchUpdate('set_status', s.value),
 }))]
 
 watch(page, () => {
