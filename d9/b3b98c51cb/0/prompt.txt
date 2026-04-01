@@ -1,0 +1,102 @@
+for the tagging field:
+too many options showing, add a setting icon to the right end of label row.
+make it something like the screenshot.
+
+for the Issue tag management in /api/admin/settings/sitesettings/:
+update the data format to:
+```
+{
+  "前端": {
+        "forground": "xxxxxx",
+        "background": "xxxxxxx"
+    }
+}
+```
+
+---
+
+B
+
+---
+
+The whole header will be just for opening the picker.
+will add a separate page for editing
+
+---
+
+嗯, 暂时不要增加新页面了,减少权限管理负担,只要做个弹窗就行了,可以添加,修改标签颜色
+
+---
+
+B
+
+---
+
+yes
+
+---
+
+go for it
+
+---
+
+1
+
+---
+
+无论点击标签还是编辑标签都没有反应
+
+---
+
+选标签没问题了, 点击编辑的时候有bug
+
+---
+runtime-core.esm-bundler.js?v=fad3c318:7233 <Suspense> is an experimental feature and its API will likely change.
+[id].vue:213 Warning: `DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://www.reka-ui.com/docs/components/dialog.html#title
+(anonymous) @ utils.js?v=fad3c318:15
+(anonymous) @ runtime-core.esm-bundler.js?v=fad3c318:3112
+callWithErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:197
+callWithAsyncErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:204
+hook.__weh.hook.__weh @ runtime-core.esm-bundler.js?v=fad3c318:3092
+flushPostFlushCbs @ runtime-core.esm-bundler.js?v=fad3c318:382
+flushJobs @ runtime-core.esm-bundler.js?v=fad3c318:424
+Promise.then
+queueFlush @ runtime-core.esm-bundler.js?v=fad3c318:319
+queueJob @ runtime-core.esm-bundler.js?v=fad3c318:314
+effect2.scheduler @ runtime-core.esm-bundler.js?v=fad3c318:6266
+trigger @ reactivity.esm-bundler.js?v=fad3c318:237
+endBatch @ reactivity.esm-bundler.js?v=fad3c318:295
+notify @ reactivity.esm-bundler.js?v=fad3c318:570
+trigger @ reactivity.esm-bundler.js?v=fad3c318:544
+set value @ reactivity.esm-bundler.js?v=fad3c318:1470
+set @ reactivity.esm-bundler.js?v=fad3c318:1508
+_createElementVNode.onClick._cache.<computed>._cache.<computed> @ [id].vue:213
+callWithErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:197
+callWithAsyncErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:204
+invoker @ runtime-dom.esm-bundler.js?v=fad3c318:721
+[id].vue:213 Warning: Missing `Description` or `aria-describedby="undefined"` for DialogContent.
+(anonymous) @ utils.js?v=fad3c318:19
+(anonymous) @ runtime-core.esm-bundler.js?v=fad3c318:3112
+callWithErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:197
+callWithAsyncErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:204
+hook.__weh.hook.__weh @ runtime-core.esm-bundler.js?v=fad3c318:3092
+flushPostFlushCbs @ runtime-core.esm-bundler.js?v=fad3c318:382
+flushJobs @ runtime-core.esm-bundler.js?v=fad3c318:424
+Promise.then
+queueFlush @ runtime-core.esm-bundler.js?v=fad3c318:319
+queueJob @ runtime-core.esm-bundler.js?v=fad3c318:314
+effect2.scheduler @ runtime-core.esm-bundler.js?v=fad3c318:6266
+trigger @ reactivity.esm-bundler.js?v=fad3c318:237
+endBatch @ reactivity.esm-bundler.js?v=fad3c318:295
+notify @ reactivity.esm-bundler.js?v=fad3c318:570
+trigger @ reactivity.esm-bundler.js?v=fad3c318:544
+set value @ reactivity.esm-bundler.js?v=fad3c318:1470
+set @ reactivity.esm-bundler.js?v=fad3c318:1508
+_createElementVNode.onClick._cache.<computed>._cache.<computed> @ [id].vue:213
+callWithErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:197
+callWithAsyncErrorHandling @ runtime-core.esm-bundler.js?v=fad3c318:204
+invoker @ runtime-dom.esm-bundler.js?v=fad3c318:721
