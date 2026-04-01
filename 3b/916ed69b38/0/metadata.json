@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "3b916ed69b38",
+  "session_id": "c299a478-ed39-4269-a7fa-d924a70f895b",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-01T09:53:22.462483Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/app/pages/app/issues/index.vue"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "61c762b068c6",
+  "checkpoint_transcript_start": 202,
+  "transcript_lines_at_start": 202,
+  "token_usage": {
+    "input_tokens": 28,
+    "cache_creation_tokens": 15725,
+    "cache_read_tokens": 1640716,
+    "output_tokens": 4917,
+    "api_call_count": 20
+  },
+  "session_metrics": {
+    "turn_count": 11
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-01T09:53:21.921366Z",
+    "agent_lines": 7,
+    "human_added": 5,
+    "human_modified": 8,
+    "human_removed": 0,
+    "total_committed": 20,
+    "agent_percentage": 35
+  }
+}
