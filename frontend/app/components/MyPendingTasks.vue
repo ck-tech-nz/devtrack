@@ -1,13 +1,17 @@
 <template>
-  <div v-if="tasks.length" class="mb-6">
-    <div class="flex items-center justify-between mb-3">
+  <div v-if="totalCount > 0" class="mb-6 bg-gray-50/70 dark:bg-gray-800/40 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+    <div
+      class="flex items-center justify-between"
+      :class="collapsed ? 'cursor-pointer' : 'mb-3'"
+      @click="collapsed && (collapsed = false)"
+    >
       <h2 class="text-sm font-medium text-gray-500 dark:text-gray-400">
         我的待办
-        <span class="ml-1.5 text-xs bg-crystal-50 dark:bg-crystal-950 text-crystal-600 dark:text-crystal-400 px-1.5 py-0.5 rounded-full">{{ tasks.length }}</span>
+        <span class="ml-1.5 text-xs bg-crystal-50 dark:bg-crystal-950 text-crystal-600 dark:text-crystal-400 px-1.5 py-0.5 rounded-full">{{ totalCount }}</span>
       </h2>
       <button
         class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-        @click="collapsed = !collapsed"
+        @click.stop="collapsed = !collapsed"
       >
         {{ collapsed ? '展开' : '收起' }}
       </button>
@@ -69,6 +73,7 @@ const { api } = useApi()
 const { user, hasGroup } = useAuth()
 
 const tasks = ref<any[]>([])
+const totalCount = ref(0)
 const collapsed = ref(false)
 const closingId = ref<number | null>(null)
 
@@ -97,11 +102,19 @@ async function loadTasks() {
     const results = await Promise.all(fetches)
     const seen = new Set<number>()
     const merged: any[] = []
+    let total = 0
     for (const res of results) {
-      for (const item of (res.results || res || [])) {
+      const items = res.results || res || []
+      const prevSize = seen.size
+      for (const item of items) {
         if (!seen.has(item.id)) { seen.add(item.id); merged.push(item) }
       }
+      // Use count from paginated response, minus duplicates found in this batch
+      const batchNew = seen.size - prevSize
+      const batchDup = items.length - batchNew
+      total += (res.count ?? items.length) - batchDup
     }
+    totalCount.value = total
     tasks.value = merged.slice(0, 8)
   } catch (e) {
     console.error('Failed to load pending tasks:', e)

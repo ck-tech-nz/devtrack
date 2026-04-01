@@ -161,7 +161,7 @@
     </SharedKanbanBoard>
 
     <!-- Table View -->
-    <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+    <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
       <div class="flex justify-end px-4 py-2 border-b border-gray-50 dark:border-gray-800">
         <label class="flex items-center gap-1.5 cursor-pointer select-none">
           <USwitch v-model="showGHColumn" size="xs" />
