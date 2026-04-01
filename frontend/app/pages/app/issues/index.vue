@@ -593,7 +593,8 @@ onMounted(async () => {
     api<any>('/api/repos/').catch(() => ({ results: [] })),
   ])
   users.value = usersData || []
-  labelOptions.value = settingsData?.labels || []
+  const rawLabels = settingsData?.labels || {}
+  labelOptions.value = typeof rawLabels === 'object' && !Array.isArray(rawLabels) ? Object.keys(rawLabels) : rawLabels
   projects.value = projectsData?.results || projectsData || []
   repos.value = reposData?.results || reposData || []
   // Check AI analysis status for issues with repos
