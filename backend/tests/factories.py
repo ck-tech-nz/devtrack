@@ -29,7 +29,18 @@ class SiteSettingsFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("id",)
 
     id = 1
-    labels = ["前端", "后端", "Bug", "优化", "需求", "文档", "CI/CD", "安全", "性能", "UI/UX"]
+    labels = {
+        "前端": {"foreground": "#ffffff", "background": "#0075ca", "description": "前端相关问题"},
+        "后端": {"foreground": "#ffffff", "background": "#e99695", "description": "后端相关问题"},
+        "Bug": {"foreground": "#ffffff", "background": "#d73a4a", "description": "程序错误"},
+        "优化": {"foreground": "#ffffff", "background": "#a2eeef", "description": ""},
+        "需求": {"foreground": "#ffffff", "background": "#7057ff", "description": ""},
+        "文档": {"foreground": "#ffffff", "background": "#0075ca", "description": ""},
+        "CI/CD": {"foreground": "#ffffff", "background": "#e4e669", "description": ""},
+        "安全": {"foreground": "#ffffff", "background": "#d73a4a", "description": ""},
+        "性能": {"foreground": "#ffffff", "background": "#f9d0c4", "description": ""},
+        "UI/UX": {"foreground": "#ffffff", "background": "#bfd4f2", "description": ""},
+    }
     priorities = ["P0", "P1", "P2", "P3"]
     issue_statuses = ["待处理", "进行中", "已解决", "已关闭"]
 
