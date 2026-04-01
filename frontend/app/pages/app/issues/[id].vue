@@ -231,6 +231,87 @@
           </div>
         </div>
 
+          <!-- Label Management Modal -->
+          <UModal v-model:open="showLabelManager">
+            <template #content>
+              <div class="p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">管理标签</h3>
+                  <div class="flex items-center gap-2">
+                    <UButton size="xs" icon="i-heroicons-plus" @click="startAddLabel">新增</UButton>
+                    <UButton size="xs" variant="ghost" icon="i-heroicons-x-mark" @click="showLabelManager = false" />
+                  </div>
+                </div>
+
+                <!-- Add new label form -->
+                <div v-if="addingLabel" class="rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-3 space-y-2">
+                  <UInput v-model="editForm.name" placeholder="标签名称" size="sm" />
+                  <UInput v-model="editForm.description" placeholder="描述" size="sm" />
+                  <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1.5">
+                      <label class="text-xs text-gray-500">背景</label>
+                      <input type="color" v-model="editForm.background" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                      <UInput v-model="editForm.background" size="xs" class="w-24" />
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <label class="text-xs text-gray-500">文字</label>
+                      <input type="color" v-model="editForm.foreground" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                      <UInput v-model="editForm.foreground" size="xs" class="w-24" />
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium" :style="{ backgroundColor: editForm.background, color: editForm.foreground }">{{ editForm.name || '预览' }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 justify-end">
+                    <UButton size="xs" variant="ghost" @click="cancelEditLabel">取消</UButton>
+                    <UButton size="xs" :loading="labelSaving" :disabled="!editForm.name.trim()" @click="saveLabelEdit">保存</UButton>
+                  </div>
+                </div>
+
+                <!-- Label list -->
+                <div class="space-y-1 max-h-96 overflow-y-auto">
+                  <div v-for="(props, name) in labelItems" :key="name">
+                    <!-- Display mode -->
+                    <div v-if="editingLabel !== name" class="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 group">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium shrink-0" :style="{ backgroundColor: props.background, color: props.foreground }">{{ name }}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ props.description }}</span>
+                      </div>
+                      <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <UButton size="xs" variant="ghost" icon="i-heroicons-pencil-square" @click="startEditLabel(name as string)" />
+                        <UButton size="xs" variant="ghost" color="error" icon="i-heroicons-trash" @click="deleteLabel(name as string)" />
+                      </div>
+                    </div>
+                    <!-- Edit mode -->
+                    <div v-else class="rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-3 space-y-2">
+                      <UInput v-model="editForm.name" placeholder="标签名称" size="sm" />
+                      <UInput v-model="editForm.description" placeholder="描述" size="sm" />
+                      <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-1.5">
+                          <label class="text-xs text-gray-500">背景</label>
+                          <input type="color" v-model="editForm.background" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                          <UInput v-model="editForm.background" size="xs" class="w-24" />
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                          <label class="text-xs text-gray-500">文字</label>
+                          <input type="color" v-model="editForm.foreground" class="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+                          <UInput v-model="editForm.foreground" size="xs" class="w-24" />
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium" :style="{ backgroundColor: editForm.background, color: editForm.foreground }">{{ editForm.name || '预览' }}</span>
+                      </div>
+                      <div class="flex items-center gap-2 justify-end">
+                        <UButton size="xs" variant="ghost" @click="cancelEditLabel">取消</UButton>
+                        <UButton size="xs" :loading="labelSaving" :disabled="!editForm.name.trim()" @click="saveLabelEdit">保存</UButton>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </UModal>
+
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">信息</h3>
           <div class="grid grid-cols-2 gap-3">
@@ -488,6 +569,65 @@ const labelItems = ref<Record<string, { foreground: string; background: string; 
 const showLabelPicker = ref(false)
 const labelSearchQuery = ref('')
 const showLabelManager = ref(false)
+const editingLabel = ref<string | null>(null)
+const editForm = ref({ name: '', foreground: '#ffffff', background: '#0075ca', description: '' })
+const addingLabel = ref(false)
+const labelSaving = ref(false)
+
+function startEditLabel(name: string) {
+  editingLabel.value = name
+  addingLabel.value = false
+  const lbl = labelItems.value[name]
+  editForm.value = { name, foreground: lbl?.foreground ?? '#ffffff', background: lbl?.background ?? '#0075ca', description: lbl?.description ?? '' }
+}
+
+function startAddLabel() {
+  addingLabel.value = true
+  editingLabel.value = null
+  editForm.value = { name: '', foreground: '#ffffff', background: '#0075ca', description: '' }
+}
+
+function cancelEditLabel() {
+  editingLabel.value = null
+  addingLabel.value = false
+}
+
+async function saveLabelEdit() {
+  labelSaving.value = true
+  try {
+    const updated = { ...labelItems.value }
+    if (editingLabel.value && editingLabel.value !== editForm.value.name) {
+      delete updated[editingLabel.value]
+    }
+    updated[editForm.value.name] = {
+      foreground: editForm.value.foreground,
+      background: editForm.value.background,
+      description: editForm.value.description,
+    }
+    const res = await api<any>('/api/settings/labels/', { method: 'PATCH', body: { labels: updated } })
+    labelItems.value = res.labels
+    editingLabel.value = null
+    addingLabel.value = false
+  } catch (e) {
+    console.error('Save label failed:', e)
+  } finally {
+    labelSaving.value = false
+  }
+}
+
+async function deleteLabel(name: string) {
+  labelSaving.value = true
+  try {
+    const updated = { ...labelItems.value }
+    delete updated[name]
+    const res = await api<any>('/api/settings/labels/', { method: 'PATCH', body: { labels: updated } })
+    labelItems.value = res.labels
+  } catch (e) {
+    console.error('Delete label failed:', e)
+  } finally {
+    labelSaving.value = false
+  }
+}
 
 const filteredLabelNames = computed(() => {
   const names = Object.keys(labelItems.value)
