@@ -1,0 +1,4 @@
+# python3 manage.py check
+Traceback (most recent call last):
+  File "/app/manage.py", line 7, in <module>
+    from dotenv import load_dotenv
