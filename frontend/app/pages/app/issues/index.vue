@@ -173,7 +173,8 @@
         :data="issues"
         :columns="columns"
         class="issues-table"
-        :ui="{ th: 'text-xs whitespace-nowrap', td: 'text-sm' }"
+        :ui="{ th: 'text-xs whitespace-nowrap', td: 'text-sm', tr: 'hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer' }"
+        @select="onRowSelect"
       >
         <template #select-header="{ table }">
           <UCheckbox
@@ -191,7 +192,7 @@
           <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 dark:text-crystal-400 hover:text-crystal-700 dark:hover:text-crystal-300 font-medium">{{ row.original.id }}</NuxtLink>
         </template>
         <template #title-cell="{ row }">
-          <EditableCell :value="row.original.title" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
+          <EditableCell :value="row.original.title" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
         </template>
         <template #priority-cell="{ row }">
           <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="sm">{{ priorityLabel(row.original.priority) }}</UBadge>
@@ -211,13 +212,13 @@
           <span class="block truncate" :title="row.original.reporter_name">{{ row.original.reporter_name || '-' }}</span>
         </template>
         <template #remark-cell="{ row }">
-          <EditableCell :value="row.original.remark" @save="(v: string) => inlineUpdate(row.original.id, 'remark', v)" />
+          <EditableCell :value="row.original.remark" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'remark', v)" />
         </template>
         <template #cause-cell="{ row }">
-          <EditableCell :value="row.original.cause" :placeholder="row.original.ai_cause" @save="(v: string) => inlineUpdate(row.original.id, 'cause', v)" />
+          <EditableCell :value="row.original.cause" :placeholder="row.original.ai_cause" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'cause', v)" />
         </template>
         <template #solution-cell="{ row }">
-          <EditableCell :value="row.original.solution" :placeholder="row.original.ai_solution" @save="(v: string) => inlineUpdate(row.original.id, 'solution', v)" />
+          <EditableCell :value="row.original.solution" :placeholder="row.original.ai_solution" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'solution', v)" />
         </template>
         <template #created_at-cell="{ row }">
           <div class="duration-cell">
@@ -433,6 +434,22 @@ const kanbanColumns = computed(() => [
 
 function onKanbanDrop({ itemId, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
   onStatusChange({ issueId: itemId as number, newStatus: toColumn })
+}
+
+let rowClickTimer: ReturnType<typeof setTimeout> | null = null
+function onRowSelect(row: any, e?: Event) {
+  if (!e) return
+  const target = e.target as HTMLElement
+  // Ignore clicks on checkboxes, buttons, links, and active inputs
+  if (target.closest('input, button, a')) return
+  // Delay navigation so double-click can cancel it
+  if (rowClickTimer) clearTimeout(rowClickTimer)
+  rowClickTimer = setTimeout(() => {
+    navigateTo(`/app/issues/${row.original.id}`)
+  }, 250)
+}
+function cancelRowClick() {
+  if (rowClickTimer) { clearTimeout(rowClickTimer); rowClickTimer = null }
 }
 
 async function inlineUpdate(issueId: string, field: string, value: string) {

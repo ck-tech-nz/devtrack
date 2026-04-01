@@ -22,13 +22,14 @@
 
 <script setup lang="ts">
 const props = defineProps<{ value?: string | null; placeholder?: string | null }>()
-const emit = defineEmits<{ save: [value: string] }>()
+const emit = defineEmits<{ save: [value: string]; dblclick: [] }>()
 
 const editing = ref(false)
 const editValue = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 
 function startEdit() {
+  emit('dblclick')
   editing.value = true
   editValue.value = props.value || ''
   nextTick(() => inputRef.value?.focus())
@@ -49,7 +50,6 @@ function cancel() {
 
 <style scoped>
 .editable-cell {
-  cursor: default;
   min-height: 1.5rem;
 }
 .cell-text {
