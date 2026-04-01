@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "37daebce3a23",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "backend/apps/settings/admin.py",
+    "backend/apps/settings/templates/widgets/json_readonly_toggle.html",
+    "backend/apps/settings/widgets.py",
+    "frontend/app/pages/app/issues/[id].vue"
+  ],
+  "sessions": [
+    {
+      "metadata": "/37/daebce3a23/0/metadata.json",
+      "transcript": "/37/daebce3a23/0/full.jsonl",
+      "content_hash": "/37/daebce3a23/0/content_hash.txt",
+      "prompt": "/37/daebce3a23/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 26,
+    "cache_creation_tokens": 16867,
+    "cache_read_tokens": 2844729,
+    "output_tokens": 8046,
+    "api_call_count": 20
+  }
+}

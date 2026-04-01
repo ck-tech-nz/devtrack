@@ -1,0 +1,2 @@
+- help me update my Issue 标签 in http://localhost:3000/api/admin/settings/sitesettings/ 
+- in http://localhost:3000/api/admin/settings/sitesettings/ default to readonly and use json renderer to beautify it. add an edit btn next to it to replace the readonly card to edit input
