@@ -71,7 +71,7 @@
             </div>
             <div class="form-row">
               <label>描述</label>
-              <MarkdownEditor v-model="newIssue.description" placeholder="详细描述问题" />
+              <MarkdownEditor v-model="newIssue.description" placeholder="详细描述问题" @upload-complete="handleCreateUploadComplete" />
             </div>
             <div class="form-grid-2">
               <div class="form-row">
@@ -314,6 +314,8 @@ const newIssue = ref({
   repo: null as string | null,
 })
 
+const attachmentIds = ref<string[]>([])
+
 const projectRepos = ref<any[]>([])
 
 watch(() => newIssue.value.project, (projectId) => {
@@ -346,7 +348,12 @@ const filterStatusOptions = [{ label: '待处理', value: '待处理' }, { label
 function closeCreateModal() {
   showCreateModal.value = false
   newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null }
+  attachmentIds.value = []
   projectRepos.value = []
+}
+
+function handleCreateUploadComplete(uploaded: { url: string; filename: string; id: string }) {
+  attachmentIds.value.push(uploaded.id)
 }
 
 async function handleCreateIssue() {
@@ -363,6 +370,7 @@ async function handleCreateIssue() {
       priority: newIssue.value.priority,
       status: newIssue.value.status,
       labels: newIssue.value.labels,
+      attachment_ids: attachmentIds.value,
     }
     if (newIssue.value.project) body.project = newIssue.value.project
     if (newIssue.value.assignee && newIssue.value.assignee !== '_none') body.assignee = newIssue.value.assignee
@@ -370,6 +378,7 @@ async function handleCreateIssue() {
     await api('/api/issues/', { method: 'POST', body, format: 'json' })
     showCreateModal.value = false
     newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null }
+    attachmentIds.value = []
     projectRepos.value = []
     await fetchIssues()
   } catch (e: any) {
