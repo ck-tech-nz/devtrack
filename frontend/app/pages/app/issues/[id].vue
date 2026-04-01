@@ -108,7 +108,7 @@
           <div v-else-if="issueRepo?.clone_status !== 'cloned'" class="text-sm text-gray-400 dark:text-gray-500">请先同步仓库代码</div>
 
           <!-- 分析历史 -->
-          <div v-if="analyses.length" class="space-y-2 max-h-96 overflow-y-auto">
+          <div v-if="analyses.length" class="space-y-2 max-h-[1248px] overflow-y-auto">
             <div v-for="a in analyses" :key="a.id" class="rounded-lg border text-sm"
               :class="a.status === 'failed' ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'">
               <div class="px-3 py-2">
@@ -126,7 +126,7 @@
                 <template v-else-if="a.results">
                   <div v-for="(content, field) in a.results" :key="field" class="mt-1">
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ fieldLabel(field as string) }}</div>
-                    <div class="markdown-body text-sm mt-0.5 text-gray-700 dark:text-gray-300 max-h-60 overflow-y-auto" v-html="renderMarkdown(content as string)"></div>
+                    <div class="markdown-body text-sm mt-0.5 text-gray-700 dark:text-gray-300 max-h-[840px] overflow-y-auto" v-html="renderMarkdown(content as string)"></div>
                   </div>
                 </template>
               </div>
@@ -161,13 +161,15 @@
               >{{ s.label }}</button>
             </div>
           </div>
-          <div class="form-row">
-            <label class="text-gray-400 dark:text-gray-500">负责人</label>
-            <USelect v-model="form.assignee" :items="assigneeItems" placeholder="选择负责人" value-key="value" @update:model-value="(v: string) => autoSave('assignee', v)" />
-          </div>
-          <div class="form-row">
-            <label class="text-gray-400 dark:text-gray-500">求助</label>
-            <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" @update:model-value="(v: string[]) => autoSave('helpers', v)" />
+          <div class="grid grid-cols-2 gap-3">
+            <div class="form-row">
+              <label class="text-gray-400 dark:text-gray-500">负责人</label>
+              <USelect v-model="form.assignee" :items="assigneeItems" placeholder="选择负责人" value-key="value" @update:model-value="(v: string) => autoSave('assignee', v)" />
+            </div>
+            <div class="form-row">
+              <label class="text-gray-400 dark:text-gray-500">求助</label>
+              <USelectMenu v-model="form.helpers" :items="helperItems" multiple placeholder="选择协助人" value-key="value" label-key="label" @update:model-value="(v: string[]) => autoSave('helpers', v)" />
+            </div>
           </div>
           <div v-if="labelItems.length" class="space-y-1.5">
             <label class="text-xs font-medium text-gray-400 dark:text-gray-500">标签</label>
