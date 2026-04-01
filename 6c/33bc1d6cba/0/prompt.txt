@@ -1,0 +1,43 @@
+for the tagging field:
+too many options showing, add a setting icon to the right end of label row.
+make it something like the screenshot.
+
+for the Issue tag management in /api/admin/settings/sitesettings/:
+update the data format to:
+```
+{
+  "前端": {
+        "forground": "xxxxxx",
+        "background": "xxxxxxx"
+    }
+}
+```
+
+---
+
+B
+
+---
+
+The whole header will be just for opening the picker.
+will add a separate page for editing
+
+---
+
+嗯, 暂时不要增加新页面了,减少权限管理负担,只要做个弹窗就行了,可以添加,修改标签颜色
+
+---
+
+B
+
+---
+
+yes
+
+---
+
+go for it
+
+---
+
+1
