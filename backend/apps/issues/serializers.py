@@ -5,6 +5,7 @@ from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
 from apps.repos.serializers import GitHubIssueBriefSerializer
+from apps.tools.models import Attachment
 from apps.tools.serializers import AttachmentSerializer
 from .models import Issue, Activity
 
@@ -13,7 +14,6 @@ User = get_user_model()
 
 def _sync_attachments(issue, user):
     """Link Attachment records whose URL appears in issue.description to the issue."""
-    from apps.tools.models import Attachment
     if not issue.description:
         return
     minio_base = django_settings.MINIO_PUBLIC_URL
@@ -139,7 +139,6 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
             action="created",
         )
         if attachment_ids:
-            from apps.tools.models import Attachment
             atts = Attachment.objects.filter(
                 id__in=attachment_ids, uploaded_by=self.context["request"].user,
             )
