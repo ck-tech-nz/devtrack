@@ -139,3 +139,9 @@ It's looks you need to create a notification creating page, I can't insert photo
 
 <ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/.vscode/launch.json in the IDE. This may or may not be related to the current task.</ide_opened_file>
 I don't see you update the sync_page_perms？
+
+---
+
+how to fix this warning # uv run python manage.py sync_page_perms
+/app/.venv/lib/python3.14/site-packages/django/db/backends/utils.py:98: RuntimeWarning: Accessing the database during app initialization is discouraged. To fix this warning, avoid executing queries in AppConfig.ready() or when your app modules are imported.
+  warnings.warn(self.APPS_NOT_READY_WARNING_MSG, category=RuntimeWarning)
