@@ -78,8 +78,20 @@ class MarkAllReadView(APIView):
         return Response({"updated": updated})
 
 
-class DeleteNotificationView(APIView):
+class NotificationDetailView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            recipient = NotificationRecipient.objects.select_related(
+                "notification__source_user", "notification__source_issue",
+            ).get(notification_id=pk, user=request.user)
+        except NotificationRecipient.DoesNotExist:
+            return Response({"detail": "通知不存在"}, status=status.HTTP_404_NOT_FOUND)
+        notif = recipient.notification
+        notif.recipient = recipient
+        serializer = NotificationSerializer(notif)
+        return Response(serializer.data)
 
     def delete(self, request, pk):
         try:

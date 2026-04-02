@@ -34,38 +34,25 @@
       <div
         v-for="n in data?.results"
         :key="n.id"
-        class="flex items-start gap-3 p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl transition-colors"
+        class="flex items-center gap-3 p-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
         :class="{ 'border-l-2 border-l-primary-500': !n.is_read }"
+        @click="goToDetail(n)"
       >
         <!-- Unread dot -->
         <span
           v-if="!n.is_read"
-          class="mt-1.5 w-2 h-2 rounded-full bg-primary-500 flex-shrink-0"
+          class="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0"
         />
         <div v-else class="w-2 flex-shrink-0" />
 
-        <!-- Content -->
+        <!-- Title + time -->
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ n.title }}</span>
-            <span class="text-xs text-gray-400">{{ formatTime(n.created_at) }}</span>
-          </div>
-          <div
-            v-if="n.content"
-            class="mt-1 text-sm text-gray-600 dark:text-gray-400 markdown-body-inline"
-            v-html="renderMarkdown(n.content)"
-          />
-          <NuxtLink
-            v-if="n.source_issue_id"
-            :to="`/app/issues/${n.source_issue_id}`"
-            class="inline-block mt-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
-          >
-            查看问题 #{{ n.source_issue_id }}
-          </NuxtLink>
+          <span class="text-sm text-gray-900 dark:text-gray-100 truncate block" :class="{ 'font-medium': !n.is_read }">{{ n.title }}</span>
         </div>
+        <span class="text-xs text-gray-400 flex-shrink-0">{{ formatTime(n.created_at) }}</span>
 
         <!-- Actions -->
-        <div class="flex items-center gap-1 flex-shrink-0">
+        <div class="flex items-center gap-1 flex-shrink-0" @click.stop>
           <UButton
             v-if="!n.is_read"
             icon="i-heroicons-check"
@@ -102,8 +89,6 @@
 <script setup lang="ts">
 const { unreadCount, fetchNotifications, markRead, markAllRead, deleteNotification, fetchUnreadCount } = useNotifications()
 
-const { md } = useMentionMarkdown()
-
 const tabs = [
   { label: '全部', value: 'all' },
   { label: '未读', value: 'unread' },
@@ -125,6 +110,11 @@ async function load() {
   loading.value = false
 }
 
+function goToDetail(n: { id: string; is_read: boolean }) {
+  if (!n.is_read) markRead(n.id)
+  navigateTo(`/app/notifications/${n.id}`)
+}
+
 async function handleMarkRead(n: { id: string; is_read: boolean }) {
   await markRead(n.id)
   n.is_read = true
@@ -139,10 +129,6 @@ async function handleDelete(n: { id: string }) {
   await deleteNotification(n.id)
   await fetchUnreadCount()
   await load()
-}
-
-function renderMarkdown(text: string): string {
-  return md.renderInline(text)
 }
 
 function formatTime(iso: string): string {
@@ -168,11 +154,3 @@ watch(page, load)
 
 onMounted(load)
 </script>
-
-<style scoped>
-.markdown-body-inline :deep(a) { color: #2563eb; text-decoration: none; }
-.markdown-body-inline :deep(a:hover) { text-decoration: underline; }
-.markdown-body-inline :deep(code) { background: #f3f4f6; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.85em; }
-:root.dark .markdown-body-inline :deep(a) { color: #60a5fa; }
-:root.dark .markdown-body-inline :deep(code) { background: #1f2937; }
-</style>

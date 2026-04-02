@@ -94,9 +94,7 @@ function togglePanel() {
 
 function handleClick(n: (typeof notifications.value)[0]) {
   if (!n.is_read) markRead(n.id)
-  if (n.source_issue_id) {
-    navigateTo(`/app/issues/${n.source_issue_id}`)
-  }
+  navigateTo(`/app/notifications/${n.id}`)
   open.value = false
 }
 
