@@ -1,0 +1,18 @@
+<ide_selection>The user selected the lines 23 to 23 from /Users/ck/Git/matrix/devtrack/.vscode/launch.json:
+localhost
+
+This may or may not be related to the current task.</ide_selection>
+make this nuxt server accessable in intranet
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/notifications/urls.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+我发现改了这两个文件,本地启动服务页面要好久才能打开
+
+---
+
+<ide_selection>The user selected the lines 87 to 87 from /Users/ck/Git/matrix/devtrack/CLAUDE.md:
+git push origin main:env/prod     # Deploy to production
+
+This may or may not be related to the current task.</ide_selection>
+写一个宪法,必须要我同意或者我明确指出,才可以 deploy to production (env/prod)
