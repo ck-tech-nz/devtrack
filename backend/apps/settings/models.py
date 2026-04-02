@@ -1,3 +1,4 @@
+from django.conf import settings as django_settings
 from django.db import models
 from solo.models import SingletonModel
 
@@ -45,3 +46,32 @@ class SiteSettings(SingletonModel):
 
     def __str__(self):
         return "系统设置"
+
+
+class DatabaseBackup(models.Model):
+    filename = models.CharField(max_length=255)
+    file_size = models.BigIntegerField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("running", "备份中"),
+            ("success", "成功"),
+            ("failed", "失败"),
+        ],
+    )
+    error_message = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "数据库备份"
+        verbose_name_plural = "数据库备份"
+
+    def __str__(self):
+        return self.filename
