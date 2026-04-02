@@ -49,9 +49,12 @@
 ### 广播通知的 Recipient 生成
 
 广播通知在 Django Admin 中创建时，通过 model save 或 signal 自动为目标用户批量创建 NotificationRecipient 记录：
+
 - `target_type=all`：为所有 `is_active=True` 的用户创建
 - `target_type=group`：为 `target_group` 中的所有用户创建
 - `target_type=user`：由调用方显式创建（如 mention 场景）
+
+所有通知类型统一通过 NotificationRecipient 查询，查询逻辑简单一致。
 
 ### API 端点
 
