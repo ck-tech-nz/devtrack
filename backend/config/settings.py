@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.repos",
     "apps.ai",
     "apps.tools",
+    "apps.notifications",
     # Packages
     "page_perms",
 ]
