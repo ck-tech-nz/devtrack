@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
+from apps.permissions import FullDjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Notification, NotificationRecipient
@@ -81,8 +82,29 @@ class MarkAllReadView(APIView):
         return Response({"updated": updated})
 
 
+class NotificationManageListView(generics.ListAPIView):
+    """Admin list: all notifications (not scoped to current user)."""
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Notification.objects.all()
+
+    def get_queryset(self):
+        return Notification.objects.select_related("source_user", "source_issue").order_by("-created_at")
+
+    def get_serializer(self, *args, **kwargs):
+        """For admin list, set recipient to None (no per-user read state)."""
+        instance = kwargs.get("instance") or (args[0] if args else None)
+        if instance is not None and hasattr(instance, "__iter__"):
+            for notif in instance:
+                notif.recipient = None
+        elif instance is not None:
+            instance.recipient = None
+        return super().get_serializer(*args, **kwargs)
+
+
 class CreateBroadcastView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Notification.objects.none()  # needed by FullDjangoModelPermissions
 
     def post(self, request):
         title = request.data.get("title", "").strip()

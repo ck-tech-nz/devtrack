@@ -1,9 +1,9 @@
 <template>
   <div class="max-w-3xl mx-auto">
     <div class="mb-4">
-      <NuxtLink to="/app/notifications" class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
+      <NuxtLink to="/app/notifications/manage" class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
         <UIcon name="i-heroicons-arrow-left" class="w-4 h-4" />
-        返回通知列表
+        返回通知管理
       </NuxtLink>
     </div>
 
@@ -78,7 +78,7 @@ async function send() {
   sending.value = true
   result.value = null
   try {
-    const data = await api<{ id: string; recipients: number }>('/api/notifications/create/', {
+    const data = await api<{ id: string; recipients: number }>('/api/notifications/manage/create/', {
       method: 'POST',
       body: form,
     })
