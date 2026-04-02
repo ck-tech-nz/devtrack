@@ -15,7 +15,7 @@ class NotificationListView(generics.ListAPIView):
         qs = Notification.objects.filter(
             recipients__user=self.request.user,
             recipients__is_deleted=False,
-        ).select_related("source_user", "source_issue")
+        ).select_related("source_user", "source_issue").distinct()
         is_read = self.request.query_params.get("is_read")
         if is_read is not None:
             qs = qs.filter(recipients__is_read=is_read.lower() == "true")
