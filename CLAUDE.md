@@ -90,7 +90,6 @@ git push origin main:env/prod     # Deploy to production
 ## Key Conventions
 
 - Backend uses `uv` as package manager (not pip)
-- All model primary keys are UUIDs
 - Issue numbers are auto-incremented integers, displayed as `ISS-001`
 - `SiteSettings` is a singleton (django-solo) for labels, priorities, and issue statuses
 - `FullDjangoModelPermissions` in `apps/permissions.py` enforces `view_*` on GET (unlike default DRF which allows unauthenticated reads)
