@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "ae702210f805",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 8,
+  "files_touched": [
+    ".vscode/launch.json",
+    "frontend/nuxt.config.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ae/702210f805/0/metadata.json",
+      "transcript": "/ae/702210f805/0/full.jsonl",
+      "content_hash": "/ae/702210f805/0/content_hash.txt",
+      "prompt": "/ae/702210f805/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 38,
+    "cache_creation_tokens": 25438,
+    "cache_read_tokens": 542065,
+    "output_tokens": 4918,
+    "api_call_count": 18
+  }
+}
