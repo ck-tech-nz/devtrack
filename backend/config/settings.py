@@ -141,6 +141,7 @@ MINIO_USE_SSL = os.environ.get("MINIO_USE_SSL", "False").lower() in ("true", "1"
 MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "/uploads")
 
 REPO_CLONE_DIR = os.environ.get("REPO_CLONE_DIR", "/data/repos")
+BACKUP_DIR = os.environ.get("BACKUP_DIR", "/data/backups")
 
 # Page permissions configuration
 PAGE_PERMS = {
@@ -153,6 +154,7 @@ PAGE_PERMS = {
         {"path": "/app/ai-insights", "label": "AI 洞察", "icon": "i-heroicons-cpu-chip", "permission": "ai.view_analysis", "sort_order": 4, "meta": {"serviceKey": "ai"}},
         {"path": "/app/users", "label": "用户管理", "icon": "i-heroicons-users", "permission": "users.view_user", "sort_order": 5},
         {"path": "/app/notifications/manage", "label": "通知管理", "icon": "i-heroicons-bell-alert", "permission": "notifications.view_notification", "sort_order": 6},
+        {"path": "/app/settings/backups", "label": "数据库备份", "icon": "i-heroicons-circle-stack", "permission": None, "sort_order": 8, "meta": {"superuserOnly": True}},
         {"path": "/app/permissions", "label": "权限管理", "icon": "i-heroicons-shield-check", "permission": None, "sort_order": 99, "meta": {"superuserOnly": True}},
         {"path": "/app/about", "label": "关于系统", "icon": "i-heroicons-information-circle", "permission": None, "sort_order": 100, "meta": {"superuserOnly": True}},
     ],
