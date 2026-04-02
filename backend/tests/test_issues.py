@@ -170,3 +170,32 @@ class TestBatchUpdate:
         from apps.issues.models import Issue
         for issue in Issue.objects.filter(id__in=[i.id for i in issues]):
             assert issue.priority == "P0"
+
+
+class TestMentionNotification:
+    def test_create_issue_with_mention(self, auth_client, auth_user, site_settings):
+        from tests.factories import ProjectFactory, UserFactory
+        from apps.notifications.models import NotificationRecipient
+        user2 = UserFactory()
+        project = ProjectFactory()
+        response = auth_client.post("/api/issues/", {
+            "project": str(project.id),
+            "title": "测试提及",
+            "description": f"请 @[{user2.name}](user:{user2.id}) 看看",
+            "priority": "P2",
+            "status": "待处理",
+            "labels": ["前端"],
+        }, format="json")
+        assert response.status_code == 201
+        assert NotificationRecipient.objects.filter(user=user2).count() == 1
+
+    def test_update_issue_with_new_mention(self, auth_client, auth_user, site_settings):
+        from tests.factories import UserFactory
+        from apps.notifications.models import NotificationRecipient
+        user2 = UserFactory()
+        issue = IssueFactory(reporter=auth_user, description="原始描述")
+        response = auth_client.patch(f"/api/issues/{issue.id}/", {
+            "description": f"请 @[{user2.name}](user:{user2.id}) 看看",
+        }, format="json")
+        assert response.status_code == 200
+        assert NotificationRecipient.objects.filter(user=user2).count() == 1

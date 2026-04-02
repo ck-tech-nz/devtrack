@@ -7,6 +7,7 @@ from apps.settings.models import SiteSettings
 from apps.repos.serializers import GitHubIssueBriefSerializer
 from apps.tools.models import Attachment
 from apps.tools.serializers import AttachmentSerializer
+from apps.notifications.services import create_mention_notifications
 from .models import Issue, Activity
 
 User = get_user_model()
@@ -143,9 +144,16 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
                 id__in=attachment_ids, uploaded_by=self.context["request"].user,
             )
             issue.attachments.add(*atts)
+        create_mention_notifications(
+            issue=issue,
+            old_description="",
+            new_description=issue.description,
+            actor=self.context["request"].user,
+        )
         return issue
 
     def update(self, instance, validated_data):
+        old_description = instance.description
         helpers = validated_data.pop("helpers", None)
         user = self.context["request"].user
         old_status = instance.status
@@ -173,6 +181,13 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
             )
 
         _sync_attachments(issue, user)
+        if "description" in validated_data:
+            create_mention_notifications(
+                issue=issue,
+                old_description=old_description,
+                new_description=issue.description,
+                actor=user,
+            )
         return issue
 
 
