@@ -191,3 +191,26 @@ class AttachmentFactory(factory.django.DjangoModelFactory):
     file_url = factory.LazyAttribute(lambda o: f"http://minio:9000/devtrack-uploads/{o.file_key}")
     file_size = 102400
     mime_type = "image/png"
+
+
+from apps.notifications.models import Notification, NotificationRecipient
+
+
+class NotificationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Notification
+
+    notification_type = "system"
+    title = factory.LazyFunction(lambda: fake.sentence())
+    content = factory.LazyFunction(lambda: fake.paragraph())
+    target_type = "user"
+
+
+class NotificationRecipientFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = NotificationRecipient
+
+    notification = factory.SubFactory(NotificationFactory)
+    user = factory.SubFactory(UserFactory)
+    is_read = False
+    is_deleted = False

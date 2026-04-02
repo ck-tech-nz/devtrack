@@ -7,7 +7,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     read_at = serializers.DateTimeField(source="recipient.read_at", read_only=True)
     source_user_name = serializers.CharField(source="source_user.name", read_only=True, default=None)
     source_issue_title = serializers.CharField(source="source_issue.title", read_only=True, default=None)
-    source_issue_id = serializers.IntegerField(source="source_issue_id", read_only=True, default=None)
+    source_issue_id = serializers.UUIDField(read_only=True, default=None)
 
     class Meta:
         model = Notification
