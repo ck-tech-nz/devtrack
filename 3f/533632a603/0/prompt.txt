@@ -1,0 +1,66 @@
+/brainstorming  
+可否在描述中支持问题引用 @引用其他用户 #引用其他问题
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/issues/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+好
+
+---
+
+没有玉兰
+
+---
+
+不是,我刚才打错字了,我是说http://localhost:53384/ 没有看到预览不是选A
+
+---
+
+B 增加一个 notification app 处理所有相关通知.
+**关于Notification App的需求:**
+- 记录通知
+- 记录用户已阅读
+- 用户可以删除通知
+- 支持某单个通知obj 让所有人都看到/组看到
+- 通知内容支持markdown
+
+---
+
+A
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/users/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+B, 不过我们的user id is auto increase number
+
+---
+
+C
+
+---
+
+C
+
+---
+
+A
+
+---
+
+没有了
+
+---
+
+合理
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/docs/superpowers/specs/2026-04-02-notifications-and-mentions-design.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+> 广播通知在 Django Admin 中创建时，通过 model save 或 signal 自动为目标用户批量创建 NotificationRecipient 记录:
+
+这里有个疑问,那岂不是不管用户里不理会都多了一条记录?
+何不一开始不生成这些记录,知道用户看了,删了,在创建一个用户阅读/处理记录?
+
+---
+
+帮我评估这两种方案的优劣,我不是很有信心我的方案一定更优
