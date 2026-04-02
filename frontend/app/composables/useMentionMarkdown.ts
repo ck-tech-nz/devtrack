@@ -36,7 +36,8 @@ function mentionPlugin(md: MarkdownIt) {
 
   md.renderer.rules.mention_issue = (tokens, idx) => {
     const id = tokens[idx].meta.id
-    return `<a href="/app/issues/${id}" class="mention-issue">${tokens[idx].content}</a>`
+    const label = `#问题-${String(id).padStart(3, '0')}`
+    return `<a href="/app/issues/${id}" class="mention-issue">${label}</a>`
   }
 }
 

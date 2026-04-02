@@ -1,6 +1,6 @@
 <template>
   <div
-    class="markdown-editor border rounded-xl overflow-hidden"
+    class="markdown-editor border rounded-xl"
     :class="[
       isDragging ? 'border-primary-500 bg-primary-50 dark:bg-primary-950' : 'border-gray-200 dark:border-gray-700',
     ]"
@@ -155,7 +155,7 @@ async function fetchIssueSuggestions(query: string) {
   return data.results.map(i => ({
     id: i.id,
     label: i.title,
-    prefix: `#ISS-${String(i.id).padStart(3, '0')}`,
+    prefix: `#问题-${String(i.id).padStart(3, '0')}`,
   }))
 }
 
@@ -195,7 +195,7 @@ function insertMention(item: { id: number; label: string; prefix?: string }) {
   if (mentionType.value === 'user') {
     replacement = `@[${item.label}](user:${item.id}) `
   } else {
-    const prefix = item.prefix || `#ISS-${String(item.id).padStart(3, '0')}`
+    const prefix = item.prefix || `#问题-${String(item.id).padStart(3, '0')}`
     replacement = `#[${prefix}](issue:${item.id}) `
   }
   replaceRange(mentionTriggerStart.value, cursor, replacement)
