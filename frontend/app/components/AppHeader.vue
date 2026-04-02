@@ -21,9 +21,7 @@
         size="sm"
         @click="cycleTheme"
       />
-      <UButton icon="i-heroicons-bell" variant="ghost" color="neutral" size="sm" class="relative">
-        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-crystal-500 rounded-full" />
-      </UButton>
+      <NotificationBell />
 
       <UDropdownMenu :items="userMenuItems" :content="{ align: 'end' as const }">
         <button class="flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-2 py-1.5 transition-colors">
