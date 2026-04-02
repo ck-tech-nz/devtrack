@@ -1,10 +1,13 @@
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Notification, NotificationRecipient
 from .serializers import NotificationSerializer
+
+User = get_user_model()
 
 
 class NotificationListView(generics.ListAPIView):
@@ -76,6 +79,45 @@ class MarkAllReadView(APIView):
             user=request.user, is_read=False, is_deleted=False,
         ).update(is_read=True, read_at=timezone.now())
         return Response({"updated": updated})
+
+
+class CreateBroadcastView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        title = request.data.get("title", "").strip()
+        content = request.data.get("content", "").strip()
+        target_type = request.data.get("target_type", "all")
+
+        if not title:
+            return Response({"detail": "标题不能为空"}, status=status.HTTP_400_BAD_REQUEST)
+
+        notification = Notification.objects.create(
+            notification_type=Notification.Type.BROADCAST,
+            title=title,
+            content=content,
+            source_user=request.user,
+            target_type=target_type,
+        )
+
+        if target_type == Notification.TargetType.ALL:
+            users = User.objects.filter(is_active=True)
+        elif target_type == Notification.TargetType.GROUP:
+            group_id = request.data.get("target_group")
+            if not group_id:
+                return Response({"detail": "请指定目标组"}, status=status.HTTP_400_BAD_REQUEST)
+            notification.target_group_id = group_id
+            notification.save(update_fields=["target_group"])
+            from django.contrib.auth.models import Group
+            group = Group.objects.filter(id=group_id).first()
+            users = group.user_set.filter(is_active=True) if group else User.objects.none()
+        else:
+            users = User.objects.none()
+
+        recipients = [NotificationRecipient(notification=notification, user=u) for u in users]
+        NotificationRecipient.objects.bulk_create(recipients, ignore_conflicts=True)
+
+        return Response({"id": str(notification.id), "recipients": len(recipients)}, status=status.HTTP_201_CREATED)
 
 
 class NotificationDetailView(APIView):

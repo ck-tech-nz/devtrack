@@ -2,14 +2,24 @@
   <div class="max-w-3xl mx-auto">
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">通知中心</h1>
-      <UButton
-        v-if="unreadCount > 0"
-        variant="soft"
-        size="sm"
-        @click="handleMarkAllRead"
-      >
-        全部已读
-      </UButton>
+      <div class="flex items-center gap-2">
+        <UButton
+          v-if="unreadCount > 0"
+          variant="soft"
+          size="sm"
+          @click="handleMarkAllRead"
+        >
+          全部已读
+        </UButton>
+        <UButton
+          v-if="user?.is_superuser"
+          icon="i-heroicons-plus"
+          size="sm"
+          @click="navigateTo('/app/notifications/create')"
+        >
+          发送通知
+        </UButton>
+      </div>
     </div>
 
     <!-- Filter tabs -->
@@ -87,6 +97,7 @@
 </template>
 
 <script setup lang="ts">
+const { user } = useAuth()
 const { unreadCount, fetchNotifications, markRead, markAllRead, deleteNotification, fetchUnreadCount } = useNotifications()
 
 const tabs = [
