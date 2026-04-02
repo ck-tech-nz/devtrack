@@ -14,8 +14,8 @@ class RecipientInline(TabularInline):
 
 @admin.register(Notification)
 class NotificationAdmin(ModelAdmin):
-    list_display = ("title", "notification_type", "target_type", "created_at")
-    list_filter = ("notification_type", "target_type")
+    list_display = ("title", "notification_type", "target_type", "is_draft", "created_at")
+    list_filter = ("notification_type", "target_type", "is_draft")
     search_fields = ("title",)
     inlines = [RecipientInline]
 

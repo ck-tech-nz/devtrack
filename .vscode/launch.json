@@ -19,7 +19,7 @@
       "cwd": "${workspaceFolder}/frontend",
       "console": "integratedTerminal",
       "serverReadyAction": {
-        "pattern": "Local:\\s+http://localhost:(\\d+)",
+        "pattern": "Local:\\s+http://[^:]+:(\\d+)",
         "uriFormat": "http://localhost:%s",
         "action": "openExternally"
       }

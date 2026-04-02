@@ -31,6 +31,11 @@ class Notification(models.Model):
         "auth.Group", on_delete=models.SET_NULL,
         null=True, blank=True, verbose_name="目标组",
     )
+    target_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True,
+        related_name="targeted_notifications", verbose_name="目标用户",
+    )
+    is_draft = models.BooleanField(default=False, verbose_name="草稿")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
