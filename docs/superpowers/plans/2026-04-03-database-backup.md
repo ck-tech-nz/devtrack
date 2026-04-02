@@ -1,112 +1,101 @@
-# Database Backup Feature Implementation Plan
+# Database Backup Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add one-click database backup to DevTrack's web UI so admins can trigger pg_dump, view backup history, and download backup files.
+**Goal:** Add one-click PostgreSQL backup to DevTrack's web UI — trigger backups, view history, download/delete backup files.
 
-**Architecture:** Django async view runs `pg_dump` via `asyncio.create_subprocess_exec`, writing dump files to a volume-mounted `/data/backups/` directory. Frontend provides a settings page with a backup button and history table. ASGI switch enables async views.
+**Architecture:** Django view runs `pg_dump` via `asyncio.create_subprocess_exec` (wrapped in `asyncio.run()` for WSGI compat), writes dump files to `/data/backups/` (Docker volume mount). A `DatabaseBackup` model tracks records. Frontend page at `/app/settings/backups` with superuser-only access via page-perms.
 
-**Tech Stack:** Django 6 async views, uvicorn (ASGI), `pg_dump` CLI, Nuxt 4 (UTable, UButton), DRF serializers
+**Tech Stack:** Django 6, `pg_dump` (postgresql-client), uvicorn (ASGI), Nuxt 4 + @nuxt/ui 3
 
 ---
 
 ## File Structure
 
-**Backend (create):**
-- `backend/apps/settings/backup_views.py` — async views for backup CRUD + download
-- `backend/apps/settings/backup_serializers.py` — serializer for DatabaseBackup model
-- `backend/tests/test_backups.py` — API tests
+### Backend — New Files
 
-**Backend (modify):**
-- `backend/apps/settings/models.py` — add DatabaseBackup model
-- `backend/apps/settings/urls.py` — add backup URL patterns
-- `backend/config/settings.py` — add BACKUP_DIR setting
-- `backend/Dockerfile` — install postgresql-client
-- `backend/pyproject.toml` — add uvicorn dependency
+| File | Responsibility |
+|------|---------------|
+| `backend/apps/settings/backup_views.py` | Views: list, create, download, delete backups |
+| `backend/apps/settings/backup_serializers.py` | `DatabaseBackupSerializer` |
+| `backend/tests/test_backups.py` | All backup API tests |
 
-**Frontend (create):**
-- `frontend/app/pages/app/settings/backups.vue` — backup management page
+### Backend — Modified Files
 
-**Deployment (modify):**
-- `servers/prod/docker-compose.yml` — add backups volume, switch to uvicorn command
-- `servers/test/docker-compose.yml` — same changes
+| File | Change |
+|------|--------|
+| `backend/apps/settings/models.py` | Add `DatabaseBackup` model |
+| `backend/apps/settings/urls.py` | Mount `/backups/` endpoints |
+| `backend/apps/settings/admin.py` | Register `DatabaseBackup` in unfold admin |
+| `backend/config/settings.py` | Add `BACKUP_DIR` setting + backup route to `PAGE_PERMS.SEED_ROUTES` |
+| `backend/pyproject.toml` | Add `uvicorn` dependency |
+| `backend/Dockerfile` | Install `postgresql-client` |
 
----
+### Frontend — New Files
 
-### Task 1: Backend Infrastructure — ASGI + pg_dump
+| File | Responsibility |
+|------|---------------|
+| `frontend/app/pages/app/settings/backups.vue` | Backup management page |
 
-**Files:**
-- Modify: `backend/pyproject.toml`
-- Modify: `backend/Dockerfile`
-- Modify: `backend/config/settings.py`
+### Deployment — Modified Files
 
-- [ ] **Step 1: Add uvicorn dependency**
-
-In `backend/pyproject.toml`, add `uvicorn[standard]` to dependencies:
-
-```toml
-dependencies = [
-    "django>=6.0,<7.0",
-    "djangorestframework>=3.15,<4.0",
-    "djangorestframework-simplejwt>=5.3,<6.0",
-    "django-solo>=2.3,<3.0",
-    "django-filter>=25.0,<26.0",
-    "psycopg[binary]>=3.2,<4.0",
-    "django-page-perms",
-    "openai>=2.29.0,<3.0",
-    "requests>=2.32.5",
-    "whitenoise>=6.12.0",
-    "boto3>=1.35,<2.0",
-    "python-dotenv>=1.0,<2.0",
-    "django-unfold>=0.87",
-    "uvicorn[standard]>=0.34,<1.0",
-]
-```
-
-- [ ] **Step 2: Install postgresql-client in Dockerfile**
-
-In `backend/Dockerfile`, change the apt-get line:
-
-```dockerfile
-RUN apt-get update && apt-get install -y git curl postgresql-client && rm -rf /var/lib/apt/lists/*
-```
-
-- [ ] **Step 3: Add BACKUP_DIR setting**
-
-In `backend/config/settings.py`, add at the end of the file:
-
-```python
-# Database backup
-BACKUP_DIR = os.environ.get("BACKUP_DIR", "/data/backups")
-```
-
-- [ ] **Step 4: Run uv sync to install uvicorn**
-
-Run: `cd backend && uv sync`
-Expected: uvicorn installed successfully
-
-- [ ] **Step 5: Verify uvicorn can start the app**
-
-Run: `cd backend && uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000 &` then `curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/settings/` then kill the process.
-Expected: HTTP response (401 is fine — means Django is running)
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add backend/pyproject.toml backend/uv.lock backend/Dockerfile backend/config/settings.py
-git commit -m "feat(backup): add uvicorn, postgresql-client, and BACKUP_DIR setting"
-```
+| File | Change |
+|------|--------|
+| `docker-compose.yml` | Add `backups` volume mount |
+| `servers/prod/docker-compose.yml` | Add `backups` volume, switch to uvicorn CMD |
 
 ---
 
-### Task 2: DatabaseBackup Model + Migration
+## Task 1: DatabaseBackup Model + Migration
 
 **Files:**
 - Modify: `backend/apps/settings/models.py`
+- Create: `backend/tests/test_backups.py`
 
-- [ ] **Step 1: Add DatabaseBackup model**
+- [ ] **Step 1: Write the failing test**
 
-Append to `backend/apps/settings/models.py`:
+Create `backend/tests/test_backups.py`:
+
+```python
+import pytest
+from apps.settings.models import DatabaseBackup
+
+pytestmark = pytest.mark.django_db
+
+
+class TestDatabaseBackupModel:
+    def test_create_backup_record(self, superuser_client):
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.first()
+        backup = DatabaseBackup.objects.create(
+            filename="devtrack_20260403_120000.dump",
+            status="running",
+            created_by=user,
+        )
+        assert backup.filename == "devtrack_20260403_120000.dump"
+        assert backup.status == "running"
+        assert backup.file_size is None
+        assert backup.error_message == ""
+
+    def test_ordering_newest_first(self):
+        b1 = DatabaseBackup.objects.create(filename="a.dump", status="success")
+        b2 = DatabaseBackup.objects.create(filename="b.dump", status="success")
+        ids = list(DatabaseBackup.objects.values_list("id", flat=True))
+        assert ids == [b2.id, b1.id]
+
+    def test_str_representation(self):
+        backup = DatabaseBackup.objects.create(filename="test.dump", status="success")
+        assert "test.dump" in str(backup)
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd backend && uv run pytest tests/test_backups.py -v`
+Expected: FAIL — `ImportError: cannot import name 'DatabaseBackup'`
+
+- [ ] **Step 3: Implement the model**
+
+In `backend/apps/settings/models.py`, first check existing imports. The file already has `from django.db import models`. Add `from django.conf import settings as django_settings` if not present (the file uses `settings_module` or `django_settings` — check and match the existing alias). Then append:
 
 ```python
 class DatabaseBackup(models.Model):
@@ -120,9 +109,12 @@ class DatabaseBackup(models.Model):
             ("failed", "失败"),
         ],
     )
-    error_message = models.TextField(blank=True)
+    error_message = models.TextField(blank=True, default="")
     created_by = models.ForeignKey(
-        "users.User", on_delete=models.SET_NULL, null=True, blank=True
+        django_settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -132,34 +124,77 @@ class DatabaseBackup(models.Model):
         verbose_name_plural = "数据库备份"
 
     def __str__(self):
-        return f"{self.filename} ({self.get_status_display()})"
+        return self.filename
 ```
 
-- [ ] **Step 2: Generate migration**
+Use whatever alias is already used in the file for `django.conf.settings` (e.g. `settings_module` or `django_settings`). If `AUTH_USER_MODEL` reference doesn't work with the existing alias, use the string `"users.User"` directly.
 
-Run: `cd backend && uv run python manage.py makemigrations settings`
-Expected: Migration file created
-
-- [ ] **Step 3: Apply migration**
-
-Run: `cd backend && uv run python manage.py migrate`
-Expected: Migration applied successfully
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Generate and apply migration**
 
 ```bash
-git add backend/apps/settings/models.py backend/apps/settings/migrations/
-git commit -m "feat(backup): add DatabaseBackup model"
+cd backend && uv run python manage.py makemigrations settings && uv run python manage.py migrate
+```
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `cd backend && uv run pytest tests/test_backups.py -v`
+Expected: All 3 tests PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/apps/settings/models.py backend/apps/settings/migrations/ backend/tests/test_backups.py
+git commit -m "feat(backups): add DatabaseBackup model"
 ```
 
 ---
 
-### Task 3: Serializer
+## Task 2: Backup Serializer
 
 **Files:**
 - Create: `backend/apps/settings/backup_serializers.py`
+- Modify: `backend/tests/test_backups.py`
 
-- [ ] **Step 1: Create backup serializer**
+- [ ] **Step 1: Write the failing test**
+
+Add to `backend/tests/test_backups.py`:
+
+```python
+from apps.settings.backup_serializers import DatabaseBackupSerializer
+
+
+class TestDatabaseBackupSerializer:
+    def test_serializes_backup_record(self, superuser_client):
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.first()
+        backup = DatabaseBackup.objects.create(
+            filename="devtrack_20260403_120000.dump",
+            file_size=15728640,
+            status="success",
+            created_by=user,
+        )
+        data = DatabaseBackupSerializer(backup).data
+        assert data["filename"] == "devtrack_20260403_120000.dump"
+        assert data["file_size"] == 15728640
+        assert data["status"] == "success"
+        assert data["created_by_name"] == user.name
+        assert "id" in data
+        assert "created_at" in data
+
+    def test_created_by_name_null_user(self):
+        backup = DatabaseBackup.objects.create(
+            filename="test.dump", status="success", created_by=None
+        )
+        data = DatabaseBackupSerializer(backup).data
+        assert data["created_by_name"] is None
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd backend && uv run pytest tests/test_backups.py::TestDatabaseBackupSerializer -v`
+Expected: FAIL — `ImportError`
+
+- [ ] **Step 3: Implement the serializer**
 
 Create `backend/apps/settings/backup_serializers.py`:
 
@@ -170,39 +205,166 @@ from .models import DatabaseBackup
 
 class DatabaseBackupSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(
-        source="created_by.name", read_only=True, default=""
+        source="created_by.name", read_only=True, default=None
     )
 
     class Meta:
         model = DatabaseBackup
         fields = [
-            "id",
-            "filename",
-            "file_size",
-            "status",
-            "error_message",
-            "created_by_name",
-            "created_at",
+            "id", "filename", "file_size", "status",
+            "error_message", "created_by_name", "created_at",
         ]
         read_only_fields = fields
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd backend && uv run pytest tests/test_backups.py::TestDatabaseBackupSerializer -v`
+Expected: 2 tests PASS
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add backend/apps/settings/backup_serializers.py
-git commit -m "feat(backup): add DatabaseBackup serializer"
+git add backend/apps/settings/backup_serializers.py backend/tests/test_backups.py
+git commit -m "feat(backups): add DatabaseBackup serializer"
 ```
 
 ---
 
-### Task 4: Backup Views — List + Create + Delete + Download
+## Task 3: Backup API Views + URL Routing
 
 **Files:**
 - Create: `backend/apps/settings/backup_views.py`
 - Modify: `backend/apps/settings/urls.py`
+- Modify: `backend/tests/test_backups.py`
 
-- [ ] **Step 1: Create backup views**
+- [ ] **Step 1: Write the failing tests**
+
+Add to `backend/tests/test_backups.py`:
+
+```python
+from unittest.mock import patch, AsyncMock
+
+
+class TestBackupListAPI:
+    def test_list_as_superuser(self, superuser_client):
+        DatabaseBackup.objects.create(filename="a.dump", status="success")
+        DatabaseBackup.objects.create(filename="b.dump", status="success")
+        resp = superuser_client.get("/api/settings/backups/")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 2
+
+    def test_list_as_regular_user_forbidden(self, regular_client):
+        resp = regular_client.get("/api/settings/backups/")
+        assert resp.status_code == 403
+
+    def test_list_unauthenticated(self, api_client):
+        resp = api_client.get("/api/settings/backups/")
+        assert resp.status_code == 401
+
+
+class TestBackupCreateAPI:
+    @patch("apps.settings.backup_views.run_pg_dump")
+    def test_trigger_backup_success(self, mock_dump, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+
+        async def fake_dump(filepath):
+            # Create a fake dump file
+            with open(filepath, "wb") as f:
+                f.write(b"x" * 1024)
+            return True, 1024, ""
+
+        mock_dump.side_effect = lambda fp: __import__("asyncio").get_event_loop().run_until_complete(fake_dump(fp)) if False else (True, 1024, "")
+        # Simpler: just return the tuple directly since asyncio.run wraps the coroutine
+        mock_dump.return_value = (True, 1024, "")
+
+        # We need the file to exist for file_size check
+        import os
+        os.makedirs(str(tmp_path), exist_ok=True)
+
+        resp = superuser_client.post("/api/settings/backups/")
+        assert resp.status_code == 201
+        assert resp.data["status"] == "success"
+        assert resp.data["file_size"] == 1024
+
+    @patch("apps.settings.backup_views.run_pg_dump")
+    def test_trigger_backup_failure(self, mock_dump, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        mock_dump.return_value = (False, 0, "pg_dump: connection refused")
+        resp = superuser_client.post("/api/settings/backups/")
+        assert resp.status_code == 201
+        assert resp.data["status"] == "failed"
+        assert "connection refused" in resp.data["error_message"]
+
+    def test_trigger_forbidden_non_staff(self, regular_client):
+        resp = regular_client.post("/api/settings/backups/")
+        assert resp.status_code == 403
+
+    @patch("apps.settings.backup_views.run_pg_dump")
+    def test_concurrent_backup_blocked(self, mock_dump, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        DatabaseBackup.objects.create(filename="running.dump", status="running")
+        resp = superuser_client.post("/api/settings/backups/")
+        assert resp.status_code == 409
+
+
+class TestBackupDownloadAPI:
+    def test_download_backup(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        (tmp_path / "test.dump").write_bytes(b"fake dump content")
+        backup = DatabaseBackup.objects.create(
+            filename="test.dump", file_size=17, status="success"
+        )
+        resp = superuser_client.get(f"/api/settings/backups/{backup.id}/download/")
+        assert resp.status_code == 200
+        assert b"fake dump content" in b"".join(resp.streaming_content)
+
+    def test_download_missing_file_404(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        backup = DatabaseBackup.objects.create(
+            filename="gone.dump", status="success"
+        )
+        resp = superuser_client.get(f"/api/settings/backups/{backup.id}/download/")
+        assert resp.status_code == 404
+
+    def test_download_nonexistent_record_404(self, superuser_client):
+        resp = superuser_client.get("/api/settings/backups/99999/download/")
+        assert resp.status_code == 404
+
+
+class TestBackupDeleteAPI:
+    def test_delete_backup_and_file(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        dump_file = tmp_path / "deleteme.dump"
+        dump_file.write_bytes(b"data")
+        backup = DatabaseBackup.objects.create(
+            filename="deleteme.dump", status="success"
+        )
+        resp = superuser_client.delete(f"/api/settings/backups/{backup.id}/")
+        assert resp.status_code == 204
+        assert not dump_file.exists()
+        assert not DatabaseBackup.objects.filter(id=backup.id).exists()
+
+    def test_delete_file_already_gone(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        backup = DatabaseBackup.objects.create(
+            filename="already_gone.dump", status="failed"
+        )
+        resp = superuser_client.delete(f"/api/settings/backups/{backup.id}/")
+        assert resp.status_code == 204
+
+    def test_delete_forbidden_non_staff(self, regular_client):
+        backup = DatabaseBackup.objects.create(filename="t.dump", status="success")
+        resp = regular_client.delete(f"/api/settings/backups/{backup.id}/")
+        assert resp.status_code == 403
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `cd backend && uv run pytest tests/test_backups.py::TestBackupListAPI tests/test_backups.py::TestBackupCreateAPI tests/test_backups.py::TestBackupDownloadAPI tests/test_backups.py::TestBackupDeleteAPI -v`
+Expected: FAIL — 404 or ImportError
+
+- [ ] **Step 3: Implement backup views**
 
 Create `backend/apps/settings/backup_views.py`:
 
@@ -211,9 +373,10 @@ import asyncio
 import os
 from datetime import datetime
 
-from django.conf import settings
+from django.conf import settings as django_settings
 from django.http import FileResponse
-from rest_framework import generics, status
+from rest_framework import status
+from rest_framework.generics import ListAPIView, DestroyAPIView
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -222,23 +385,56 @@ from .backup_serializers import DatabaseBackupSerializer
 from .models import DatabaseBackup
 
 
-class BackupListCreateView(generics.ListCreateAPIView):
+def get_backup_dir():
+    d = getattr(django_settings, "BACKUP_DIR", "/data/backups")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+async def run_pg_dump(filepath):
+    """Run pg_dump. Returns (success, file_size, error_message)."""
+    db = django_settings.DATABASES["default"]
+    env = os.environ.copy()
+    env["PGPASSWORD"] = db.get("PASSWORD", "")
+
+    proc = await asyncio.create_subprocess_exec(
+        "pg_dump",
+        "-h", db.get("HOST", "127.0.0.1"),
+        "-p", str(db.get("PORT", "5432")),
+        "-U", db.get("USER", "postgres"),
+        "-Fc", db.get("NAME", "devtrack"),
+        "-f", filepath,
+        env=env,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+
+    if proc.returncode == 0:
+        return True, os.path.getsize(filepath), ""
+    return False, 0, stderr.decode().strip()
+
+
+class BackupListView(ListAPIView):
+    queryset = DatabaseBackup.objects.all()
     serializer_class = DatabaseBackupSerializer
     permission_classes = [IsAdminUser]
-    queryset = DatabaseBackup.objects.all()
 
-    def create(self, request, *args, **kwargs):
-        # 检查是否有正在运行的备份
+
+class BackupCreateView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
         if DatabaseBackup.objects.filter(status="running").exists():
             return Response(
                 {"detail": "已有备份任务正在运行"},
                 status=status.HTTP_409_CONFLICT,
             )
 
-        db = settings.DATABASES["default"]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{db['NAME']}_{timestamp}.dump"
-        filepath = os.path.join(settings.BACKUP_DIR, filename)
+        db_name = django_settings.DATABASES["default"].get("NAME", "devtrack")
+        filename = f"{db_name}_{timestamp}.dump"
+        filepath = os.path.join(get_backup_dir(), filename)
 
         backup = DatabaseBackup.objects.create(
             filename=filename,
@@ -247,20 +443,13 @@ class BackupListCreateView(generics.ListCreateAPIView):
         )
 
         try:
-            os.makedirs(settings.BACKUP_DIR, exist_ok=True)
-
-            env = os.environ.copy()
-            env["PGPASSWORD"] = db["PASSWORD"]
-
-            proc = asyncio.run(self._run_pg_dump(db, filepath, env))
-
-            if proc.returncode == 0:
+            success, file_size, error_msg = asyncio.run(run_pg_dump(filepath))
+            if success:
                 backup.status = "success"
-                backup.file_size = os.path.getsize(filepath)
+                backup.file_size = file_size
             else:
                 backup.status = "failed"
-                backup.error_message = proc.stderr
-                # 清理失败的文件
+                backup.error_message = error_msg
                 if os.path.exists(filepath):
                     os.remove(filepath)
         except Exception as e:
@@ -268,42 +457,10 @@ class BackupListCreateView(generics.ListCreateAPIView):
             backup.error_message = str(e)
 
         backup.save()
-        serializer = self.get_serializer(backup)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    async def _run_pg_dump(self, db, filepath, env):
-        proc = await asyncio.create_subprocess_exec(
-            "pg_dump",
-            "-h", db["HOST"],
-            "-p", str(db["PORT"]),
-            "-U", db["USER"],
-            "-Fc",
-            "-f", filepath,
-            db["NAME"],
-            env=env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        return Response(
+            DatabaseBackupSerializer(backup).data,
+            status=status.HTTP_201_CREATED,
         )
-        stdout, stderr = await proc.communicate()
-        proc.stdout = stdout.decode()
-        proc.stderr = stderr.decode()
-        return proc
-
-    class Pagination(generics.ListCreateAPIView.pagination_class.__class__ if generics.ListCreateAPIView.pagination_class else object):
-        pass
-
-
-class BackupDeleteView(generics.DestroyAPIView):
-    serializer_class = DatabaseBackupSerializer
-    permission_classes = [IsAdminUser]
-    queryset = DatabaseBackup.objects.all()
-
-    def perform_destroy(self, instance):
-        # 删除磁盘上的文件
-        filepath = os.path.join(settings.BACKUP_DIR, instance.filename)
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        instance.delete()
 
 
 class BackupDownloadView(APIView):
@@ -313,16 +470,9 @@ class BackupDownloadView(APIView):
         try:
             backup = DatabaseBackup.objects.get(pk=pk)
         except DatabaseBackup.DoesNotExist:
-            return Response(
-                {"detail": "备份记录不存在"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-        if backup.status != "success":
-            return Response(
-                {"detail": "该备份不可下载"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        filepath = os.path.join(settings.BACKUP_DIR, backup.filename)
+        filepath = os.path.join(get_backup_dir(), backup.filename)
         if not os.path.exists(filepath):
             return Response(
                 {"detail": "备份文件不存在"}, status=status.HTTP_404_NOT_FOUND
@@ -330,453 +480,192 @@ class BackupDownloadView(APIView):
 
         return FileResponse(
             open(filepath, "rb"),
+            content_type="application/octet-stream",
             as_attachment=True,
             filename=backup.filename,
         )
+
+
+class BackupDeleteView(DestroyAPIView):
+    queryset = DatabaseBackup.objects.all()
+    serializer_class = DatabaseBackupSerializer
+    permission_classes = [IsAdminUser]
+
+    def perform_destroy(self, instance):
+        filepath = os.path.join(get_backup_dir(), instance.filename)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        instance.delete()
 ```
 
-- [ ] **Step 2: Add backup URL patterns**
+- [ ] **Step 4: Mount URL routes**
 
-Replace `backend/apps/settings/urls.py` with:
+In `backend/apps/settings/urls.py`, add imports and paths. The file currently has:
 
 ```python
 from django.urls import path
 from .views import SiteSettingsView, LabelSettingsView
-from .backup_views import BackupListCreateView, BackupDeleteView, BackupDownloadView
 
 urlpatterns = [
     path("", SiteSettingsView.as_view(), name="site-settings"),
     path("labels/", LabelSettingsView.as_view(), name="label-settings"),
-    path("backups/", BackupListCreateView.as_view(), name="backup-list-create"),
-    path("backups/<int:pk>/", BackupDeleteView.as_view(), name="backup-delete"),
-    path(
-        "backups/<int:pk>/download/",
-        BackupDownloadView.as_view(),
-        name="backup-download",
-    ),
 ]
 ```
 
-- [ ] **Step 3: Commit**
-
-```bash
-git add backend/apps/settings/backup_views.py backend/apps/settings/urls.py
-git commit -m "feat(backup): add backup list, create, delete, and download views"
-```
-
----
-
-### Task 5: Backend Tests
-
-**Files:**
-- Create: `backend/tests/test_backups.py`
-
-- [ ] **Step 1: Write tests**
-
-Create `backend/tests/test_backups.py`:
+Add the backup imports and routes:
 
 ```python
-import os
-import pytest
-from unittest.mock import patch, AsyncMock
-from django.conf import settings
-from apps.settings.models import DatabaseBackup
+from django.urls import path
+from .views import SiteSettingsView, LabelSettingsView
+from .backup_views import (
+    BackupListView, BackupCreateView, BackupDownloadView, BackupDeleteView,
+)
 
-
-@pytest.mark.django_db
-class TestBackupAPI:
-    """数据库备份 API 测试"""
-
-    def test_list_backups_requires_admin(self, api_client):
-        """未认证用户不能访问备份列表"""
-        resp = api_client.get("/api/settings/backups/")
-        assert resp.status_code == 401
-
-    def test_list_backups_requires_staff(self, regular_client):
-        """普通用户不能访问备份列表"""
-        resp = regular_client.get("/api/settings/backups/")
-        assert resp.status_code == 403
-
-    def test_list_backups_empty(self, superuser_client):
-        """管理员可以看到空备份列表"""
-        resp = superuser_client.get("/api/settings/backups/")
-        assert resp.status_code == 200
-        assert resp.data["results"] == []
-
-    def test_list_backups_with_records(self, superuser_client, auth_user):
-        """管理员可以看到备份记录"""
-        DatabaseBackup.objects.create(
-            filename="test_20260403_120000.dump",
-            file_size=1024,
-            status="success",
-            created_by=auth_user,
-        )
-        resp = superuser_client.get("/api/settings/backups/")
-        assert resp.status_code == 200
-        assert len(resp.data["results"]) == 1
-        assert resp.data["results"][0]["filename"] == "test_20260403_120000.dump"
-
-    @patch("apps.settings.backup_views.asyncio.run")
-    def test_create_backup_success(self, mock_run, superuser_client, tmp_path):
-        """管理员可以触发备份"""
-        mock_proc = type("Proc", (), {
-            "returncode": 0,
-            "stdout": "",
-            "stderr": "",
-        })()
-        mock_run.return_value = mock_proc
-
-        with patch.object(settings, "BACKUP_DIR", str(tmp_path)):
-            # 创建一个假的 dump 文件让 os.path.getsize 工作
-            mock_run.side_effect = lambda coro: (
-                mock_proc,
-                open(tmp_path / f"devtrack_{{}}.dump".format("test"), "w").close(),
-            )[0]
-
-            resp = superuser_client.post("/api/settings/backups/")
-
-        assert resp.status_code == 201
-        assert resp.data["status"] in ["success", "failed"]
-
-    def test_create_backup_blocks_concurrent(self, superuser_client):
-        """不允许同时运行多个备份"""
-        DatabaseBackup.objects.create(
-            filename="running.dump",
-            status="running",
-        )
-        resp = superuser_client.post("/api/settings/backups/")
-        assert resp.status_code == 409
-
-    def test_delete_backup(self, superuser_client, tmp_path):
-        """管理员可以删除备份"""
-        backup = DatabaseBackup.objects.create(
-            filename="to_delete.dump",
-            file_size=512,
-            status="success",
-        )
-        # 创建文件
-        filepath = tmp_path / "to_delete.dump"
-        filepath.write_bytes(b"test")
-
-        with patch.object(settings, "BACKUP_DIR", str(tmp_path)):
-            resp = superuser_client.delete(f"/api/settings/backups/{backup.id}/")
-
-        assert resp.status_code == 204
-        assert not DatabaseBackup.objects.filter(id=backup.id).exists()
-        assert not filepath.exists()
-
-    def test_download_backup(self, superuser_client, tmp_path):
-        """管理员可以下载备份文件"""
-        backup = DatabaseBackup.objects.create(
-            filename="download_me.dump",
-            file_size=4,
-            status="success",
-        )
-        filepath = tmp_path / "download_me.dump"
-        filepath.write_bytes(b"data")
-
-        with patch.object(settings, "BACKUP_DIR", str(tmp_path)):
-            resp = superuser_client.get(
-                f"/api/settings/backups/{backup.id}/download/"
-            )
-
-        assert resp.status_code == 200
-        assert resp["Content-Disposition"] == 'attachment; filename="download_me.dump"'
-
-    def test_download_failed_backup_rejected(self, superuser_client):
-        """不能下载失败的备份"""
-        backup = DatabaseBackup.objects.create(
-            filename="failed.dump",
-            status="failed",
-            error_message="pg_dump error",
-        )
-        resp = superuser_client.get(
-            f"/api/settings/backups/{backup.id}/download/"
-        )
-        assert resp.status_code == 400
-
-    def test_delete_backup_requires_admin(self, regular_client):
-        """普通用户不能删除备份"""
-        backup = DatabaseBackup.objects.create(
-            filename="test.dump",
-            status="success",
-        )
-        resp = regular_client.delete(f"/api/settings/backups/{backup.id}/")
-        assert resp.status_code == 403
+urlpatterns = [
+    path("", SiteSettingsView.as_view(), name="site-settings"),
+    path("labels/", LabelSettingsView.as_view(), name="label-settings"),
+    path("backups/", BackupListView.as_view(), name="backup-list"),
+    path("backups/create/", BackupCreateView.as_view(), name="backup-create"),
+    path("backups/<int:pk>/download/", BackupDownloadView.as_view(), name="backup-download"),
+    path("backups/<int:pk>/", BackupDeleteView.as_view(), name="backup-delete"),
+]
 ```
 
-- [ ] **Step 2: Run tests**
+Note: List (GET `/backups/`) and create (POST `/backups/create/`) are separate paths because `ListAPIView` only handles GET and the create logic is custom. Download must come before the delete route so `<int:pk>/download/` matches first.
+
+- [ ] **Step 5: Run tests to verify they pass**
 
 Run: `cd backend && uv run pytest tests/test_backups.py -v`
-Expected: All tests pass
+Expected: All tests PASS
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add backend/tests/test_backups.py
-git commit -m "test(backup): add API tests for backup endpoints"
+git add backend/apps/settings/backup_views.py backend/apps/settings/urls.py backend/tests/test_backups.py
+git commit -m "feat(backups): add backup API views and URL routing"
 ```
 
 ---
 
-### Task 6: Frontend — Backup Management Page
+## Task 4: Settings, Admin, and Page-Perms Config
 
 **Files:**
-- Create: `frontend/app/pages/app/settings/backups.vue`
+- Modify: `backend/config/settings.py`
+- Modify: `backend/apps/settings/admin.py`
 
-- [ ] **Step 1: Create the backup page**
+- [ ] **Step 1: Add BACKUP_DIR setting**
 
-Create `frontend/app/pages/app/settings/backups.vue`:
+In `backend/config/settings.py`, after the `REPO_CLONE_DIR` line (line 143), add:
 
-```vue
-<script setup lang="ts">
-definePageMeta({ layout: 'app' })
-
-interface Backup {
-  id: number
-  filename: string
-  file_size: number | null
-  status: 'running' | 'success' | 'failed'
-  error_message: string
-  created_by_name: string
-  created_at: string
-}
-
-const { api, getToken } = useApi()
-const toast = useToast()
-
-const backups = ref<Backup[]>([])
-const loading = ref(false)
-const backingUp = ref(false)
-const page = ref(1)
-const totalPages = ref(1)
-
-async function fetchBackups() {
-  loading.value = true
-  try {
-    const params = new URLSearchParams({ page: String(page.value) })
-    const data = await api<any>(`/api/settings/backups/?${params}`)
-    backups.value = data.results
-    totalPages.value = Math.ceil(data.count / (data.page_size || 10))
-  } catch {
-    toast.add({ title: '加载备份记录失败', color: 'error' })
-  } finally {
-    loading.value = false
-  }
-}
-
-async function createBackup() {
-  backingUp.value = true
-  try {
-    await api<Backup>('/api/settings/backups/', { method: 'POST' })
-    toast.add({ title: '备份成功', color: 'success' })
-    await fetchBackups()
-  } catch (e: any) {
-    const msg = e?.data?.detail || '备份失败'
-    toast.add({ title: msg, color: 'error' })
-  } finally {
-    backingUp.value = false
-  }
-}
-
-async function deleteBackup(backup: Backup) {
-  if (!confirm(`确认删除备份 ${backup.filename}？`)) return
-  try {
-    await api(`/api/settings/backups/${backup.id}/`, { method: 'DELETE' })
-    toast.add({ title: '已删除', color: 'success' })
-    await fetchBackups()
-  } catch {
-    toast.add({ title: '删除失败', color: 'error' })
-  }
-}
-
-function downloadBackup(backup: Backup) {
-  const token = getToken()
-  const link = document.createElement('a')
-  link.href = `/api/settings/backups/${backup.id}/download/`
-  // 通过 fetch 下载以携带 token
-  fetch(link.href, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(res => {
-      if (!res.ok) throw new Error()
-      return res.blob()
-    })
-    .then(blob => {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = backup.filename
-      a.click()
-      URL.revokeObjectURL(url)
-    })
-    .catch(() => toast.add({ title: '下载失败', color: 'error' }))
-}
-
-function formatSize(bytes: number | null): string {
-  if (!bytes) return '-'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString('zh-CN')
-}
-
-const statusColor: Record<string, string> = {
-  running: 'info',
-  success: 'success',
-  failed: 'error',
-}
-
-const statusLabel: Record<string, string> = {
-  running: '备份中',
-  success: '成功',
-  failed: '失败',
-}
-
-const columns = [
-  { key: 'filename', label: '文件名' },
-  { key: 'file_size', label: '大小' },
-  { key: 'status', label: '状态' },
-  { key: 'created_by_name', label: '操作人' },
-  { key: 'created_at', label: '时间' },
-  { key: 'actions', label: '操作' },
-]
-
-watch(page, fetchBackups)
-onMounted(fetchBackups)
-</script>
-
-<template>
-  <div class="p-6 max-w-5xl">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-bold">数据库备份</h1>
-      <UButton
-        icon="i-heroicons-arrow-down-tray"
-        :loading="backingUp"
-        @click="createBackup"
-      >
-        立即备份
-      </UButton>
-    </div>
-
-    <UTable
-      :columns="columns"
-      :rows="backups"
-      :loading="loading"
-    >
-      <template #file_size-data="{ row }">
-        {{ formatSize(row.file_size) }}
-      </template>
-
-      <template #status-data="{ row }">
-        <UBadge :color="statusColor[row.status]" variant="subtle">
-          {{ statusLabel[row.status] }}
-        </UBadge>
-      </template>
-
-      <template #created_at-data="{ row }">
-        {{ formatTime(row.created_at) }}
-      </template>
-
-      <template #actions-data="{ row }">
-        <div class="flex gap-2">
-          <UButton
-            v-if="row.status === 'success'"
-            variant="ghost"
-            size="xs"
-            icon="i-heroicons-arrow-down-tray"
-            @click="downloadBackup(row)"
-          >
-            下载
-          </UButton>
-          <UButton
-            variant="ghost"
-            size="xs"
-            color="error"
-            icon="i-heroicons-trash"
-            @click="deleteBackup(row)"
-          >
-            删除
-          </UButton>
-        </div>
-      </template>
-    </UTable>
-
-    <div v-if="totalPages > 1" class="flex justify-center mt-4">
-      <UPagination v-model="page" :total="totalPages * 10" :items-per-page="10" />
-    </div>
-  </div>
-</template>
+```python
+BACKUP_DIR = os.environ.get("BACKUP_DIR", "/data/backups")
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Add backup route to PAGE_PERMS SEED_ROUTES**
+
+In `backend/config/settings.py`, in the `SEED_ROUTES` list (around line 148-158), add before the permissions route (sort_order 99):
+
+```python
+{"path": "/app/settings/backups", "label": "数据库备份", "icon": "i-heroicons-circle-stack", "permission": None, "sort_order": 8, "meta": {"superuserOnly": True}},
+```
+
+- [ ] **Step 3: Register DatabaseBackup in admin**
+
+In `backend/apps/settings/admin.py`, add the import and registration. The file already uses `@admin.register` and imports `ModelAdmin` from `unfold.admin`. Add:
+
+```python
+from .models import SiteSettings, DatabaseBackup  # update existing import
+```
+
+Then add at the bottom:
+
+```python
+@admin.register(DatabaseBackup)
+class DatabaseBackupAdmin(ModelAdmin):
+    list_display = ("filename", "status", "file_size", "created_by", "created_at")
+    list_filter = ("status",)
+    readonly_fields = ("filename", "file_size", "status", "error_message", "created_by", "created_at")
+```
+
+- [ ] **Step 4: Sync page-perms**
 
 ```bash
-git add frontend/app/pages/app/settings/backups.vue
-git commit -m "feat(backup): add backup management page"
+cd backend && uv run python manage.py sync_page_perms
+```
+
+- [ ] **Step 5: Run all backend tests**
+
+Run: `cd backend && uv run pytest -v`
+Expected: All tests PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/config/settings.py backend/apps/settings/admin.py
+git commit -m "feat(backups): add BACKUP_DIR setting, page-perms route, admin registration"
 ```
 
 ---
 
-### Task 7: Navigation + Route Permission Integration
+## Task 5: Docker Infrastructure
 
 **Files:**
-- Modify: page-perms config (via `sync_page_perms` management command or admin)
-
-- [ ] **Step 1: Register the backup page route in page-perms**
-
-The project uses `django-page-perms` to manage page routes dynamically. Check how existing routes are configured:
-
-Run: `cd backend && uv run python manage.py shell -c "from page_perms.models import PageRoute; print([(r.path, r.label, r.permission) for r in PageRoute.objects.all()[:5]])"`
-
-The backup page needs a PageRoute entry. Since this page uses `IsAdminUser` (not model permissions), the route needs `meta.superuserOnly = true` or a staff-level check. Look at how `useNavigation.ts` handles `meta.superuserOnly`:
-
-```typescript
-if (item.meta?.superuserOnly && !user.value?.is_superuser) return false
-```
-
-Add the route via the management command config or Django admin:
-- path: `/app/settings/backups`
-- label: `数据库备份`
-- icon: `i-heroicons-circle-stack`
-- show_in_nav: `true`
-- is_active: `true`
-- meta: `{"superuserOnly": true}`
-- permission: (leave null — access is controlled by `is_staff` on the API and `superuserOnly` on the frontend)
-
-The exact method depends on how `sync_page_perms` is configured. Check:
-
-Run: `cd backend && grep -r "backups\|备份\|BACKUP" apps/ config/ --include="*.py" | head -20`
-
-If the management command reads from a config dict (like `PAGE_PERMS` in settings), add the entry there. If routes are managed via admin UI, add it manually.
-
-- [ ] **Step 2: Verify navigation shows the backup page for admin users**
-
-Run the dev server and log in as an admin user. The "数据库备份" item should appear in the sidebar. Non-admin users should not see it.
-
-- [ ] **Step 3: Commit (if config file was modified)**
-
-```bash
-git add -A
-git commit -m "feat(backup): register backup page route in page-perms"
-```
-
----
-
-### Task 8: Deployment Config Updates
-
-**Files:**
+- Modify: `backend/Dockerfile`
+- Modify: `backend/pyproject.toml`
+- Modify: `docker-compose.yml`
 - Modify: `servers/prod/docker-compose.yml`
-- Modify: `servers/test/docker-compose.yml`
 
-- [ ] **Step 1: Update production docker-compose**
+- [ ] **Step 1: Install postgresql-client in Dockerfile**
 
-In `servers/prod/docker-compose.yml`, update the backend service:
+In `backend/Dockerfile` line 3, change:
 
-1. Add `backups` volume mount:
+```dockerfile
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+```
+
+to:
+
+```dockerfile
+RUN apt-get update && apt-get install -y git curl postgresql-client && rm -rf /var/lib/apt/lists/*
+```
+
+- [ ] **Step 2: Add uvicorn dependency**
+
+```bash
+cd backend && uv add uvicorn
+```
+
+- [ ] **Step 3: Update Dockerfile CMD to uvicorn**
+
+In `backend/Dockerfile`, change the CMD line (line 20):
+
+```dockerfile
+CMD ["uv", "run", "uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+- [ ] **Step 4: Add backups volume to docker-compose.yml (dev)**
+
+In `docker-compose.yml`, add to backend `volumes`:
+
+```yaml
+    volumes:
+      - repo_data:/data/repos
+      - backups:/data/backups
+```
+
+And add to root `volumes`:
+
+```yaml
+volumes:
+  pgdata:
+  repo_data:
+  backups:
+```
+
+- [ ] **Step 5: Update servers/prod/docker-compose.yml**
+
+Add `backups:/data/backups` to backend volumes:
+
 ```yaml
     volumes:
       - ./.gitconfig-proxy:/root/.gitconfig:ro
@@ -784,53 +673,266 @@ In `servers/prod/docker-compose.yml`, update the backend service:
       - backups:/data/backups
 ```
 
-2. Switch command to uvicorn:
+Switch command to uvicorn:
+
 ```yaml
     command: >
       sh -c "uv run python manage.py migrate --noinput &&
              uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000"
 ```
 
-3. Add `backups` to the top-level volumes:
+Add to root volumes:
+
 ```yaml
 volumes:
   repo_data:
   backups:
 ```
 
-- [ ] **Step 2: Apply same changes to test docker-compose**
-
-Apply the same volume and command changes to `servers/test/docker-compose.yml`.
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add servers/prod/docker-compose.yml servers/test/docker-compose.yml
-git commit -m "deploy(backup): add backups volume and switch to uvicorn"
+git add backend/Dockerfile backend/pyproject.toml backend/uv.lock docker-compose.yml servers/prod/docker-compose.yml
+git commit -m "infra(backups): add postgresql-client, uvicorn, and backup volumes"
 ```
 
 ---
 
-### Task 9: Final Verification
+## Task 6: Frontend — Backup Management Page
 
-- [ ] **Step 1: Run full test suite**
+**Files:**
+- Create: `frontend/app/pages/app/settings/backups.vue`
 
-Run: `cd backend && uv run pytest -v`
-Expected: All tests pass including new backup tests
+- [ ] **Step 1: Create the backup page**
 
-- [ ] **Step 2: Manual smoke test**
+Create `frontend/app/pages/app/settings/backups.vue`. The project uses Nuxt 4 with @nuxt/ui 3. Existing pages use `definePageMeta({ layout: 'default' })`. UTable in @nuxt/ui 3 uses `data` prop (not `rows`) and `accessorKey` in column defs. Slot names follow `#<columnKey>-cell` pattern.
 
-1. Start backend: `cd backend && uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000`
-2. Start frontend: `cd frontend && npm run dev`
-3. Log in as admin, navigate to `/app/settings/backups`
-4. Click "立即备份", verify it completes
-5. Verify file appears in list with correct size
-6. Click "下载", verify file downloads
-7. Click "删除", verify record and file removed
+```vue
+<script setup lang="ts">
+definePageMeta({ layout: 'default' })
 
-- [ ] **Step 3: Final commit if any fixes needed**
+interface BackupRecord {
+  id: number
+  filename: string
+  file_size: number | null
+  status: 'running' | 'success' | 'failed'
+  error_message: string
+  created_by_name: string | null
+  created_at: string
+}
+
+const { api } = useApi()
+const toast = useToast()
+
+const loading = ref(false)
+const creating = ref(false)
+const backups = ref<BackupRecord[]>([])
+const total = ref(0)
+const page = ref(1)
+
+const columns = [
+  { accessorKey: 'filename', header: '文件名' },
+  { accessorKey: 'file_size', header: '大小' },
+  { accessorKey: 'status', header: '状态' },
+  { accessorKey: 'created_by_name', header: '操作人' },
+  { accessorKey: 'created_at', header: '时间' },
+  { accessorKey: 'actions', header: '操作' },
+]
+
+function formatSize(bytes: number | null): string {
+  if (bytes == null) return '-'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleString('zh-CN')
+}
+
+const statusMap: Record<string, { label: string; color: 'success' | 'warning' | 'error' }> = {
+  running: { label: '备份中', color: 'warning' },
+  success: { label: '成功', color: 'success' },
+  failed: { label: '失败', color: 'error' },
+}
+
+async function fetchBackups() {
+  loading.value = true
+  try {
+    const res = await api<any>(`/api/settings/backups/?page=${page.value}`)
+    backups.value = res.results
+    total.value = res.count
+  } finally {
+    loading.value = false
+  }
+}
+
+async function triggerBackup() {
+  creating.value = true
+  try {
+    await api<BackupRecord>('/api/settings/backups/create/', { method: 'POST' })
+    toast.add({ title: '备份完成', color: 'success' })
+    await fetchBackups()
+  } catch (e: any) {
+    const msg = e?.data?.detail || '备份失败'
+    toast.add({ title: msg, color: 'error' })
+  } finally {
+    creating.value = false
+  }
+}
+
+async function downloadBackup(row: BackupRecord) {
+  const token = localStorage.getItem('access_token')
+  try {
+    const response = await fetch(`/api/settings/backups/${row.id}/download/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) throw new Error()
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = row.filename
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    toast.add({ title: '下载失败', color: 'error' })
+  }
+}
+
+async function deleteBackup(row: BackupRecord) {
+  if (!confirm(`确定要删除备份 ${row.filename}？`)) return
+  try {
+    await api(`/api/settings/backups/${row.id}/`, { method: 'DELETE' })
+    toast.add({ title: '已删除', color: 'success' })
+    await fetchBackups()
+  } catch {
+    toast.add({ title: '删除失败', color: 'error' })
+  }
+}
+
+watch(page, fetchBackups)
+onMounted(fetchBackups)
+</script>
+
+<template>
+  <div class="p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h1 class="text-lg font-semibold">数据库备份</h1>
+      <UButton
+        icon="i-heroicons-arrow-down-tray"
+        :loading="creating"
+        @click="triggerBackup"
+      >
+        立即备份
+      </UButton>
+    </div>
+
+    <UTable
+      :data="backups"
+      :columns="columns"
+      :loading="loading"
+      :ui="{ th: 'text-xs', td: 'text-sm' }"
+    >
+      <template #file_size-cell="{ row }">
+        {{ formatSize(row.original.file_size) }}
+      </template>
+      <template #status-cell="{ row }">
+        <UBadge
+          :color="statusMap[row.original.status]?.color"
+          variant="subtle"
+        >
+          {{ statusMap[row.original.status]?.label }}
+        </UBadge>
+      </template>
+      <template #created_by_name-cell="{ row }">
+        {{ row.original.created_by_name || '-' }}
+      </template>
+      <template #created_at-cell="{ row }">
+        {{ formatTime(row.original.created_at) }}
+      </template>
+      <template #actions-cell="{ row }">
+        <div class="flex gap-2">
+          <UButton
+            v-if="row.original.status === 'success'"
+            size="xs"
+            variant="ghost"
+            icon="i-heroicons-arrow-down-tray"
+            @click="downloadBackup(row.original)"
+          />
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="error"
+            icon="i-heroicons-trash"
+            @click="deleteBackup(row.original)"
+          />
+        </div>
+      </template>
+    </UTable>
+
+    <div v-if="total > 20" class="flex justify-center">
+      <UPagination
+        v-model="page"
+        :total="total"
+        :items-per-page="20"
+        @update:model-value="fetchBackups"
+      />
+    </div>
+  </div>
+</template>
+```
+
+- [ ] **Step 2: Verify the page loads**
+
+Start dev servers and navigate to `/app/settings/backups` as superuser. Verify:
+- Page renders with "数据库备份" title and "立即备份" button
+- Table shows correct columns
+- Non-superuser cannot see the page in nav
+
+- [ ] **Step 3: Commit**
 
 ```bash
-git add -A
-git commit -m "fix(backup): address issues found during smoke test"
+git add frontend/app/pages/app/settings/backups.vue
+git commit -m "feat(backups): add backup management frontend page"
+```
+
+---
+
+## Task 7: End-to-End Verification
+
+- [ ] **Step 1: Run all backend tests**
+
+```bash
+cd backend && uv run pytest -v
+```
+
+Expected: All tests PASS
+
+- [ ] **Step 2: Run frontend typecheck**
+
+```bash
+cd frontend && npx nuxi typecheck
+```
+
+Expected: No type errors
+
+- [ ] **Step 3: Manual integration test**
+
+1. Start backend: `cd backend && uv run python manage.py runserver`
+2. Start frontend: `cd frontend && npm run dev`
+3. Log in as superuser
+4. Navigate to `/app/settings/backups`
+5. Click "立即备份" — verify new row with status "成功" appears
+6. Click download icon — verify .dump file downloads
+7. Click delete icon — verify row is removed
+8. Log in as regular user — verify page is not visible in nav and route redirects to forbidden
+
+- [ ] **Step 4: Fix any issues found and commit**
+
+Only if manual testing reveals issues:
+
+```bash
+git add -u
+git commit -m "fix(backups): address integration test findings"
 ```
