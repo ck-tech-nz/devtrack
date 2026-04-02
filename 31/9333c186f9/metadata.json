@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "319333c186f9",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/apps/notifications/urls.py",
+    "backend/apps/notifications/views.py",
+    "backend/config/settings.py",
+    "frontend/app/pages/app/notifications/create.vue",
+    "frontend/app/pages/app/notifications/index.vue"
+  ],
+  "sessions": [
+    {
+      "metadata": "/31/9333c186f9/0/metadata.json",
+      "transcript": "/31/9333c186f9/0/full.jsonl",
+      "content_hash": "/31/9333c186f9/0/content_hash.txt",
+      "prompt": "/31/9333c186f9/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 279,
+    "cache_creation_tokens": 1579376,
+    "cache_read_tokens": 30221508,
+    "output_tokens": 110288,
+    "api_call_count": 209
+  }
+}

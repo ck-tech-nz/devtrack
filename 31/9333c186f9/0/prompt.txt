@@ -1,0 +1,136 @@
+/brainstorming  
+可否在描述中支持问题引用 @引用其他用户 #引用其他问题
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/issues/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+好
+
+---
+
+没有玉兰
+
+---
+
+不是,我刚才打错字了,我是说http://localhost:53384/ 没有看到预览不是选A
+
+---
+
+B 增加一个 notification app 处理所有相关通知.
+**关于Notification App的需求:**
+- 记录通知
+- 记录用户已阅读
+- 用户可以删除通知
+- 支持某单个通知obj 让所有人都看到/组看到
+- 通知内容支持markdown
+
+---
+
+A
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/users/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+B, 不过我们的user id is auto increase number
+
+---
+
+C
+
+---
+
+C
+
+---
+
+A
+
+---
+
+没有了
+
+---
+
+合理
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/docs/superpowers/specs/2026-04-02-notifications-and-mentions-design.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+> 广播通知在 Django Admin 中创建时，通过 model save 或 signal 自动为目标用户批量创建 NotificationRecipient 记录:
+
+这里有个疑问,那岂不是不管用户里不理会都多了一条记录?
+何不一开始不生成这些记录,知道用户看了,删了,在创建一个用户阅读/处理记录?
+
+---
+
+帮我评估这两种方案的优劣,我不是很有信心我的方案一定更优
+
+---
+
+改回急创建
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/users/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+1
+
+---
+
+issues:
+- `#IIS-060` --> `#问题-060`
+- @ 的时候dropdown list在 编辑框内,被遮挡了,应该显示在最前面(最顶层)
+
+---
+
+Ok了
+
+---
+
+push to env/prod
+
+---
+
+好像通知app没有创建 django admin
+
+---
+
+在哪里?
+
+---
+
+- 通知消息列表点击应该能进入详情页面
+- http://localhost:3000/app/notifications 通知list 页面不用显示完整内容,应该点击进入详情页.
+- 详情页应该支持markdown readonly
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/notifications/urls.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+只有1个是我的“通知功能正式启用” 为什么在我的通知list 里有那么多个?
+
+---
+
+帮我写一个markdown 格式的通知.内容包括
+- 通知功能上线
+- 问题描述可以 @同学 可以 #引用其他问题, 被@的同学回收到通知
+- 问题列表的标题,描述,备注... 都支持双击直接修改.
+最好配上图
+
+---
+
+要配图
+
+---
+
+双击编辑附上这张截图
+
+---
+
+It's looks you need to create a notification creating page, I can't insert photos into production django admin notification "Add" page.
+
+---
+
+这样控制不太好,将来还是允许权限控制.
+我们增加一个通知管理板块,里面有通知列表,详情和创建/编辑.
+请为 @packages/django-page-perms/page_perms/management/commands/sync_page_perms.py   中配置好Notification App的角色
+只有管理员可以管理.
+有关系统又上角铃当显示的通知和个人通知列表不受权限控制.
