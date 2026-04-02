@@ -149,3 +149,11 @@ how to fix this warning # uv run python manage.py sync_page_perms
 ---
 
 我想它是为了删掉僵死的分析任务吧,删掉没关系吗?
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/.env in the IDE. This may or may not be related to the current task.</ide_opened_file>
+Notification http://192.168.31.163:3000/app/notifications/manage
+下面要增加notification 查看详情页,编辑,Delete
+notification 支持is_draft 用来预览,
+Notification 中目标类型是个人的话怎么选择收件人? 目标组怎么选?这些都要在前端页面做出来而且逻辑自洽
