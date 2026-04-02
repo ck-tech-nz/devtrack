@@ -43,6 +43,12 @@ class TestIssueList:
         results = response.data["results"]
         assert results[0]["priority"] == "P0"
 
+    def test_search_by_number(self, auth_client, site_settings):
+        issue = IssueFactory(title="某个问题")
+        response = auth_client.get(f"/api/issues/?search={issue.pk}")
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["id"] == issue.pk
+
     def test_unauthenticated(self, api_client):
         response = api_client.get("/api/issues/")
         assert response.status_code == 401

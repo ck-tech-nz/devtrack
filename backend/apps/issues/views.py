@@ -54,7 +54,7 @@ class IssueListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["priority", "status", "assignee", "project", "helpers"]
-    search_fields = ["title"]
+    search_fields = ["title", "=id"]
     ordering_fields = ["created_at", "priority", "updated_at"]
     ordering = ["-created_at"]
 
