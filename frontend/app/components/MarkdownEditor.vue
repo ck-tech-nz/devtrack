@@ -42,14 +42,24 @@
     </div>
 
     <!-- Edit mode -->
-    <div v-show="mode === 'edit'">
+    <div v-show="mode === 'edit'" class="relative">
       <textarea
         ref="textareaRef"
         :value="modelValue"
         :placeholder="placeholder"
         class="w-full min-h-[260px] p-4 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-y outline-none"
-        @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
+        @input="onTextareaInput"
+        @keydown="handleMentionKeydown"
         @paste="handlePaste"
+      />
+      <!-- Mention autocomplete -->
+      <MentionDropdown
+        ref="mentionRef"
+        :visible="mentionVisible"
+        :items="mentionItems"
+        :position="mentionPosition"
+        :type="mentionType"
+        @select="insertMention"
       />
       <!-- Bottom bar -->
       <div class="flex items-center gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -77,6 +87,7 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
 import taskLists from 'markdown-it-task-lists'
+import getCaretCoordinates from 'textarea-caret'
 
 const props = defineProps<{
   modelValue: string
@@ -97,6 +108,122 @@ defineExpose({ setMode: (m: 'edit' | 'preview') => { mode.value = m } })
 const isDragging = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+
+const mentionRef = ref<InstanceType<typeof MentionDropdown> | null>(null)
+const mentionVisible = ref(false)
+const mentionType = ref<'user' | 'issue'>('user')
+const mentionItems = ref<{ id: number; label: string; prefix?: string }[]>([])
+const mentionPosition = ref({ top: 0, left: 0 })
+const mentionTriggerStart = ref(0)
+
+let userCache: { id: number; name: string }[] | null = null
+
+function detectMentionTrigger(): { type: 'user' | 'issue'; query: string; start: number } | null {
+  const ta = textareaRef.value
+  if (!ta) return null
+  const text = props.modelValue || ''
+  const cursor = ta.selectionStart
+  const before = text.slice(0, cursor)
+
+  const atMatch = before.match(/@([^\s@]*)$/)
+  if (atMatch) {
+    return { type: 'user', query: atMatch[1], start: cursor - atMatch[0].length }
+  }
+
+  const hashMatch = before.match(/#([^\s#]*)$/)
+  if (hashMatch) {
+    return { type: 'issue', query: hashMatch[1], start: cursor - hashMatch[0].length }
+  }
+
+  return null
+}
+
+async function fetchUserSuggestions(query: string) {
+  if (!userCache) {
+    userCache = await api<{ id: number; name: string }[]>('/api/users/choices/')
+  }
+  const q = query.toLowerCase()
+  return userCache
+    .filter(u => u.name.toLowerCase().includes(q))
+    .slice(0, 8)
+    .map(u => ({ id: u.id, label: u.name }))
+}
+
+async function fetchIssueSuggestions(query: string) {
+  if (!query) return []
+  const data = await api<{ count: number; results: { id: number; title: string }[] }>(
+    `/api/issues/?search=${encodeURIComponent(query)}&page_size=8`
+  )
+  return data.results.map(i => ({
+    id: i.id,
+    label: i.title,
+    prefix: `#ISS-${String(i.id).padStart(3, '0')}`,
+  }))
+}
+
+function updateMentionPosition() {
+  const ta = textareaRef.value
+  if (!ta) return
+  const coords = getCaretCoordinates(ta, ta.selectionStart)
+  mentionPosition.value = {
+    top: coords.top + coords.height + 4 - ta.scrollTop,
+    left: coords.left,
+  }
+}
+
+async function handleMentionInput() {
+  const trigger = detectMentionTrigger()
+  if (!trigger) {
+    mentionVisible.value = false
+    return
+  }
+  mentionType.value = trigger.type
+  mentionTriggerStart.value = trigger.start
+  updateMentionPosition()
+
+  if (trigger.type === 'user') {
+    mentionItems.value = await fetchUserSuggestions(trigger.query)
+  } else {
+    mentionItems.value = await fetchIssueSuggestions(trigger.query)
+  }
+  mentionVisible.value = mentionItems.value.length > 0
+}
+
+function insertMention(item: { id: number; label: string; prefix?: string }) {
+  const ta = textareaRef.value
+  if (!ta) return
+  const cursor = ta.selectionStart
+  let replacement: string
+  if (mentionType.value === 'user') {
+    replacement = `@[${item.label}](user:${item.id}) `
+  } else {
+    const prefix = item.prefix || `#ISS-${String(item.id).padStart(3, '0')}`
+    replacement = `#[${prefix}](issue:${item.id}) `
+  }
+  replaceRange(mentionTriggerStart.value, cursor, replacement)
+  mentionVisible.value = false
+}
+
+function handleMentionKeydown(e: KeyboardEvent) {
+  if (!mentionVisible.value) return
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    mentionRef.value?.moveUp()
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    mentionRef.value?.moveDown()
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    mentionRef.value?.confirmSelection()
+  } else if (e.key === 'Escape') {
+    mentionVisible.value = false
+  }
+}
+
+function onTextareaInput(e: Event) {
+  emit('update:modelValue', (e.target as HTMLTextAreaElement).value)
+  nextTick(handleMentionInput)
+}
 
 const md = new MarkdownIt({ html: false, linkify: true }).use(taskLists, { enabled: true })
 
