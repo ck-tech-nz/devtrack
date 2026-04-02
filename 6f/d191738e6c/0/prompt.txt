@@ -101,3 +101,8 @@ push to env/prod
 - 通知消息列表点击应该能进入详情页面
 - http://localhost:3000/app/notifications 通知list 页面不用显示完整内容,应该点击进入详情页.
 - 详情页应该支持markdown readonly
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/notifications/urls.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+只有1个是我的“通知功能正式启用” 为什么在我的通知list 里有那么多个?
