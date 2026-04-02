@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Notification, NotificationRecipient
+from .models import Notification
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -22,7 +22,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 class NotificationManageSerializer(serializers.ModelSerializer):
     """Admin-facing serializer: includes target info, draft state, recipient count."""
     source_user_name = serializers.CharField(source="source_user.name", read_only=True, default=None)
-    target_group_id = serializers.IntegerField(source="target_group_id", required=False, allow_null=True)
+    target_group_id = serializers.IntegerField(required=False, allow_null=True)
     target_group_name = serializers.CharField(source="target_group.name", read_only=True, default=None)
     target_user_ids = serializers.PrimaryKeyRelatedField(
         source="target_users", many=True, read_only=True,
