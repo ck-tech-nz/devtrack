@@ -85,6 +85,7 @@ export const useNavigation = () => {
   const standalonePages: Record<string, string> = {
     '/app/profile': '个人资料',
     '/app/about': '关于系统',
+    '/app/notifications': '通知中心',
   }
 
   const breadcrumbs = computed(() => {
