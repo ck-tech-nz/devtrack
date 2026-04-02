@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "70bde06637c2",
+  "session_id": "1855fe64-0016-417f-8b3a-8c0c1a233d46",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-02T18:33:11.666967Z",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "CLAUDE.md",
+    "docs/superpowers/specs/2026-04-03-database-backup-design.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "6eb725b68939",
+  "checkpoint_transcript_start": 91,
+  "transcript_lines_at_start": 91,
+  "token_usage": {
+    "input_tokens": 35,
+    "cache_creation_tokens": 7999,
+    "cache_read_tokens": 774731,
+    "output_tokens": 4896,
+    "api_call_count": 19
+  },
+  "session_metrics": {
+    "turn_count": 16
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-02T18:33:11.585279Z",
+    "agent_lines": 134,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 134,
+    "agent_percentage": 100
+  }
+}
