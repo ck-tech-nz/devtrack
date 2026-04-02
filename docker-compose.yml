@@ -11,6 +11,7 @@ services:
       - REPO_CLONE_DIR=/data/repos
     volumes:
       - repo_data:/data/repos
+      - backups:/data/backups
     command: >
       sh -c "uv run python manage.py migrate --noinput &&
              uv run python manage.py sync_page_perms 2>/dev/null || true &&
@@ -29,3 +30,4 @@ services:
 volumes:
   pgdata:
   repo_data:
+  backups:

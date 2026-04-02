@@ -1,0 +1,53 @@
+services:
+  backend:
+    image: registry.aimenu.tech/devtrack/backend-prod
+    container_name: devtrack-backend-test
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./.gitconfig-proxy:/root/.gitconfig:ro
+      - repo_data:/data/repos
+      - backups:/data/backups
+    networks:
+      - db-network
+      - traefik-network
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - "traefik.enable=true"
+      - "traefik.http.routers.devtrack-backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.devtrack-backend.entrypoints=web"
+      - "traefik.http.services.devtrack-backend.loadbalancer.server.port=8000"
+    command: >
+      sh -c "uv run python manage.py migrate --noinput &&
+             uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000"
+
+  frontend:
+    image: registry.aimenu.tech/devtrack/frontend-prod
+    container_name: devtrack-frontend-test
+    restart: unless-stopped
+    networks:
+      - db-network
+      - traefik-network
+    depends_on:
+      - backend
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - "traefik.enable=true"
+      - "traefik.http.routers.devtrack-frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.devtrack-frontend.entrypoints=web"
+      - "traefik.http.services.devtrack-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.devtrack-frontend.priority=1"
+
+networks:
+  db-network:
+    name: db-network
+    external: true
+  traefik-network:
+    name: traefik-network
+    external: true
+
+
+volumes:
+  repo_data:
+  backups:
