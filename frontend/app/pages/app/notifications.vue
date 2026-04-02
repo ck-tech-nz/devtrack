@@ -100,11 +100,9 @@
 </template>
 
 <script setup lang="ts">
-import MarkdownIt from 'markdown-it'
-
 const { unreadCount, fetchNotifications, markRead, markAllRead, deleteNotification, fetchUnreadCount } = useNotifications()
 
-const md = new MarkdownIt({ html: false, linkify: true })
+const { md } = useMentionMarkdown()
 
 const tabs = [
   { label: '全部', value: 'all' },

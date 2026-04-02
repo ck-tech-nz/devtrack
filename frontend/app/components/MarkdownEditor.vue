@@ -85,8 +85,6 @@
 </template>
 
 <script setup lang="ts">
-import MarkdownIt from 'markdown-it'
-import taskLists from 'markdown-it-task-lists'
 import getCaretCoordinates from 'textarea-caret'
 
 const props = defineProps<{
@@ -225,7 +223,7 @@ function onTextareaInput(e: Event) {
   nextTick(handleMentionInput)
 }
 
-const md = new MarkdownIt({ html: false, linkify: true }).use(taskLists, { enabled: true })
+const { md } = useMentionMarkdown()
 
 const renderedHtml = computed(() => {
   if (!props.modelValue) return '<p class="text-gray-400 dark:text-gray-500">无内容</p>'
@@ -524,4 +522,34 @@ async function uploadFiles(files: File[]) {
 :root.dark .markdown-body hr { border-top-color: #374151; }
 :root.dark .markdown-body th, :root.dark .markdown-body td { border-color: #4b5563; }
 :root.dark .markdown-body th { background: #1f2937; }
+
+/* Mention styles */
+.markdown-body .mention-user {
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+.markdown-body .mention-issue {
+  background: #dcfce7;
+  color: #15803d;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-weight: 500;
+  text-decoration: none;
+}
+.markdown-body .mention-issue:hover {
+  text-decoration: underline;
+}
+:root.dark .markdown-body .mention-user {
+  background: #1e3a5f;
+  color: #93c5fd;
+}
+:root.dark .markdown-body .mention-issue {
+  background: #14532d;
+  color: #86efac;
+}
 </style>
