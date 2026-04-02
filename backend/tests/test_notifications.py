@@ -1,6 +1,6 @@
 import pytest
 from tests.factories import (
-    UserFactory, NotificationFactory, NotificationRecipientFactory,
+    UserFactory, IssueFactory, NotificationFactory, NotificationRecipientFactory,
 )
 
 pytestmark = pytest.mark.django_db
@@ -104,3 +104,61 @@ class TestBroadcastAdmin:
         admin_instance = NotificationAdmin(Notification, None)
         admin_instance._create_recipients(n)
         assert NotificationRecipient.objects.filter(notification=n, user=auth_user).exists()
+
+
+class TestMentionParsing:
+    def test_extract_mentions(self):
+        from apps.notifications.services import extract_mentioned_user_ids
+        text = "请 @[张三](user:5) 和 @[李四](user:12) 看看这个问题"
+        ids = extract_mentioned_user_ids(text)
+        assert ids == {5, 12}
+
+    def test_extract_no_mentions(self):
+        from apps.notifications.services import extract_mentioned_user_ids
+        assert extract_mentioned_user_ids("普通文本") == set()
+
+    def test_extract_ignores_invalid(self):
+        from apps.notifications.services import extract_mentioned_user_ids
+        text = "邮件 user@example.com 和 @[张三](user:5)"
+        assert extract_mentioned_user_ids(text) == {5}
+
+    def test_create_mention_notifications(self, auth_user):
+        from apps.notifications.services import create_mention_notifications
+        from apps.notifications.models import NotificationRecipient
+        user2 = UserFactory()
+        issue = IssueFactory(reporter=auth_user)
+        new_desc = f"请 @[{user2.name}](user:{user2.id}) 看看"
+        create_mention_notifications(
+            issue=issue,
+            old_description="",
+            new_description=new_desc,
+            actor=auth_user,
+        )
+        assert NotificationRecipient.objects.filter(user=user2).count() == 1
+        notif = NotificationRecipient.objects.get(user=user2).notification
+        assert notif.notification_type == "mention"
+        assert notif.source_issue == issue
+        assert notif.source_user == auth_user
+
+    def test_no_self_notification(self, auth_user):
+        from apps.notifications.services import create_mention_notifications
+        from apps.notifications.models import NotificationRecipient
+        issue = IssueFactory(reporter=auth_user)
+        new_desc = f"@[{auth_user.name}](user:{auth_user.id}) 看看"
+        create_mention_notifications(
+            issue=issue,
+            old_description="",
+            new_description=new_desc,
+            actor=auth_user,
+        )
+        assert NotificationRecipient.objects.filter(user=auth_user).count() == 0
+
+    def test_no_duplicate_on_update(self, auth_user):
+        from apps.notifications.services import create_mention_notifications
+        from apps.notifications.models import NotificationRecipient
+        user2 = UserFactory()
+        issue = IssueFactory(reporter=auth_user)
+        desc = f"@[{user2.name}](user:{user2.id}) 看看"
+        create_mention_notifications(issue=issue, old_description="", new_description=desc, actor=auth_user)
+        create_mention_notifications(issue=issue, old_description=desc, new_description=desc, actor=auth_user)
+        assert NotificationRecipient.objects.filter(user=user2).count() == 1
