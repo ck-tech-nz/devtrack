@@ -145,3 +145,7 @@ I don't see you update the sync_page_perms？
 how to fix this warning # uv run python manage.py sync_page_perms
 /app/.venv/lib/python3.14/site-packages/django/db/backends/utils.py:98: RuntimeWarning: Accessing the database during app initialization is discouraged. To fix this warning, avoid executing queries in AppConfig.ready() or when your app modules are imported.
   warnings.warn(self.APPS_NOT_READY_WARNING_MSG, category=RuntimeWarning)
+
+---
+
+我想它是为了删掉僵死的分析任务吧,删掉没关系吗?
