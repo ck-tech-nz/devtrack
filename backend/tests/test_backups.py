@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from apps.settings.models import DatabaseBackup
 from apps.settings.backup_serializers import DatabaseBackupSerializer
 
@@ -54,3 +55,103 @@ class TestDatabaseBackupSerializer:
         )
         data = DatabaseBackupSerializer(backup).data
         assert data["created_by_name"] is None
+
+
+class TestBackupListAPI:
+    def test_list_as_superuser(self, superuser_client):
+        DatabaseBackup.objects.create(filename="a.dump", status="success")
+        DatabaseBackup.objects.create(filename="b.dump", status="success")
+        resp = superuser_client.get("/api/settings/backups/")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 2
+
+    def test_list_as_regular_user_forbidden(self, regular_client):
+        resp = regular_client.get("/api/settings/backups/")
+        assert resp.status_code == 403
+
+    def test_list_unauthenticated(self, api_client):
+        resp = api_client.get("/api/settings/backups/")
+        assert resp.status_code == 401
+
+
+class TestBackupCreateAPI:
+    @patch("apps.settings.backup_views.run_pg_dump")
+    def test_trigger_backup_success(self, mock_dump, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        mock_dump.return_value = (True, 1024, "")
+
+        resp = superuser_client.post("/api/settings/backups/create/")
+        assert resp.status_code == 201
+        assert resp.data["status"] == "success"
+        assert resp.data["file_size"] == 1024
+
+    @patch("apps.settings.backup_views.run_pg_dump")
+    def test_trigger_backup_failure(self, mock_dump, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        mock_dump.return_value = (False, 0, "pg_dump: connection refused")
+        resp = superuser_client.post("/api/settings/backups/create/")
+        assert resp.status_code == 201
+        assert resp.data["status"] == "failed"
+        assert "connection refused" in resp.data["error_message"]
+
+    def test_trigger_forbidden_non_staff(self, regular_client):
+        resp = regular_client.post("/api/settings/backups/create/")
+        assert resp.status_code == 403
+
+    @patch("apps.settings.backup_views.run_pg_dump")
+    def test_concurrent_backup_blocked(self, mock_dump, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        DatabaseBackup.objects.create(filename="running.dump", status="running")
+        resp = superuser_client.post("/api/settings/backups/create/")
+        assert resp.status_code == 409
+
+
+class TestBackupDownloadAPI:
+    def test_download_backup(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        (tmp_path / "test.dump").write_bytes(b"fake dump content")
+        backup = DatabaseBackup.objects.create(
+            filename="test.dump", file_size=17, status="success"
+        )
+        resp = superuser_client.get(f"/api/settings/backups/{backup.id}/download/")
+        assert resp.status_code == 200
+        assert b"fake dump content" in b"".join(resp.streaming_content)
+
+    def test_download_missing_file_404(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        backup = DatabaseBackup.objects.create(
+            filename="gone.dump", status="success"
+        )
+        resp = superuser_client.get(f"/api/settings/backups/{backup.id}/download/")
+        assert resp.status_code == 404
+
+    def test_download_nonexistent_record_404(self, superuser_client):
+        resp = superuser_client.get("/api/settings/backups/99999/download/")
+        assert resp.status_code == 404
+
+
+class TestBackupDeleteAPI:
+    def test_delete_backup_and_file(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        dump_file = tmp_path / "deleteme.dump"
+        dump_file.write_bytes(b"data")
+        backup = DatabaseBackup.objects.create(
+            filename="deleteme.dump", status="success"
+        )
+        resp = superuser_client.delete(f"/api/settings/backups/{backup.id}/")
+        assert resp.status_code == 204
+        assert not dump_file.exists()
+        assert not DatabaseBackup.objects.filter(id=backup.id).exists()
+
+    def test_delete_file_already_gone(self, superuser_client, tmp_path, settings):
+        settings.BACKUP_DIR = str(tmp_path)
+        backup = DatabaseBackup.objects.create(
+            filename="already_gone.dump", status="failed"
+        )
+        resp = superuser_client.delete(f"/api/settings/backups/{backup.id}/")
+        assert resp.status_code == 204
+
+    def test_delete_forbidden_non_staff(self, regular_client):
+        backup = DatabaseBackup.objects.create(filename="t.dump", status="success")
+        resp = regular_client.delete(f"/api/settings/backups/{backup.id}/")
+        assert resp.status_code == 403
