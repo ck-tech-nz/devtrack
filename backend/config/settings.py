@@ -250,6 +250,23 @@ UNFOLD = {
                 ],
             },
             {
+                "title": "通知",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "通知",
+                        "icon": "notifications",
+                        "link": reverse_lazy("admin:notifications_notification_changelist"),
+                    },
+                    {
+                        "title": "通知接收",
+                        "icon": "mark_email_read",
+                        "link": reverse_lazy("admin:notifications_notificationrecipient_changelist"),
+                    },
+                ],
+            },
+            {
                 "title": "系统",
                 "separator": True,
                 "collapsible": True,
