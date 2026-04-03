@@ -1,6 +1,10 @@
 FROM python:3.14-slim
 
-RUN apt-get update && apt-get install -y git curl postgresql-client && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git curl gnupg && \
+    echo "deb http://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg && \
+    apt-get update && apt-get install -y postgresql-client-18 && \
+    rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://opencode.ai/install | bash
 ENV PATH="/root/.opencode/bin:/root/.local/bin:${PATH}"
 
