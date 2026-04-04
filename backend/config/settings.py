@@ -156,7 +156,8 @@ PAGE_PERMS = {
         {"path": "/app/notifications/manage", "label": "通知管理", "icon": "i-heroicons-bell-alert", "permission": "notifications.view_notification", "sort_order": 6},
         {"path": "/app/settings/backups", "label": "数据库备份", "icon": "i-heroicons-circle-stack", "permission": None, "sort_order": 8, "meta": {"superuserOnly": True}},
         {"path": "/app/permissions", "label": "权限管理", "icon": "i-heroicons-shield-check", "permission": None, "sort_order": 99, "meta": {"superuserOnly": True}},
-        {"path": "/app/about", "label": "关于系统", "icon": "i-heroicons-information-circle", "permission": None, "sort_order": 100, "meta": {"superuserOnly": True}},
+        {"path": "/app/api-docs", "label": "接口文档", "icon": "i-heroicons-document-text", "permission": "settings.view_externalapikey", "sort_order": 100},
+        {"path": "/app/about", "label": "关于系统", "icon": "i-heroicons-information-circle", "permission": "settings.view_externalapikey", "sort_order": 101},
     ],
     "SEED_GROUPS": {
         "管理员": {"apps": ["projects", "issues", "settings", "repos", "ai", "users", "tools", "notifications"]},

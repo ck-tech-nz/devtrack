@@ -23,6 +23,7 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 const GROUP_DEFS: { label: string; icon: string; paths: string[] }[] = [
   { label: '项目管理', icon: 'i-heroicons-folder', paths: ['/app/projects', '/app/repos'] },
   { label: '用户管理', icon: 'i-heroicons-users', paths: ['/app/users', '/app/permissions'] },
+  { label: '系统管理', icon: 'i-heroicons-cog-6-tooth', paths: ['/app/api-docs', '/app/about'] },
 ]
 
 export const useNavigation = () => {
@@ -84,7 +85,6 @@ export const useNavigation = () => {
   // 不在 navItems 中的独立页面
   const standalonePages: Record<string, string> = {
     '/app/profile': '个人资料',
-    '/app/about': '关于系统',
     '/app/notifications': '通知中心',
   }
 

@@ -2,11 +2,7 @@
   <div class="space-y-6 max-w-2xl">
     <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">关于系统</h1>
 
-    <div v-if="!isSuperuser" class="flex items-center justify-center py-20">
-      <div class="text-sm text-red-500">仅超级管理员可访问此页面</div>
-    </div>
-
-    <template v-else>
+    <template>
       <!-- 前端信息 -->
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-6 space-y-4">
         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">前端</h2>
@@ -65,10 +61,7 @@
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
-const { user } = useAuth()
 const runtimeConfig = useRuntimeConfig().public
-
-const isSuperuser = computed(() => user.value?.is_superuser === true)
 
 interface AboutInfo {
   backend: {
@@ -90,10 +83,6 @@ const loading = ref(true)
 const error = ref('')
 
 onMounted(async () => {
-  if (!isSuperuser.value) {
-    loading.value = false
-    return
-  }
   try {
     about.value = await api<AboutInfo>('/api/about/')
   } catch (e: any) {
