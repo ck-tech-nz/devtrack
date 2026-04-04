@@ -148,9 +148,12 @@
         <NuxtLink :to="`/app/issues/${item.id}`" class="block">
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-xs text-gray-400 dark:text-gray-500">#{{ item.id }}</span>
-            <UBadge :color="priorityColor(item.priority)" variant="subtle" size="xs">
-              {{ priorityLabel(item.priority) }}
-            </UBadge>
+            <div class="flex items-center gap-1">
+              <UBadge v-if="item.source" color="info" variant="subtle" size="xs">外部</UBadge>
+              <UBadge :color="priorityColor(item.priority)" variant="subtle" size="xs">
+                {{ priorityLabel(item.priority) }}
+              </UBadge>
+            </div>
           </div>
           <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2">{{ item.title }}</p>
           <div class="mt-2 flex items-center">
@@ -195,7 +198,10 @@
           <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 dark:text-crystal-400 hover:text-crystal-700 dark:hover:text-crystal-300 font-medium">{{ row.original.id }}</NuxtLink>
         </template>
         <template #title-cell="{ row }">
-          <EditableCell :value="row.original.title" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
+          <div class="flex items-center gap-1.5">
+            <UBadge v-if="row.original.source" color="info" variant="subtle" size="xs">外部</UBadge>
+            <EditableCell :value="row.original.title" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
+          </div>
         </template>
         <template #priority-cell="{ row }">
           <UBadge :color="priorityColor(row.original.priority)" variant="subtle" size="sm">{{ priorityLabel(row.original.priority) }}</UBadge>
