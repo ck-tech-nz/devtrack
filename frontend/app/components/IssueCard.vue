@@ -7,9 +7,12 @@
       <p class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 flex-1">
         {{ issue.title }}
       </p>
-      <UBadge :color="priorityColor(issue.priority)" variant="subtle" size="xs" class="flex-shrink-0">
-        {{ priorityLabel(issue.priority) }}
-      </UBadge>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <UBadge v-if="issue.source" color="info" variant="subtle" size="xs">外部</UBadge>
+        <UBadge :color="priorityColor(issue.priority)" variant="subtle" size="xs">
+          {{ priorityLabel(issue.priority) }}
+        </UBadge>
+      </div>
     </div>
     <div class="mt-2 flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
       <UBadge
@@ -34,6 +37,7 @@ defineProps<{
     status: string
     assignee_name?: string
     created_at?: string
+    source?: string | null
   }
 }>()
 </script>
