@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "11d60dad18a9",
+  "session_id": "836289e9-e1aa-42c3-8b12-b7c2ed15cabb",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T06:05:45.832067Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/superpowers/specs/2026-04-04-external-api-integration-design.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "85d5cd2e3381",
+  "token_usage": {
+    "input_tokens": 64,
+    "cache_creation_tokens": 36907,
+    "cache_read_tokens": 1106119,
+    "output_tokens": 10213,
+    "api_call_count": 30
+  },
+  "session_metrics": {
+    "turn_count": 14
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T06:05:45.756433Z",
+    "agent_lines": 255,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 255,
+    "agent_percentage": 100
+  }
+}

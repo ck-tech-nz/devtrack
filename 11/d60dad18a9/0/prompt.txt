@@ -1,0 +1,61 @@
+/brainstorming  
+check issue #1 figure out how to make it.
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/frontend/app/pages/app/issues/index.vue in the IDE. This may or may not be related to the current task.</ide_opened_file>
+only the # 5 that relate to me.
+
+---
+
+5.2 反向流转 + 5.4.2 是不是很复杂而且要增加服务, webhook 是没有必要的,问题不会短到1-2小时内解决,只需要做API可以方便查询就可以了.
+
+---
+
+C
+There‘s already been a user named：bot, use it
+
+---
+
+A
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/issues/models.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+I prefer A, but what do you think？a JsonField？ or a table？
+
+---
+
+yep
+
+---
+
+A
+
+---
+
+yes
+
+---
+
+right
+
+---
+
+the project should binds to the API key
+
+---
+
+yes, what app should this model located？
+
+---
+
+B
+
+---
+
+yes, np, plus, keys managed via django admin？
+
+---
+
+approve
