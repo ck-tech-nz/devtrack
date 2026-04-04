@@ -86,7 +86,7 @@ class IssueDetailSerializer(IssueListSerializer):
         fields = IssueListSerializer.Meta.fields + [
             "description", "estimated_completion",
             "actual_hours", "resolved_at", "github_issues", "attachments",
-            "source", "source_meta",
+            "source_meta",
         ]
 
 
