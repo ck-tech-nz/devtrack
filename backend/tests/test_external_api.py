@@ -92,3 +92,55 @@ class TestAPIKeyAuthentication:
         auth = APIKeyAuthentication()
         result = auth.authenticate(request)
         assert result is None
+
+
+@pytest.mark.django_db
+class TestExternalIssueCreateSerializer:
+    def test_valid_full_payload(self, site_settings):
+        from apps.external.serializers import ExternalIssueCreateSerializer
+        data = {
+            "title": "测试问题",
+            "type": "bug",
+            "priority": "P1",
+            "description": "详细描述",
+            "module": "case_management",
+            "source_feedback_id": "FB001",
+            "reporter": {"tenant_name": "Test Corp", "user_name": "张三"},
+            "context": {"page_url": "/test", "browser": "Chrome"},
+            "attachments": [{"type": "screenshot", "url": "https://example.com/img.png"}],
+        }
+        serializer = ExternalIssueCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+
+    def test_minimal_payload(self, site_settings):
+        from apps.external.serializers import ExternalIssueCreateSerializer
+        data = {"title": "最简问题"}
+        serializer = ExternalIssueCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+
+    def test_type_to_label_mapping(self, site_settings):
+        from apps.external.serializers import ExternalIssueCreateSerializer
+        for type_val, expected_label in [
+            ("bug", "Bug"), ("BUG", "Bug"),
+            ("feature", "需求"), ("功能建议", "需求"),
+            ("improvement", "优化"), ("体验改进", "优化"),
+        ]:
+            data = {"title": "测试", "type": type_val}
+            serializer = ExternalIssueCreateSerializer(data=data)
+            assert serializer.is_valid(), serializer.errors
+            assert expected_label in serializer.validated_data["_labels"]
+
+    def test_module_appended_to_labels(self, site_settings):
+        from apps.external.serializers import ExternalIssueCreateSerializer
+        data = {"title": "测试", "type": "bug", "module": "case_management"}
+        serializer = ExternalIssueCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+        assert "Bug" in serializer.validated_data["_labels"]
+        assert "case_management" in serializer.validated_data["_labels"]
+
+    def test_default_priority(self, site_settings):
+        from apps.external.serializers import ExternalIssueCreateSerializer
+        data = {"title": "测试"}
+        serializer = ExternalIssueCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data.get("priority", "P2") == "P2"
