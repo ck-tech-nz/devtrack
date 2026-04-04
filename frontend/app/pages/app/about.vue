@@ -2,7 +2,6 @@
   <div class="space-y-6 max-w-2xl">
     <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">关于系统</h1>
 
-    <template>
       <!-- 前端信息 -->
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-6 space-y-4">
         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">前端</h2>
@@ -53,7 +52,6 @@
           <dd class="text-gray-900 dark:text-gray-100 font-mono">{{ about.environment.database }}</dd>
         </dl>
       </div>
-    </template>
   </div>
 </template>
 
