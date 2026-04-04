@@ -3,14 +3,21 @@
     <div
       v-for="col in columns"
       :key="col.key"
-      class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 transition-colors"
-      :class="draggable && dragOverTarget === col.key ? 'ring-2 ring-crystal-300 dark:ring-crystal-700 bg-crystal-50 dark:bg-crystal-950' : ''"
+      class="rounded-xl p-4 transition-colors"
+      :class="[
+        draggable && dragOverTarget === col.key ? 'ring-2 ring-crystal-300 dark:ring-crystal-700' : '',
+        col.color ? '' : 'bg-gray-50 dark:bg-gray-800',
+      ]"
+      :style="col.color ? { backgroundColor: col.color + '12' } : {}"
       @dragover.prevent="draggable && onDragOver(col.key)"
       @dragleave="draggable && onDragLeave()"
       @drop="draggable && onDrop(col.key)"
     >
       <div class="flex items-center justify-between mb-3">
-        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ col.label }}</h4>
+        <div class="flex items-center gap-2">
+          <div v-if="col.color" class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: col.color }" />
+          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ col.label }}</h4>
+        </div>
         <UBadge color="neutral" variant="subtle" size="xs">{{ col.items.length }}</UBadge>
       </div>
       <div class="space-y-2">
@@ -35,7 +42,7 @@
 
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-  columns: Array<{ key: string; label: string; items: any[] }>
+  columns: Array<{ key: string; label: string; items: any[]; color?: string }>
   itemKey?: (item: any) => string | number
   draggable?: boolean
 }>(), {

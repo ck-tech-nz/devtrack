@@ -440,12 +440,12 @@ async function onStatusChange({ issueId, newStatus }: { issueId: number, newStat
 
 const kanbanColumns = computed(() => {
   const cols = [
-    { key: '待处理', label: '待处理', items: issues.value.filter(i => i.status === '待处理') },
-    { key: '进行中', label: '进行中', items: issues.value.filter(i => i.status === '进行中') },
-    { key: '已解决', label: '已解决', items: issues.value.filter(i => i.status === '已解决') },
+    { key: '待处理', label: '待处理', color: '#f59e0b', items: issues.value.filter(i => i.status === '待处理') },
+    { key: '进行中', label: '进行中', color: '#3b82f6', items: issues.value.filter(i => i.status === '进行中') },
+    { key: '已解决', label: '已解决', color: '#10b981', items: issues.value.filter(i => i.status === '已解决') },
   ]
   if (showCompleted.value) {
-    cols.push({ key: '已关闭', label: '已关闭', items: issues.value.filter(i => i.status === '已关闭') })
+    cols.push({ key: '已关闭', label: '已关闭', color: '#6b7280', items: issues.value.filter(i => i.status === '已关闭') })
   }
   return cols
 })
