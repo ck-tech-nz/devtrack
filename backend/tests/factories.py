@@ -193,6 +193,20 @@ class AttachmentFactory(factory.django.DjangoModelFactory):
     mime_type = "image/png"
 
 
+from apps.settings.models import ExternalAPIKey
+
+
+class ExternalAPIKeyFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ExternalAPIKey
+
+    name = factory.Sequence(lambda n: f"External Platform {n}")
+    key = factory.LazyFunction(lambda: __import__('secrets').token_hex(32))
+    project = factory.SubFactory(ProjectFactory)
+    default_assignee = factory.SubFactory(UserFactory)
+    is_active = True
+
+
 from apps.notifications.models import Notification, NotificationRecipient
 
 

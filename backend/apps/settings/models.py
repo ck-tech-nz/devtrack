@@ -1,3 +1,5 @@
+import secrets
+
 from django.conf import settings as django_settings
 from django.db import models
 from solo.models import SingletonModel
@@ -75,3 +77,31 @@ class DatabaseBackup(models.Model):
 
     def __str__(self):
         return self.filename
+
+
+class ExternalAPIKey(models.Model):
+    name = models.CharField(max_length=100, verbose_name="名称")
+    key = models.CharField(max_length=64, unique=True, verbose_name="API Key")
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.CASCADE, verbose_name="关联项目"
+    )
+    default_assignee = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="默认负责人",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="启用")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "外部 API Key"
+        verbose_name_plural = "外部 API Keys"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = secrets.token_hex(32)
+        super().save(*args, **kwargs)
