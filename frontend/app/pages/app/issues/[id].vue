@@ -352,6 +352,68 @@
             </UButton>
           </div>
         </div>
+
+        <!-- 外部来源 -->
+        <div v-if="issue.source" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+          <button class="flex items-center justify-between w-full" @click="showSourceMeta = !showSourceMeta">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">外部来源</h3>
+            <UIcon :name="showSourceMeta ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="w-4 h-4 text-gray-400" />
+          </button>
+          <div v-if="showSourceMeta && issue.source_meta" class="space-y-2 text-sm">
+            <div v-if="issue.source" class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">来源平台</span>
+              <span class="text-gray-900 dark:text-gray-100">{{ issue.source }}</span>
+            </div>
+            <div v-if="issue.source_meta.feedback_id" class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">反馈编号</span>
+              <span class="text-gray-900 dark:text-gray-100">{{ issue.source_meta.feedback_id }}</span>
+            </div>
+            <template v-if="issue.source_meta.reporter">
+              <div class="border-t border-gray-100 dark:border-gray-800 pt-2 mt-2">
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">报告人信息</span>
+              </div>
+              <div v-if="issue.source_meta.reporter.user_name" class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">姓名</span>
+                <span class="text-gray-900 dark:text-gray-100">{{ issue.source_meta.reporter.user_name }}</span>
+              </div>
+              <div v-if="issue.source_meta.reporter.tenant_name" class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">租户</span>
+                <span class="text-gray-900 dark:text-gray-100">{{ issue.source_meta.reporter.tenant_name }}</span>
+              </div>
+              <div v-if="issue.source_meta.reporter.contact" class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">联系方式</span>
+                <span class="text-gray-900 dark:text-gray-100">{{ issue.source_meta.reporter.contact }}</span>
+              </div>
+            </template>
+            <template v-if="issue.source_meta.context">
+              <div class="border-t border-gray-100 dark:border-gray-800 pt-2 mt-2">
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">上下文信息</span>
+              </div>
+              <div v-if="issue.source_meta.context.page_url" class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">页面</span>
+                <span class="text-gray-900 dark:text-gray-100">{{ issue.source_meta.context.page_url }}</span>
+              </div>
+              <div v-if="issue.source_meta.context.browser" class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">浏览器</span>
+                <span class="text-gray-900 dark:text-gray-100">{{ issue.source_meta.context.browser }}</span>
+              </div>
+              <div v-if="issue.source_meta.context.os" class="flex justify-between">
+                <span class="text-gray-500 dark:text-gray-400">操作系统</span>
+                <span class="text-gray-900 dark:text-gray-100">{{ issue.source_meta.context.os }}</span>
+              </div>
+            </template>
+            <template v-if="issue.source_meta.attachments?.length">
+              <div class="border-t border-gray-100 dark:border-gray-800 pt-2 mt-2">
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">外部附件</span>
+              </div>
+              <div v-for="(att, idx) in issue.source_meta.attachments" :key="idx">
+                <a :href="att.url" target="_blank" class="text-primary-500 hover:underline text-xs">
+                  {{ att.type || '附件' }} {{ idx + 1 }}
+                </a>
+              </div>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -654,6 +716,7 @@ const ghCreateError = ref('')
 
 // GitHub 关联
 const showLinkGH = ref(false)
+const showSourceMeta = ref(true)
 const ghLinkRepoFilter = ref('')
 const ghSelectedIds = ref<number[]>([])
 const ghLinking = ref(false)
