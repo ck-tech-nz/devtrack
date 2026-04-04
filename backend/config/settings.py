@@ -284,6 +284,11 @@ UNFOLD = {
                         "icon": "attach_file",
                         "link": reverse_lazy("admin:tools_attachment_changelist"),
                     },
+                    {
+                        "title": "外部 API Keys",
+                        "icon": "key",
+                        "link": reverse_lazy("admin:settings_externalapikey_changelist"),
+                    },
                 ],
             },
         ],
