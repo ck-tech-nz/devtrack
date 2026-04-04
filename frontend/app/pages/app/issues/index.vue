@@ -438,11 +438,17 @@ async function onStatusChange({ issueId, newStatus }: { issueId: number, newStat
   }
 }
 
-const kanbanColumns = computed(() => [
-  { key: '待处理', label: '待处理', items: issues.value.filter(i => i.status === '待处理') },
-  { key: '进行中', label: '进行中', items: issues.value.filter(i => i.status === '进行中') },
-  { key: '已解决', label: '已解决', items: issues.value.filter(i => i.status === '已解决') },
-])
+const kanbanColumns = computed(() => {
+  const cols = [
+    { key: '待处理', label: '待处理', items: issues.value.filter(i => i.status === '待处理') },
+    { key: '进行中', label: '进行中', items: issues.value.filter(i => i.status === '进行中') },
+    { key: '已解决', label: '已解决', items: issues.value.filter(i => i.status === '已解决') },
+  ]
+  if (showCompleted.value) {
+    cols.push({ key: '已关闭', label: '已关闭', items: issues.value.filter(i => i.status === '已关闭') })
+  }
+  return cols
+})
 
 function onKanbanDrop({ itemId, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
   onStatusChange({ issueId: itemId as number, newStatus: toColumn })
