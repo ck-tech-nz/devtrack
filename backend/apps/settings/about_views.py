@@ -8,9 +8,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.permissions import FullDjangoModelPermissions
-from apps.settings.models import ExternalAPIKey
-
 from config.settings import BASE_DIR
 
 
@@ -50,8 +47,7 @@ def _get_pyproject_version():
 
 
 class AboutView(APIView):
-    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
-    queryset = ExternalAPIKey.objects.none()
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         build_version = _read_version_file()
