@@ -1,0 +1,20 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/pyproject.toml in the IDE. This may or may not be related to the current task.</ide_opened_file>
+allow down api doc as markdown file in https://devtrakr.matrixai.xin/app/api-docs
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Downloads/devtrack-api-docs.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+what is FullDjangoModelPermissions
+
+---
+
+将“数据库备份” 放到under “系统管理” in nav bar
+
+---
+
+you can check the issue list page the content take up the whole width.
+but the http://localhost:3000/app/api-docs is not. check and fix
+
+---
+
+commit and push to env/prod
