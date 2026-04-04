@@ -14,3 +14,7 @@ what is FullDjangoModelPermissions
 
 you can check the issue list page the content take up the whole width.
 but the http://localhost:3000/app/api-docs is not. check and fix
+
+---
+
+commit and push to env/prod
