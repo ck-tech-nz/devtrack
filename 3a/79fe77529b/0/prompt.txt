@@ -1,0 +1,22 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/settings/admin.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+ExternalAPIKey model	admin need extra configration to be seen
+
+---
+
+commit and push to env/prod
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/settings/admin.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+create a new module "系统管理”
+create a page called "接口文档“ and move it and ”关于系统“ under this module in Nav bar on the left.
+update the role-permission settings to only "管理员” can view this module
+
+
+接口文档：
+- a static page show how the third party use our API（execially for AI to read）
+- a simple test form to guide the use to verify their API Key.
+
+---
+
+API docs page not seen
