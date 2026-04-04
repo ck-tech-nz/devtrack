@@ -23,7 +23,7 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 const GROUP_DEFS: { label: string; icon: string; paths: string[] }[] = [
   { label: '项目管理', icon: 'i-heroicons-folder', paths: ['/app/projects', '/app/repos'] },
   { label: '用户管理', icon: 'i-heroicons-users', paths: ['/app/users', '/app/permissions'] },
-  { label: '系统管理', icon: 'i-heroicons-cog-6-tooth', paths: ['/app/api-docs', '/app/about'] },
+  { label: '系统管理', icon: 'i-heroicons-cog-6-tooth', paths: ['/app/settings/backups', '/app/api-docs', '/app/about'] },
 ]
 
 export const useNavigation = () => {

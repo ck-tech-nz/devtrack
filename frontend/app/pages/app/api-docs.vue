@@ -1,6 +1,11 @@
 <template>
-  <div class="space-y-6 max-w-4xl">
-    <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">接口文档</h1>
+  <div class="space-y-6">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">接口文档</h1>
+      <UButton v-if="docs" size="sm" variant="outline" icon="i-heroicons-arrow-down-tray" :loading="downloading" @click="downloadMarkdown">
+        下载 Markdown
+      </UButton>
+    </div>
 
     <div v-if="loading" class="flex items-center justify-center py-20">
       <div class="text-sm text-gray-400 dark:text-gray-500">加载中...</div>
@@ -173,6 +178,8 @@ const docs = ref<any>(null)
 const loading = ref(true)
 const error = ref('')
 
+const downloading = ref(false)
+
 const testApiKey = ref('')
 const testing = ref(false)
 const testResult = ref<any>(null)
@@ -186,6 +193,26 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+async function downloadMarkdown() {
+  downloading.value = true
+  try {
+    const md = await api<string>('/api/external/docs/markdown/', {
+      responseType: 'text',
+    })
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'devtrack-api-docs.md'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    // 下载失败静默处理
+  } finally {
+    downloading.value = false
+  }
+}
 
 async function testKey() {
   if (!testApiKey.value.trim()) return

@@ -1,3 +1,6 @@
+import json
+
+from django.http import HttpResponse
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -162,6 +165,116 @@ class ExternalAPIDocsView(APIView):
                 "example": {"detail": "错误描述信息"},
             },
         })
+
+
+class ExternalAPIDocsMarkdownView(APIView):
+    """以 Markdown 文件形式下载外部 API 接口文档。"""
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = ExternalAPIKey.objects.none()
+
+    def get(self, request):
+        docs_view = ExternalAPIDocsView()
+        docs = docs_view.get(request).data
+
+        lines = [
+            f"# {docs['title']}",
+            "",
+            f"版本：{docs['version']}",
+            "",
+            f"Base URL：`{docs['base_url']}`",
+            "",
+            "---",
+            "",
+            "## 认证方式",
+            "",
+            f"- **类型**：{docs['authentication']['type']}",
+            f"- **请求头**：`{docs['authentication']['header']}`",
+            f"- **说明**：{docs['authentication']['description']}",
+            "",
+        ]
+
+        for ep in docs["endpoints"]:
+            lines.append("---")
+            lines.append("")
+            lines.append(f"## {ep['method']} `{ep['path']}`")
+            lines.append("")
+            lines.append(f"**{ep['summary']}**")
+            lines.append("")
+            lines.append(ep["description"])
+            lines.append("")
+
+            if ep.get("path_params"):
+                lines.append("### 路径参数")
+                lines.append("")
+                lines.append("| 参数 | 类型 | 说明 |")
+                lines.append("|------|------|------|")
+                for p in ep["path_params"]:
+                    lines.append(f"| `{p['name']}` | {p['type']} | {p['description']} |")
+                lines.append("")
+
+            if ep.get("query_params"):
+                lines.append("### 查询参数")
+                lines.append("")
+                lines.append("| 参数 | 类型 | 说明 |")
+                lines.append("|------|------|------|")
+                for p in ep["query_params"]:
+                    lines.append(f"| `{p['name']}` | {p['type']} | {p['description']} |")
+                lines.append("")
+
+            if ep.get("request_body"):
+                rb = ep["request_body"]
+                lines.append("### 请求体")
+                lines.append("")
+                lines.append(f"Content-Type：`{rb['content_type']}`")
+                lines.append("")
+                lines.append("| 字段 | 类型 | 必填 | 说明 |")
+                lines.append("|------|------|------|------|")
+                for f in rb["fields"]:
+                    required = "是" if f.get("required") else "否"
+                    desc = f["description"]
+                    if f.get("default") is not None and f.get("default") != "":
+                        desc += f"（默认：{f['default']}）"
+                    lines.append(f"| `{f['name']}` | {f['type']} | {required} | {desc} |")
+                    for sub in f.get("fields", []):
+                        lines.append(
+                            f"|  └ `{sub['name']}` | {sub['type']} | — | {sub['description']} |"
+                        )
+                lines.append("")
+
+                if rb.get("example"):
+                    lines.append("### 请求示例")
+                    lines.append("")
+                    lines.append("```json")
+                    lines.append(json.dumps(rb["example"], indent=2, ensure_ascii=False))
+                    lines.append("```")
+                    lines.append("")
+
+            if ep.get("responses"):
+                lines.append("### 响应")
+                lines.append("")
+                for r in ep["responses"]:
+                    lines.append(f"**{r['status']}** — {r['description']}")
+                    lines.append("")
+                    if r.get("example"):
+                        lines.append("```json")
+                        lines.append(json.dumps(r["example"], indent=2, ensure_ascii=False))
+                        lines.append("```")
+                        lines.append("")
+
+        lines.append("---")
+        lines.append("")
+        lines.append("## 错误格式")
+        lines.append("")
+        lines.append(docs["error_format"]["description"])
+        lines.append("")
+        lines.append("```json")
+        lines.append(json.dumps(docs["error_format"]["example"], indent=2, ensure_ascii=False))
+        lines.append("```")
+
+        md = "\n".join(lines)
+        response = HttpResponse(md, content_type="text/markdown; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="devtrack-api-docs.md"'
+        return response
 
 
 class ExternalAPITestView(APIView):
