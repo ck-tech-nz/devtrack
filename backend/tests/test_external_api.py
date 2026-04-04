@@ -275,3 +275,57 @@ class TestExternalListIssues:
         assert resp.status_code == 200
         assert resp.data["count"] == 25
         assert len(resp.data["results"]) == 10
+
+
+@pytest.mark.django_db
+class TestExternalAPIDocs:
+    def test_docs_endpoint_returns_spec(self, auth_client):
+        resp = auth_client.get("/api/external/docs/")
+        assert resp.status_code == 200
+        assert resp.data["title"] == "DevTrack 外部 API 接口文档"
+        assert resp.data["version"] == "v1"
+        assert len(resp.data["endpoints"]) == 3
+        methods = [e["method"] for e in resp.data["endpoints"]]
+        assert "POST" in methods
+        assert "GET" in methods
+
+    def test_docs_endpoint_has_auth_info(self, auth_client):
+        resp = auth_client.get("/api/external/docs/")
+        assert resp.data["authentication"]["type"] == "Bearer Token"
+
+    def test_docs_endpoint_requires_auth(self, api_client):
+        resp = api_client.get("/api/external/docs/")
+        assert resp.status_code in (401, 403)
+
+    def test_docs_has_request_examples(self, auth_client):
+        resp = auth_client.get("/api/external/docs/")
+        create_endpoint = resp.data["endpoints"][0]
+        assert create_endpoint["method"] == "POST"
+        assert "example" in create_endpoint["request_body"]
+        assert "title" in create_endpoint["request_body"]["example"]
+
+    def test_docs_has_response_examples(self, auth_client):
+        resp = auth_client.get("/api/external/docs/")
+        create_endpoint = resp.data["endpoints"][0]
+        assert len(create_endpoint["responses"]) >= 2
+        assert create_endpoint["responses"][0]["status"] == 201
+
+
+@pytest.mark.django_db
+class TestExternalAPITestKey:
+    def test_valid_key(self, external_client, api_key_obj):
+        resp = external_client.post("/api/external/test-key/")
+        assert resp.status_code == 200
+        assert resp.data["valid"] is True
+        assert resp.data["key_name"] == api_key_obj.name
+        assert resp.data["project"] == api_key_obj.project.name
+
+    def test_invalid_key(self, api_client):
+        api_client.credentials(HTTP_AUTHORIZATION="Bearer bad_key_here")
+        resp = api_client.post("/api/external/test-key/")
+        assert resp.status_code == 401
+        assert resp.data["valid"] is False
+
+    def test_no_key(self, api_client):
+        resp = api_client.post("/api/external/test-key/")
+        assert resp.status_code == 401
