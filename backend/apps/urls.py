@@ -14,5 +14,6 @@ urlpatterns = [
     path("tools/", include("apps.tools.urls")),
     path("notifications/", include("apps.notifications.urls")),
     path("page-perms/", include("page_perms.urls")),
+    path("external/", include("apps.external.urls")),
     path("about/", AboutView.as_view(), name="about"),
 ]

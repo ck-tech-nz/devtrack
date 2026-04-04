@@ -144,3 +144,61 @@ class TestExternalIssueCreateSerializer:
         serializer = ExternalIssueCreateSerializer(data=data)
         assert serializer.is_valid(), serializer.errors
         assert serializer.validated_data.get("priority", "P2") == "P2"
+
+
+@pytest.mark.django_db
+class TestExternalCreateIssue:
+    def test_create_issue_full_payload(self, external_client, api_key_obj, site_settings):
+        data = {
+            "title": "案件导入页面上传Excel后无响应",
+            "type": "bug",
+            "priority": "P1",
+            "description": "上传5MB的Excel文件后页面卡住不动",
+            "module": "case_management",
+            "source_feedback_id": "FB202604040001",
+            "reporter": {
+                "tenant_id": "T001", "tenant_name": "XX催收公司",
+                "user_id": "U001", "user_name": "张三", "contact": "13800138000",
+            },
+            "context": {"page_url": "/case/import", "browser": "Chrome 120.0"},
+            "attachments": [{"type": "screenshot", "url": "https://cdn.example.com/img.png"}],
+        }
+        resp = external_client.post("/api/external/issues/", data, format="json")
+        assert resp.status_code == 201
+        assert resp.data["title"] == "案件导入页面上传Excel后无响应"
+        assert resp.data["status"] == "待处理"
+        assert resp.data["priority"] == "P1"
+        assert "issue_number" in resp.data
+
+        # Verify the issue was created correctly
+        from apps.issues.models import Issue
+        issue = Issue.objects.get(pk=resp.data["id"])
+        assert issue.source == "agent_platform"
+        assert issue.project == api_key_obj.project
+        assert issue.assignee == api_key_obj.default_assignee
+        assert issue.reporter == api_key_obj.default_assignee
+        assert issue.source_meta["feedback_id"] == "FB202604040001"
+        assert issue.source_meta["reporter"]["user_name"] == "张三"
+        assert "Bug" in issue.labels
+        assert "case_management" in issue.labels
+
+    def test_create_issue_minimal_payload(self, external_client, api_key_obj, site_settings):
+        data = {"title": "最简问题"}
+        resp = external_client.post("/api/external/issues/", data, format="json")
+        assert resp.status_code == 201
+        assert resp.data["status"] == "待处理"
+        assert resp.data["priority"] == "P2"
+
+    def test_duplicate_feedback_id_returns_409(self, external_client, api_key_obj, site_settings):
+        data = {"title": "问题一", "source_feedback_id": "FB_DUP_001"}
+        resp1 = external_client.post("/api/external/issues/", data, format="json")
+        assert resp1.status_code == 201
+
+        data2 = {"title": "问题二", "source_feedback_id": "FB_DUP_001"}
+        resp2 = external_client.post("/api/external/issues/", data2, format="json")
+        assert resp2.status_code == 409
+        assert resp2.data["existing_issue_id"] == resp1.data["id"]
+
+    def test_unauthenticated_returns_401(self, api_client, site_settings):
+        resp = api_client.post("/api/external/issues/", {"title": "test"}, format="json")
+        assert resp.status_code == 401
