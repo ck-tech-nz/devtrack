@@ -1,5 +1,5 @@
 import pytest
-from tests.factories import ExternalAPIKeyFactory
+from tests.factories import ExternalAPIKeyFactory, IssueFactory
 
 
 @pytest.mark.django_db
@@ -19,3 +19,22 @@ class TestExternalAPIKeyModel:
     def test_str_representation(self):
         api_key = ExternalAPIKeyFactory(name="Test Platform")
         assert str(api_key) == "Test Platform"
+
+
+@pytest.mark.django_db
+class TestIssueSourceFields:
+    def test_issue_source_fields_default_null(self):
+        issue = IssueFactory()
+        assert issue.source is None
+        assert issue.source_meta is None
+
+    def test_issue_with_source_meta(self):
+        meta = {
+            "feedback_id": "FB001",
+            "reporter": {"tenant_name": "Test Corp", "user_name": "张三"},
+        }
+        issue = IssueFactory(source="agent_platform", source_meta=meta)
+        issue.refresh_from_db()
+        assert issue.source == "agent_platform"
+        assert issue.source_meta["feedback_id"] == "FB001"
+        assert issue.source_meta["reporter"]["user_name"] == "张三"

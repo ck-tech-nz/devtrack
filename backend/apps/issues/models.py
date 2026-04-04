@@ -53,6 +53,8 @@ class Issue(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     resolved_at = models.DateTimeField(null=True, blank=True, verbose_name="解决时间")
+    source = models.CharField(max_length=50, null=True, blank=True, verbose_name="来源")
+    source_meta = models.JSONField(null=True, blank=True, verbose_name="来源元数据")
 
     class Meta:
         verbose_name = "问题"
