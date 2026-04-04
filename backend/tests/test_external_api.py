@@ -1,4 +1,5 @@
 import pytest
+from rest_framework.test import APIClient, APIRequestFactory
 from tests.factories import ExternalAPIKeyFactory, IssueFactory
 
 
@@ -38,3 +39,56 @@ class TestIssueSourceFields:
         assert issue.source == "agent_platform"
         assert issue.source_meta["feedback_id"] == "FB001"
         assert issue.source_meta["reporter"]["user_name"] == "张三"
+
+
+@pytest.fixture
+def api_key_obj():
+    return ExternalAPIKeyFactory()
+
+
+@pytest.fixture
+def external_client(api_key_obj):
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {api_key_obj.key}")
+    return client
+
+
+@pytest.mark.django_db
+class TestAPIKeyAuthentication:
+    def test_valid_key_authenticates(self, api_key_obj):
+        from apps.external.authentication import APIKeyAuthentication
+
+        factory = APIRequestFactory()
+        request = factory.get("/", HTTP_AUTHORIZATION=f"Bearer {api_key_obj.key}")
+        auth = APIKeyAuthentication()
+        user, auth_info = auth.authenticate(request)
+        assert user == api_key_obj.default_assignee
+        assert request.api_key == api_key_obj
+
+    def test_invalid_key_returns_none(self):
+        from apps.external.authentication import APIKeyAuthentication
+
+        factory = APIRequestFactory()
+        request = factory.get("/", HTTP_AUTHORIZATION="Bearer invalid_key_here")
+        auth = APIKeyAuthentication()
+        result = auth.authenticate(request)
+        assert result is None
+
+    def test_inactive_key_returns_none(self):
+        from apps.external.authentication import APIKeyAuthentication
+
+        inactive_key = ExternalAPIKeyFactory(is_active=False)
+        factory = APIRequestFactory()
+        request = factory.get("/", HTTP_AUTHORIZATION=f"Bearer {inactive_key.key}")
+        auth = APIKeyAuthentication()
+        result = auth.authenticate(request)
+        assert result is None
+
+    def test_missing_header_returns_none(self):
+        from apps.external.authentication import APIKeyAuthentication
+
+        factory = APIRequestFactory()
+        request = factory.get("/")
+        auth = APIKeyAuthentication()
+        result = auth.authenticate(request)
+        assert result is None
