@@ -202,3 +202,76 @@ class TestExternalCreateIssue:
     def test_unauthenticated_returns_401(self, api_client, site_settings):
         resp = api_client.post("/api/external/issues/", {"title": "test"}, format="json")
         assert resp.status_code == 401
+
+
+@pytest.mark.django_db
+class TestExternalQueryIssue:
+    def test_get_issue_by_id(self, external_client, api_key_obj, site_settings):
+        issue = IssueFactory(
+            source="agent_platform",
+            source_meta={"feedback_id": "FB001"},
+            project=api_key_obj.project,
+        )
+        resp = external_client.get(f"/api/external/issues/{issue.pk}/")
+        assert resp.status_code == 200
+        assert resp.data["id"] == issue.pk
+        assert resp.data["source_feedback_id"] == "FB001"
+        assert "issue_number" in resp.data
+
+    def test_get_issue_wrong_project_returns_404(self, external_client, site_settings):
+        issue = IssueFactory(source="agent_platform")  # different project
+        resp = external_client.get(f"/api/external/issues/{issue.pk}/")
+        assert resp.status_code == 404
+
+    def test_get_non_external_issue_returns_404(self, external_client, api_key_obj, site_settings):
+        issue = IssueFactory(project=api_key_obj.project)  # source is None
+        resp = external_client.get(f"/api/external/issues/{issue.pk}/")
+        assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+class TestExternalListIssues:
+    def test_list_issues_scoped_to_project(self, external_client, api_key_obj, site_settings):
+        IssueFactory(source="agent_platform", project=api_key_obj.project)
+        IssueFactory(source="agent_platform", project=api_key_obj.project)
+        IssueFactory(source="agent_platform")  # different project
+        resp = external_client.get("/api/external/issues/")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 2
+
+    def test_filter_by_feedback_id(self, external_client, api_key_obj, site_settings):
+        IssueFactory(
+            source="agent_platform",
+            source_meta={"feedback_id": "FB_FIND_ME"},
+            project=api_key_obj.project,
+        )
+        IssueFactory(
+            source="agent_platform",
+            source_meta={"feedback_id": "FB_OTHER"},
+            project=api_key_obj.project,
+        )
+        resp = external_client.get("/api/external/issues/?feedback_id=FB_FIND_ME")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 1
+
+    def test_filter_by_status(self, external_client, api_key_obj, site_settings):
+        IssueFactory(source="agent_platform", project=api_key_obj.project, status="待处理")
+        IssueFactory(source="agent_platform", project=api_key_obj.project, status="进行中")
+        resp = external_client.get("/api/external/issues/?status=待处理")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 1
+
+    def test_filter_by_priority(self, external_client, api_key_obj, site_settings):
+        IssueFactory(source="agent_platform", project=api_key_obj.project, priority="P0")
+        IssueFactory(source="agent_platform", project=api_key_obj.project, priority="P2")
+        resp = external_client.get("/api/external/issues/?priority=P0")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 1
+
+    def test_pagination(self, external_client, api_key_obj, site_settings):
+        for _ in range(25):
+            IssueFactory(source="agent_platform", project=api_key_obj.project)
+        resp = external_client.get("/api/external/issues/?page_size=10")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 25
+        assert len(resp.data["results"]) == 10
