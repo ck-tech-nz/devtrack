@@ -1,0 +1,12 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/tests/test_issue_analysis.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+允许管理员删除 Issue
+- 我看到管理员本身就有 issue.delete_issue 的权限, 只需要在页面详情页面上添加按钮即可
+- 允许管理员在列表页面批量删除
+
+---
+
+嗯,做假删除,不要真删除
+
+---
+
+yes, go for it
