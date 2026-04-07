@@ -141,10 +141,41 @@ class TestIssueUpdate:
 
 
 class TestIssueDelete:
-    def test_delete_issue(self, auth_client, site_settings):
+    def test_soft_delete_issue(self, auth_client, site_settings):
         issue = IssueFactory()
         response = auth_client.delete(f"/api/issues/{issue.id}/")
         assert response.status_code == 204
+        # Issue still exists in DB but is_deleted=True
+        from apps.issues.models import Issue
+        assert Issue.all_objects.filter(id=issue.id, is_deleted=True).exists()
+        # Not visible via normal queryset
+        assert not Issue.objects.filter(id=issue.id).exists()
+
+    def test_soft_deleted_issue_not_in_list(self, auth_client, site_settings):
+        issue = IssueFactory()
+        auth_client.delete(f"/api/issues/{issue.id}/")
+        response = auth_client.get("/api/issues/")
+        assert response.data["count"] == 0
+
+    def test_soft_deleted_issue_not_accessible(self, auth_client, site_settings):
+        issue = IssueFactory()
+        auth_client.delete(f"/api/issues/{issue.id}/")
+        response = auth_client.get(f"/api/issues/{issue.id}/")
+        assert response.status_code == 404
+
+
+class TestBatchDelete:
+    def test_batch_delete(self, auth_client, site_settings):
+        issues = IssueFactory.create_batch(3)
+        response = auth_client.post("/api/issues/batch-update/", {
+            "ids": [i.id for i in issues],
+            "action": "delete",
+        }, format="json")
+        assert response.status_code == 200
+        assert response.data["updated"] == 3
+        from apps.issues.models import Issue
+        assert Issue.objects.count() == 0
+        assert Issue.all_objects.filter(is_deleted=True).count() == 3
 
 
 class TestBatchUpdate:
