@@ -1,0 +1,1 @@
+Title's text width not auto cut after too long.
