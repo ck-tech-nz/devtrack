@@ -126,7 +126,7 @@ class TestMentionParsing:
         from apps.notifications.services import create_mention_notifications
         from apps.notifications.models import NotificationRecipient
         user2 = UserFactory()
-        issue = IssueFactory(reporter=auth_user)
+        issue = IssueFactory(created_by=auth_user)
         new_desc = f"请 @[{user2.name}](user:{user2.id}) 看看"
         create_mention_notifications(
             issue=issue,
@@ -143,7 +143,7 @@ class TestMentionParsing:
     def test_no_self_notification(self, auth_user):
         from apps.notifications.services import create_mention_notifications
         from apps.notifications.models import NotificationRecipient
-        issue = IssueFactory(reporter=auth_user)
+        issue = IssueFactory(created_by=auth_user)
         new_desc = f"@[{auth_user.name}](user:{auth_user.id}) 看看"
         create_mention_notifications(
             issue=issue,
@@ -157,7 +157,7 @@ class TestMentionParsing:
         from apps.notifications.services import create_mention_notifications
         from apps.notifications.models import NotificationRecipient
         user2 = UserFactory()
-        issue = IssueFactory(reporter=auth_user)
+        issue = IssueFactory(created_by=auth_user)
         desc = f"@[{user2.name}](user:{user2.id}) 看看"
         create_mention_notifications(issue=issue, old_description="", new_description=desc, actor=auth_user)
         create_mention_notifications(issue=issue, old_description=desc, new_description=desc, actor=auth_user)

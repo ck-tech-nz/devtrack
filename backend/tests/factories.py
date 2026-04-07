@@ -74,7 +74,7 @@ class IssueFactory(factory.django.DjangoModelFactory):
     priority = factory.Iterator(["P0", "P1", "P2", "P3"])
     status = "待处理"
     labels = factory.LazyFunction(lambda: [fake.random_element(["前端", "后端", "Bug"])])
-    reporter = factory.SubFactory(UserFactory)
+    created_by = factory.SubFactory(UserFactory)
 
 
 class ActivityFactory(factory.django.DjangoModelFactory):

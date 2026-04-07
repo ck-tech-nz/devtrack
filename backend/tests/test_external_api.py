@@ -175,8 +175,9 @@ class TestExternalCreateIssue:
         issue = Issue.objects.get(pk=resp.data["id"])
         assert issue.source == "agent_platform"
         assert issue.project == api_key_obj.project
-        assert issue.assignee == api_key_obj.default_assignee
-        assert issue.reporter == api_key_obj.default_assignee
+        assert issue.assignee is None
+        assert issue.created_by == api_key_obj.default_assignee
+        assert issue.reporter == "张三"
         assert issue.source_meta["feedback_id"] == "FB202604040001"
         assert issue.source_meta["reporter"]["user_name"] == "张三"
         assert "Bug" in issue.labels

@@ -48,7 +48,8 @@ class GitHubIssueLinkSerializer(serializers.ModelSerializer):
 
 
 class IssueListSerializer(serializers.ModelSerializer):
-    reporter_name = serializers.CharField(source="reporter.name", read_only=True, default=None)
+    created_by_name = serializers.SerializerMethodField()
+    updated_by_name = serializers.SerializerMethodField()
     assignee_name = serializers.CharField(source="assignee.name", read_only=True, default=None)
     helpers = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     helpers_names = serializers.SerializerMethodField()
@@ -61,12 +62,24 @@ class IssueListSerializer(serializers.ModelSerializer):
         model = Issue
         fields = [
             "id", "project", "repo", "title", "priority",
-            "status", "labels", "reporter", "reporter_name",
+            "status", "labels", "reporter",
+            "created_by", "created_by_name",
+            "updated_by", "updated_by_name",
             "assignee", "assignee_name", "helpers", "helpers_names", "remark", "cause", "solution",
             "ai_cause", "ai_solution",
             "resolution_hours", "created_at", "updated_at", "github_issues",
             "estimated_completion", "source",
         ]
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.name or obj.created_by.username
+        return None
+
+    def get_updated_by_name(self, obj):
+        if obj.updated_by:
+            return obj.updated_by.name or obj.updated_by.username
+        return None
 
     def get_helpers_names(self, obj):
         return [u.name or u.username for u in obj.helpers.all()]
@@ -102,7 +115,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
         model = Issue
         fields = [
             "id", "project", "repo", "title", "description", "priority", "status",
-            "labels", "assignee", "helpers", "remark", "estimated_completion",
+            "labels", "assignee", "helpers", "reporter", "remark", "estimated_completion",
             "actual_hours", "cause", "solution", "attachment_ids",
         ]
         read_only_fields = ["id"]
@@ -131,7 +144,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         helpers = validated_data.pop("helpers", [])
         attachment_ids = validated_data.pop("attachment_ids", [])
-        validated_data["reporter"] = self.context["request"].user
+        validated_data["created_by"] = self.context["request"].user
         issue = super().create(validated_data)
         if helpers:
             issue.helpers.set(helpers)
@@ -159,6 +172,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         old_status = instance.status
         old_assignee = instance.assignee_id
+        validated_data["updated_by"] = user
         issue = super().update(instance, validated_data)
         if helpers is not None:
             issue.helpers.set(helpers)

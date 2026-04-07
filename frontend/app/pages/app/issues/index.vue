@@ -93,6 +93,10 @@
                 <USelect v-model="newIssue.assignee" :items="createAssigneeOptions" placeholder="选择负责人" value-key="value" />
               </div>
             </div>
+            <div class="form-row">
+              <label>提出人</label>
+              <UInput v-model="newIssue.reporter" placeholder="提出人姓名" />
+            </div>
             <p v-if="createError" class="text-sm text-red-500">{{ createError }}</p>
           </div>
           <div class="modal-footer">
@@ -217,8 +221,8 @@
         <template #assignee_name-cell="{ row }">
           <span class="block truncate" :title="row.original.assignee_name">{{ row.original.assignee_name || '-' }}</span>
         </template>
-        <template #reporter_name-cell="{ row }">
-          <span class="block truncate" :title="row.original.reporter_name">{{ row.original.reporter_name || '-' }}</span>
+        <template #reporter-cell="{ row }">
+          <span class="block truncate" :title="row.original.reporter || row.original.created_by_name">{{ row.original.reporter || row.original.created_by_name || '-' }}</span>
         </template>
         <template #remark-cell="{ row }">
           <EditableCell :value="row.original.remark" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'remark', v)" />
@@ -308,7 +312,7 @@ const repos = ref<any[]>([])
 const showCreateModal = ref(false)
 const creating = ref(false)
 const createError = ref('')
-const defaultAssignee = computed(() => user.value?.id ? String(user.value.id) : '_none')
+const defaultAssignee = computed(() => '_none')
 const newIssue = ref({
   project: '',
   title: '',
@@ -318,6 +322,7 @@ const newIssue = ref({
   labels: [] as string[],
   assignee: defaultAssignee.value,
   repo: null as string | null,
+  reporter: user.value?.name || '',
 })
 
 const attachmentIds = ref<string[]>([])
@@ -353,7 +358,7 @@ const filterStatusOptions = [{ label: '待处理', value: '待处理' }, { label
 
 function closeCreateModal() {
   showCreateModal.value = false
-  newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null }
+  newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null, reporter: user.value?.name || '' }
   attachmentIds.value = []
   projectRepos.value = []
 }
@@ -381,9 +386,10 @@ async function handleCreateIssue() {
     if (newIssue.value.project) body.project = newIssue.value.project
     if (newIssue.value.assignee && newIssue.value.assignee !== '_none') body.assignee = newIssue.value.assignee
     if (newIssue.value.repo) body.repo = newIssue.value.repo
+    if (newIssue.value.reporter) body.reporter = newIssue.value.reporter
     await api('/api/issues/', { method: 'POST', body, format: 'json' })
     showCreateModal.value = false
-    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null }
+    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null, reporter: user.value?.name || '' }
     attachmentIds.value = []
     projectRepos.value = []
     await fetchIssues()
@@ -416,7 +422,7 @@ const columns = computed(() => {
     { accessorKey: 'remark', header: '备注' },
     { accessorKey: 'priority', header: '优先级' },
     { accessorKey: 'status', header: '状态' },
-    { accessorKey: 'reporter_name', header: '提出人' },
+    { accessorKey: 'reporter', header: '提出人' },
     { accessorKey: 'created_at', header: '历时' },
     { accessorKey: 'resolution_hours', header: '解决耗时' },
   ]

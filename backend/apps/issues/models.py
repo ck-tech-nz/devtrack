@@ -31,9 +31,9 @@ class Issue(models.Model):
     priority = models.CharField(max_length=10, choices=Priority.choices, verbose_name="优先级")
     status = models.CharField(max_length=20, verbose_name="状态")
     labels = models.JSONField(default=list, verbose_name="标签", blank=True)
-    reporter = models.ForeignKey(
+    created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-        related_name="reported_issues", verbose_name="提出人",
+        related_name="created_issues", verbose_name="创建人",
     )
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -45,6 +45,11 @@ class Issue(models.Model):
         related_name="helped_issues",
         verbose_name="协助人",
     )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="updated_issues", verbose_name="更新人",
+    )
+    reporter = models.CharField(max_length=100, blank=True, default="", verbose_name="提出人")
     remark = models.TextField(blank=True, verbose_name="备注")
     estimated_completion = models.DateField(null=True, blank=True, verbose_name="预计完成")
     actual_hours = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name="实际工时")

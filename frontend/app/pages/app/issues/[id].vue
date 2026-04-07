@@ -235,7 +235,7 @@
           <div class="grid grid-cols-2 gap-3">
             <div class="text-sm">
               <span class="text-gray-400 dark:text-gray-500">提出人</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter_name || '-' }}</p>
+              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter || issue.created_by_name || '-' }}</p>
             </div>
             <div class="text-sm">
               <span class="text-gray-400 dark:text-gray-500">创建时间</span>

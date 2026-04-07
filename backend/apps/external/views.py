@@ -53,6 +53,10 @@ class ExternalIssueListCreateView(APIView):
         if data.get("attachments"):
             source_meta["attachments"] = data["attachments"]
 
+        reporter_name = ""
+        if data.get("reporter") and isinstance(data["reporter"], dict):
+            reporter_name = data["reporter"].get("user_name", "")
+
         issue = Issue.objects.create(
             title=data["title"],
             description=data.get("description", ""),
@@ -62,8 +66,8 @@ class ExternalIssueListCreateView(APIView):
             source="agent_platform",
             source_meta=source_meta or None,
             project=request.api_key.project,
-            assignee=request.api_key.default_assignee,
-            reporter=request.api_key.default_assignee,
+            created_by=request.api_key.default_assignee,
+            reporter=reporter_name,
         )
 
         Activity.objects.create(

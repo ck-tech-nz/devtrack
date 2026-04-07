@@ -193,7 +193,7 @@ class TestMentionNotification:
         from tests.factories import UserFactory
         from apps.notifications.models import NotificationRecipient
         user2 = UserFactory()
-        issue = IssueFactory(reporter=auth_user, description="原始描述")
+        issue = IssueFactory(created_by=auth_user, description="原始描述")
         response = auth_client.patch(f"/api/issues/{issue.id}/", {
             "description": f"请 @[{user2.name}](user:{user2.id}) 看看",
         }, format="json")

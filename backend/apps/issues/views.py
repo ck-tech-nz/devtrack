@@ -50,7 +50,7 @@ def _with_ai_fields(qs):
 
 
 class IssueListCreateView(generics.ListCreateAPIView):
-    queryset = Issue.objects.select_related("reporter", "assignee").prefetch_related("github_issues__repo")
+    queryset = Issue.objects.select_related("created_by", "assignee").prefetch_related("github_issues__repo")
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["priority", "status", "assignee", "project", "helpers"]
@@ -75,7 +75,7 @@ class IssueListCreateView(generics.ListCreateAPIView):
 
 
 class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Issue.objects.select_related("reporter", "assignee").prefetch_related("attachments")
+    queryset = Issue.objects.select_related("created_by", "assignee").prefetch_related("attachments")
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
 
     def get_queryset(self):
