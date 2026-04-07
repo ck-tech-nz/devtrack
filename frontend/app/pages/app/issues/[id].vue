@@ -15,7 +15,18 @@
           <span class="text-gray-400 dark:text-gray-500 font-normal ml-2">#{{ issue.id }}</span>
         </h1>
       </div>
-      <div class="flex items-center space-x-2"></div>
+      <div class="flex items-center space-x-2">
+        <UButton
+          v-if="can('issues.delete_issue')"
+          icon="i-heroicons-trash"
+          color="error"
+          variant="outline"
+          size="sm"
+          @click="showDeleteConfirm = true"
+        >
+          删除
+        </UButton>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -579,6 +590,27 @@
         </div>
       </template>
     </UModal>
+
+    <!-- 删除问题确认弹窗 -->
+    <UModal v-model:open="showDeleteConfirm">
+      <template #content>
+        <div class="modal-form">
+          <div class="modal-header">
+            <h3>删除问题</h3>
+            <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showDeleteConfirm = false" />
+          </div>
+          <div class="modal-body">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              确认删除问题 <span class="font-medium">#{{ issue.id }} {{ issue.title }}</span>？
+            </p>
+          </div>
+          <div class="modal-footer">
+            <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
+            <UButton color="error" :loading="deleting" @click="handleDeleteIssue">确认删除</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 
   <div v-else class="text-center py-20 text-sm text-gray-400 dark:text-gray-500">问题不存在</div>
@@ -588,18 +620,35 @@
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
+const { can } = useAuth()
 const route = useRoute()
+const router = useRouter()
 const { isOnline } = useServiceStatus()
 
 const loading = ref(true)
 const issue = ref<any>(null)
 const aiAnalyzing = ref(false)
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 const analyses = ref<any[]>([])
 
 async function fetchAnalyses() {
   if (!issue.value?.id) return
   analyses.value = await api<any[]>(`/api/issues/${issue.value.id}/analyses/`).catch(() => []) || []
+}
+
+async function handleDeleteIssue() {
+  if (!issue.value) return
+  deleting.value = true
+  try {
+    await api(`/api/issues/${issue.value.id}/`, { method: 'DELETE' })
+    router.push('/app/issues')
+  } catch (e) {
+    console.error('Delete issue failed:', e)
+  } finally {
+    deleting.value = false
+  }
 }
 
 function fieldLabel(field: string) {
