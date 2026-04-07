@@ -9,6 +9,11 @@ class Priority(models.TextChoices):
     P3 = 'P3', '低'
 
 
+class IssueManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+
 class Issue(models.Model):
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, related_name="issues"
@@ -60,6 +65,12 @@ class Issue(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True, verbose_name="解决时间")
     source = models.CharField(max_length=50, null=True, blank=True, verbose_name="来源")
     source_meta = models.JSONField(null=True, blank=True, verbose_name="来源元数据")
+
+    is_deleted = models.BooleanField(default=False, verbose_name="已删除")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="删除时间")
+
+    objects = IssueManager()
+    all_objects = models.Manager()
 
     class Meta:
         verbose_name = "问题"
