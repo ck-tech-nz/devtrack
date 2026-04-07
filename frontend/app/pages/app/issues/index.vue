@@ -120,8 +120,30 @@
         <UDropdownMenu :items="batchStatusItems" :content="{ align: 'end' as const }">
           <UButton size="xs" color="primary" variant="outline">修改状态</UButton>
         </UDropdownMenu>
+        <UButton v-if="can('issues.delete_issue')" size="xs" color="error" variant="outline" @click="showBatchDeleteConfirm = true">批量删除</UButton>
       </div>
     </div>
+
+    <!-- 批量删除确认弹窗 -->
+    <UModal v-model:open="showBatchDeleteConfirm">
+      <template #content>
+        <div class="modal-form">
+          <div class="modal-header">
+            <h3>批量删除</h3>
+            <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showBatchDeleteConfirm = false" />
+          </div>
+          <div class="modal-body">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              确认删除选中的 <span class="font-medium">{{ selectedRowsData.length }}</span> 个问题？
+            </p>
+          </div>
+          <div class="modal-footer">
+            <UButton variant="outline" color="neutral" @click="showBatchDeleteConfirm = false">取消</UButton>
+            <UButton color="error" :loading="batchDeleting" @click="handleBatchDelete">确认删除</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
 
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center py-20">
@@ -281,7 +303,7 @@
 definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
-const { user } = useAuth()
+const { user, can } = useAuth()
 const { isMobile } = useMobile()
 const { settings, update: updateSettings } = useUserSettings()
 
@@ -298,6 +320,8 @@ const filterAssignee = ref('')
 const filterPriority = ref('')
 const filterStatus = ref('')
 const rowSelection = ref<Record<string, boolean>>({})
+const showBatchDeleteConfirm = ref(false)
+const batchDeleting = ref(false)
 
 const loading = ref(true)
 const issues = ref<any[]>([])
@@ -576,6 +600,25 @@ async function batchUpdate(action: string, value: string) {
     await fetchIssues()
   } catch (e) {
     console.error('Batch update failed:', e)
+  }
+}
+
+async function handleBatchDelete() {
+  const ids = selectedRowsData.value.map((row: any) => row.id)
+  if (!ids.length) return
+  batchDeleting.value = true
+  try {
+    await api('/api/issues/batch-update/', {
+      method: 'POST',
+      body: { ids, action: 'delete' },
+    })
+    showBatchDeleteConfirm.value = false
+    rowSelection.value = {}
+    await fetchIssues()
+  } catch (e) {
+    console.error('Batch delete failed:', e)
+  } finally {
+    batchDeleting.value = false
   }
 }
 
