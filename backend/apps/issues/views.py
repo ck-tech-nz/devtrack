@@ -86,6 +86,11 @@ class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
             return IssueCreateUpdateSerializer
         return IssueDetailSerializer
 
+    def perform_destroy(self, instance):
+        instance.is_deleted = True
+        instance.deleted_at = timezone.now()
+        instance.save(update_fields=["is_deleted", "deleted_at"])
+
 
 class BatchUpdateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -105,6 +110,8 @@ class BatchUpdateView(APIView):
             issues.update(priority=data["value"])
         elif data["action"] == "set_status":
             issues.update(status=data["value"])
+        elif data["action"] == "delete":
+            issues.update(is_deleted=True, deleted_at=timezone.now())
 
         return Response({"updated": count})
 
