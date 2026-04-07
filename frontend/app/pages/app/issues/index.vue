@@ -198,9 +198,9 @@
           <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 dark:text-crystal-400 hover:text-crystal-700 dark:hover:text-crystal-300 font-medium">{{ row.original.id }}</NuxtLink>
         </template>
         <template #title-cell="{ row }">
-          <div class="flex items-center gap-1.5">
-            <UBadge v-if="row.original.source" color="info" variant="subtle" size="xs">外部</UBadge>
-            <EditableCell :value="row.original.title" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
+          <div class="flex items-center gap-1.5 min-w-0">
+            <UBadge v-if="row.original.source" color="info" variant="subtle" size="xs" class="shrink-0">外部</UBadge>
+            <EditableCell class="min-w-0" :value="row.original.title" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'title', v)" />
           </div>
         </template>
         <template #priority-cell="{ row }">
