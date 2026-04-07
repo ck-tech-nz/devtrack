@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "2a119b8f631e",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 11,
+  "files_touched": [
+    "backend/apps/external/views.py",
+    "backend/apps/issues/admin.py",
+    "backend/apps/issues/migrations/0003_rename_reporter_created_by.py",
+    "backend/apps/issues/models.py",
+    "backend/apps/issues/serializers.py",
+    "backend/apps/issues/views.py",
+    "backend/tests/factories.py",
+    "backend/tests/test_external_api.py",
+    "backend/tests/test_issues.py",
+    "backend/tests/test_notifications.py",
+    "docs/superpowers/plans/2026-04-07-issue-created-by-reporter-refactor.md",
+    "docs/superpowers/specs/2026-04-07-issue-created-by-reporter-refactor-design.md",
+    "frontend/app/pages/app/issues/[id].vue",
+    "frontend/app/pages/app/issues/index.vue"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2a/119b8f631e/0/metadata.json",
+      "transcript": "/2a/119b8f631e/0/full.jsonl",
+      "content_hash": "/2a/119b8f631e/0/content_hash.txt",
+      "prompt": "/2a/119b8f631e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2690,
+    "cache_creation_tokens": 115711,
+    "cache_read_tokens": 5969538,
+    "output_tokens": 30604,
+    "api_call_count": 83
+  }
+}

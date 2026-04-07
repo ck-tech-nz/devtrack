@@ -1,0 +1,76 @@
+<ide_selection>The user selected the lines 38 to 38 from /Users/ck/Git/matrix/devtrack/backend/apps/issues/models.py:
+assignee
+
+This may or may not be related to the current task.</ide_selection>
+for the issue from API, don't give a default assignee, leave it to be none
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/backend/apps/issues/signals.py in the IDE. This may or may not be related to the current task.</ide_opened_file>
+不能光改前端,因为API 创建的issue 自动分配的 api key 的所有人成为 assignee
+
+---
+
+<ide_selection>The user selected the lines 220 to 220 from /Users/ck/Git/matrix/devtrack/frontend/app/pages/app/issues/index.vue:
+reporter
+
+This may or may not be related to the current task.</ide_selection>
+check if the api post: have:
+
+reporter. user_name
+like:
+```
+reporter": {"contact": "13800138000", "user_id": "U001", "tenant_id": "T001", "user_name": "张三"}
+```
+
+if yes, make this reportor show this username on Issue List.
+
+---
+
+/brainstorming  
+yep, make this concept more clear and precisely, 
+
+1. add:
+- created_by (rename the reportor to it)
+- created_at
+- updated_by
+- updated_at
+
+to this Issue model.
+So, for the issues from API, it's created_by the owner of that API key. but it should be reported by another one.
+
+2. add repportor back but as a CharField so it's free to copy the source_meta.reporter.user_name.
+
+how do you think
+
+---
+
+<ide_selection>The user selected the lines 34 to 34 from /Users/ck/Git/matrix/devtrack/backend/apps/issues/models.py:
+reporter
+
+This may or may not be related to the current task.</ide_selection>
+C
+
+---
+
+A
+
+---
+
+yes
+
+---
+
+yes
+
+---
+
+ready
+
+---
+
+go for it
+
+---
+
+1
