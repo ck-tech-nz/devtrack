@@ -689,6 +689,8 @@ async function checkAnalyzingIssues() {
 <style scoped>
 .modal-form {
   padding: 1.5rem 2rem;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 .modal-header {
   display: flex;
