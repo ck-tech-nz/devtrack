@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "solo",
+    "django_celery_results",
+    "django_celery_beat",
     # Local apps
     "apps.settings",
     "apps.users",
@@ -142,6 +144,16 @@ MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "/uploads")
 
 REPO_CLONE_DIR = os.environ.get("REPO_CLONE_DIR", "/data/repos")
 BACKUP_DIR = os.environ.get("BACKUP_DIR", "/data/backups")
+
+# Celery
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
+CELERY_RESULT_BACKEND = "django-db"
+CELERY_CACHE_BACKEND = "django-cache"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # Page permissions configuration
 PAGE_PERMS = {
@@ -289,6 +301,33 @@ UNFOLD = {
                         "title": "外部 API Keys",
                         "icon": "key",
                         "link": reverse_lazy("admin:settings_externalapikey_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "定时任务",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "任务结果",
+                        "icon": "task_alt",
+                        "link": reverse_lazy("admin:django_celery_results_taskresult_changelist"),
+                    },
+                    {
+                        "title": "定时任务",
+                        "icon": "schedule",
+                        "link": reverse_lazy("admin:django_celery_beat_periodictask_changelist"),
+                    },
+                    {
+                        "title": "执行间隔",
+                        "icon": "timer",
+                        "link": reverse_lazy("admin:django_celery_beat_intervalschedule_changelist"),
+                    },
+                    {
+                        "title": "Cron 计划",
+                        "icon": "event_repeat",
+                        "link": reverse_lazy("admin:django_celery_beat_crontabschedule_changelist"),
                     },
                 ],
             },
