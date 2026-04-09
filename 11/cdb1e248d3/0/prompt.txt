@@ -1,0 +1,22 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/server-sync.yml in the IDE. This may or may not be related to the current task.</ide_opened_file>
+now add the celery to project and:
+-  /app/ai-insights collect data and calculte every hour. so user don't need to wait.
+- add celery result to django admin.
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/servers/prod/docker-compose.yml in the IDE. This may or may not be related to the current task.</ide_opened_file>
+Redis
+
+---
+
+I have Redis in local dev and server
+
+---
+
+plus: make all repos
+拉取更新 & 同步 every 1 hour
+
+---
+
+ok
