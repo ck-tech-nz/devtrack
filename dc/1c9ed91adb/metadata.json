@@ -3,11 +3,13 @@
   "checkpoint_id": "dc1c9ed91adb",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 3,
   "files_touched": [
     "deploy/test/docker-compose.yml",
     "docker-compose.yml",
+    "server-sync.yml",
     "servers/prod/docker-compose.yml",
+    "servers/test/.gitconfig-proxy",
     "servers/test/docker-compose.yml"
   ],
   "sessions": [
@@ -16,13 +18,19 @@
       "transcript": "/dc/1c9ed91adb/0/full.jsonl",
       "content_hash": "/dc/1c9ed91adb/0/content_hash.txt",
       "prompt": "/dc/1c9ed91adb/0/prompt.txt"
+    },
+    {
+      "metadata": "/dc/1c9ed91adb/1/metadata.json",
+      "transcript": "/dc/1c9ed91adb/1/full.jsonl",
+      "content_hash": "/dc/1c9ed91adb/1/content_hash.txt",
+      "prompt": "/dc/1c9ed91adb/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 10,
-    "cache_creation_tokens": 7611,
-    "cache_read_tokens": 283189,
-    "output_tokens": 2533,
-    "api_call_count": 8
+    "input_tokens": 22,
+    "cache_creation_tokens": 29093,
+    "cache_read_tokens": 434983,
+    "output_tokens": 4380,
+    "api_call_count": 14
   }
 }
