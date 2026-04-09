@@ -16,3 +16,7 @@ I have Redis in local dev and server
 
 plus: make all repos
 拉取更新 & 同步 every 1 hour
+
+---
+
+ok
