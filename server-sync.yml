@@ -2,11 +2,11 @@ environments:
   test:
     ssh_host: devtrakr-test-remote
     remote_path: /home/ftkj/cps/devtrakr
-    local_path: servers/test
+    local_path: deploy/test
     confirm: false
 
   prod:
     ssh_host: devtrakr-remote
     remote_path: /home/ftkj/cps/devtrakr_prod
-    local_path: servers/prod
+    local_path: deploy/prod
     confirm: true

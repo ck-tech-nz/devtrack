@@ -9,7 +9,7 @@ services:
       - traefik-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.devtrack-backend.rule=Host(`devtrakr.matrixai.xin`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.devtrack-backend.rule=Host(`devtrakr-test.matrixai.xin`) && PathPrefix(`/api`)"
       - "traefik.http.routers.devtrack-backend.entrypoints=web"
       - "traefik.http.services.devtrack-backend.loadbalancer.server.port=8000"
     command: >
@@ -27,7 +27,7 @@ services:
       - backend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.devtrack-frontend.rule=Host(`devtrakr.matrixai.xin`)"
+      - "traefik.http.routers.devtrack-frontend.rule=Host(`devtrakr-test.matrixai.xin`)"
       - "traefik.http.routers.devtrack-frontend.entrypoints=web"
       - "traefik.http.services.devtrack-frontend.loadbalancer.server.port=3000"
 
@@ -38,7 +38,7 @@ services:
       - .env
     networks:
       - db-network
-    command: celery -A config worker -l info
+    command: uv run celery -A config worker -l info
 
   celery-beat:
     image: registry.aimenu.tech/devtrack/backend-test
@@ -47,7 +47,7 @@ services:
       - .env
     networks:
       - db-network
-    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers.DatabaseScheduler
+    command: uv run celery -A config beat -l info --scheduler django_celery_beat.schedulers.DatabaseScheduler
 
 networks:
   db-network:

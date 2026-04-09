@@ -53,7 +53,7 @@ services:
       - db-network
     labels:
       - com.centurylinklabs.watchtower.enable=true
-    command: celery -A config worker -l info
+    command: uv run celery -A config worker -l info
 
   celery-beat:
     image: registry.aimenu.tech/devtrack/backend-prod
@@ -65,7 +65,7 @@ services:
       - db-network
     labels:
       - com.centurylinklabs.watchtower.enable=true
-    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers.DatabaseScheduler
+    command: uv run celery -A config beat -l info --scheduler django_celery_beat.schedulers.DatabaseScheduler
 
 networks:
   db-network:
