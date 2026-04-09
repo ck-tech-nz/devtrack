@@ -6,7 +6,6 @@ from rest_framework.views import APIView
 from apps.permissions import FullDjangoModelPermissions
 from .models import Analysis, LLMConfig, Prompt
 from .client import LLMClient
-from .services import AIAnalysisService, AIConfigurationError
 
 
 class InsightsView(APIView):
@@ -15,19 +14,54 @@ class InsightsView(APIView):
 
     def get(self, request):
         analysis_type = request.query_params.get("type", "team_insights")
-        try:
-            analysis = AIAnalysisService().get_or_run(
-                analysis_type, Analysis.TriggerType.PAGE_OPEN, user=request.user
+
+        # 返回最新缓存结果（如果存在且未过期）
+        latest = (
+            Analysis.objects.filter(analysis_type=analysis_type, status=Analysis.Status.DONE)
+            .order_by("-created_at")
+            .first()
+        )
+        if latest:
+            from .services import AIAnalysisService
+            if not AIAnalysisService()._is_stale(latest):
+                return Response({
+                    "status": latest.status,
+                    "updated_at": latest.updated_at,
+                    "is_fresh": True,
+                    "result": latest.parsed_result,
+                    "error_message": latest.error_message,
+                })
+
+        # 在派发任务前检查配置是否存在
+        has_prompt = Prompt.objects.filter(slug=analysis_type, is_active=True).exists()
+        has_llm = LLMConfig.objects.filter(is_active=True).exists()
+        if not has_prompt or not has_llm:
+            return Response(
+                {"detail": "AI 服务未配置"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        except AIConfigurationError as e:
-            return Response({"detail": str(e)}, status=503)
+
+        # 派发异步任务
+        from .tasks import run_team_insights
+        run_team_insights.delay()
+
+        # 若有旧结果则返回，否则返回 pending
+        if latest:
+            return Response({
+                "status": "running",
+                "updated_at": latest.updated_at,
+                "is_fresh": False,
+                "result": latest.parsed_result,
+                "error_message": None,
+            }, status=status.HTTP_202_ACCEPTED)
+
         return Response({
-            "status": analysis.status,
-            "updated_at": analysis.updated_at,
-            "is_fresh": analysis.status == Analysis.Status.DONE,
-            "result": analysis.parsed_result,
-            "error_message": analysis.error_message,
-        })
+            "status": "pending",
+            "updated_at": None,
+            "is_fresh": False,
+            "result": None,
+            "error_message": None,
+        }, status=status.HTTP_202_ACCEPTED)
 
 
 class InsightsRefreshView(APIView):
@@ -35,30 +69,12 @@ class InsightsRefreshView(APIView):
     queryset = Analysis.objects.none()
 
     def post(self, request):
-        analysis_type = request.data.get("type", "team_insights")
-        try:
-            analysis = AIAnalysisService()._run(
-                analysis_type, Analysis.TriggerType.MANUAL, user=request.user, data_hash=""
-            )
-        except AIConfigurationError as e:
-            return Response({"detail": str(e)}, status=503)
-        except Exception:
-            failed = Analysis.objects.filter(
-                analysis_type=analysis_type, status=Analysis.Status.FAILED
-            ).order_by("-created_at").first()
-            if failed:
-                return Response({
-                    "status": failed.status,
-                    "updated_at": failed.updated_at,
-                    "error_message": failed.error_message,
-                })
-            return Response({"detail": "分析失败"}, status=500)
+        from .tasks import refresh_team_insights
+        refresh_team_insights.delay(user_id=request.user.id)
         return Response({
-            "status": analysis.status,
-            "updated_at": analysis.updated_at,
-            "is_fresh": True,
-            "result": analysis.parsed_result,
-        })
+            "status": "pending",
+            "message": "已提交刷新请求",
+        }, status=status.HTTP_202_ACCEPTED)
 
 
 class AnalysisStatusView(APIView):
