@@ -25,3 +25,7 @@ ok
 
 <ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/docs/superpowers/specs/2026-04-09-celery-periodic-tasks-design.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
 go for it
+
+---
+
+1
