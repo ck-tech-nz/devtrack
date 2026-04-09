@@ -27,6 +27,30 @@ services:
     depends_on:
       - backend
 
+  celery-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
+    environment:
+      - REPO_CLONE_DIR=/data/repos
+    volumes:
+      - repo_data:/data/repos
+    command: celery -A config worker -l info
+    depends_on:
+      - backend
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers.DatabaseScheduler
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
   repo_data:

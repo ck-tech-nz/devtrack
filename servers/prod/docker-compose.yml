@@ -1,14 +1,14 @@
 services:
   backend:
     image: registry.aimenu.tech/devtrack/backend-prod
-    container_name: devtrack-backend-test
+    container_name: devtrack-backend
     restart: unless-stopped
     env_file:
       - .env
     volumes:
       - ./.gitconfig-proxy:/root/.gitconfig:ro
       - repo_data:/data/repos
-      - backups:/data/backups
+      - ./backups:/data/backups
     networks:
       - db-network
       - traefik-network
@@ -20,11 +20,12 @@ services:
       - "traefik.http.services.devtrack-backend.loadbalancer.server.port=8000"
     command: >
       sh -c "uv run python manage.py migrate --noinput &&
-             uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000"
+             uv run python manage.py sync_page_perms 2>/dev/null || true &&
+             uv run python manage.py runserver 0.0.0.0:8000"
 
   frontend:
     image: registry.aimenu.tech/devtrack/frontend-prod
-    container_name: devtrack-frontend-test
+    container_name: devtrack-frontend
     restart: unless-stopped
     networks:
       - db-network
@@ -39,6 +40,33 @@ services:
       - "traefik.http.services.devtrack-frontend.loadbalancer.server.port=3000"
       - "traefik.http.routers.devtrack-frontend.priority=1"
 
+  celery-worker:
+    image: registry.aimenu.tech/devtrack/backend-prod
+    container_name: devtrack-celery-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./.gitconfig-proxy:/root/.gitconfig:ro
+      - repo_data:/data/repos
+    networks:
+      - db-network
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    command: celery -A config worker -l info
+
+  celery-beat:
+    image: registry.aimenu.tech/devtrack/backend-prod
+    container_name: devtrack-celery-beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - db-network
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers.DatabaseScheduler
+
 networks:
   db-network:
     name: db-network
@@ -46,8 +74,7 @@ networks:
   traefik-network:
     name: traefik-network
     external: true
-
+      
 
 volumes:
   repo_data:
-  backups:

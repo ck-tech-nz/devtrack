@@ -31,6 +31,24 @@ services:
       - "traefik.http.routers.devtrack-frontend.entrypoints=web"
       - "traefik.http.services.devtrack-frontend.loadbalancer.server.port=3000"
 
+  celery-worker:
+    image: registry.aimenu.tech/devtrack/backend-test
+    container_name: devtrack-celery-worker-test
+    env_file:
+      - .env
+    networks:
+      - db-network
+    command: celery -A config worker -l info
+
+  celery-beat:
+    image: registry.aimenu.tech/devtrack/backend-test
+    container_name: devtrack-celery-beat-test
+    env_file:
+      - .env
+    networks:
+      - db-network
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers.DatabaseScheduler
+
 networks:
   db-network:
     name: db-network
