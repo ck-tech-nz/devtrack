@@ -32,7 +32,7 @@
           :loading="repo.clone_status === 'cloning'"
           @click="handleClone()"
         >
-          {{ repo.clone_status === 'cloned' ? '拉取更新' : '同步代码' }}
+          {{ repo.clone_status === 'cloned' ? '拉取代码' : '克隆代码' }}
         </UButton>
         <UButton
           icon="i-heroicons-arrow-path"
@@ -42,7 +42,7 @@
           :loading="syncing"
           @click="handleSync"
         >
-          同步
+          同步 Issues
         </UButton>
         <UButton
           icon="i-heroicons-information-circle"
@@ -215,7 +215,7 @@
           </div>
           <!-- Not Cloned Notice -->
           <div v-else-if="repo.clone_status !== 'cloned'" class="flex items-center justify-center py-10">
-            <div class="text-sm text-gray-400 dark:text-gray-500">请先同步代码后查看提交记录</div>
+            <div class="text-sm text-gray-400 dark:text-gray-500">请先克隆代码后查看提交记录</div>
           </div>
           <!-- Git Log Table -->
           <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -246,7 +246,7 @@
           </div>
           <!-- Not Cloned -->
           <div v-else-if="repo.clone_status !== 'cloned'" class="flex items-center justify-center py-10">
-            <div class="text-sm text-gray-400 dark:text-gray-500">请先同步代码后查看开发者洞察</div>
+            <div class="text-sm text-gray-400 dark:text-gray-500">请先克隆代码后查看开发者洞察</div>
           </div>
           <!-- Individual Detail View -->
           <div v-else-if="selectedDeveloper && developerDetail" class="space-y-4">
@@ -706,7 +706,7 @@ async function handleClone(branch?: string) {
     // Update local status to cloning and start polling
     repo.value = { ...repo.value, clone_status: 'cloning' }
     startPolling()
-    toast.add({ title: '已发起同步代码任务', color: 'success' })
+    toast.add({ title: '已发起拉取代码任务', color: 'success' })
   } catch (e: any) {
     console.error('Clone failed:', e)
     const detail = e?.data?.detail || e?.response?._data?.detail || '操作失败，请重试'
