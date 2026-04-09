@@ -20,7 +20,7 @@
     </div>
 
     <!-- 加载中 -->
-    <div v-if="pending || refreshing" class="bg-white rounded-xl border border-gray-100 p-12 text-center">
+    <div v-if="pending" class="bg-white rounded-xl border border-gray-100 p-12 text-center">
       <UIcon name="i-heroicons-cpu-chip" class="w-10 h-10 text-crystal-400 mx-auto mb-3 animate-pulse" />
       <p class="text-gray-600 font-medium">AI 正在分析数据，请稍候...</p>
       <p class="text-sm text-gray-400 mt-1">首次分析可能需要 30 秒左右</p>
@@ -125,15 +125,41 @@ const pending = ref(false)
 const error = ref<any>(null)
 const refreshing = ref(false)
 
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+
 async function fetchInsights() {
   pending.value = true
   error.value = null
   try {
     data.value = await api('/api/ai/insights/?type=team_insights')
+    if (data.value?.status === 'pending' || data.value?.status === 'running') {
+      startPolling()
+    }
   } catch (e) {
     error.value = e
   } finally {
     pending.value = false
+  }
+}
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setTimeout(async () => {
+    try {
+      data.value = await api('/api/ai/insights/?type=team_insights')
+      if (data.value?.status === 'pending' || data.value?.status === 'running') {
+        startPolling()
+      }
+    } catch (e) {
+      error.value = e
+    }
+  }, 5000)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = null
   }
 }
 
@@ -143,11 +169,12 @@ async function handleRefresh() {
   refreshing.value = true
   try {
     await api('/api/ai/insights/refresh/', { method: 'POST', body: { type: 'team_insights' } })
-    await fetchInsights()
+    startPolling()
   } finally {
     refreshing.value = false
   }
 }
 
 onMounted(fetchInsights)
+onUnmounted(stopPolling)
 </script>
