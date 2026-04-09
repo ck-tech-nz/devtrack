@@ -3,18 +3,18 @@
   "checkpoint_id": "d619d0830544",
   "session_id": "aff5d41f-930a-42ef-8bb4-1820489e061f",
   "strategy": "manual-commit",
-  "created_at": "2026-04-09T07:19:37.396333Z",
+  "created_at": "2026-04-09T07:20:22.124921Z",
   "branch": "main",
   "checkpoints_count": 1,
   "files_touched": [],
   "agent": "Claude Code",
   "turn_id": "5d15367d4b46",
   "token_usage": {
-    "input_tokens": 410,
-    "cache_creation_tokens": 83764,
-    "cache_read_tokens": 2901209,
-    "output_tokens": 28414,
-    "api_call_count": 48
+    "input_tokens": 415,
+    "cache_creation_tokens": 89804,
+    "cache_read_tokens": 3395839,
+    "output_tokens": 28940,
+    "api_call_count": 53
   },
   "session_metrics": {
     "turn_count": 6
