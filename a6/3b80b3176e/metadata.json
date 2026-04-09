@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "a63b80b3176e",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/apps/ai/opencode.py",
+    "backend/apps/ai/services.py",
+    "frontend/app/pages/app/issues/[id].vue"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a6/3b80b3176e/0/metadata.json",
+      "transcript": "/a6/3b80b3176e/0/full.jsonl",
+      "content_hash": "/a6/3b80b3176e/0/content_hash.txt",
+      "prompt": "/a6/3b80b3176e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 20,
+    "cache_creation_tokens": 45654,
+    "cache_read_tokens": 566520,
+    "output_tokens": 6056,
+    "api_call_count": 16
+  }
+}
