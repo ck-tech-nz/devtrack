@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
@@ -316,6 +317,10 @@ class IssueAnalysisService:
                 "raw_response", "parsed_result", "prompt_template",
                 "status", "updated_at",
             ])
+        except subprocess.TimeoutExpired:
+            analysis.status = Analysis.Status.FAILED
+            analysis.error_message = f"分析超时（{ANALYSIS_TIMEOUT_MINUTES} 分钟），请稍后重试"
+            analysis.save(update_fields=["status", "error_message", "updated_at"])
         except Exception as e:
             analysis.status = Analysis.Status.FAILED
             analysis.error_message = str(e)

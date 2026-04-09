@@ -118,24 +118,24 @@
           <div v-else-if="!issue.repo" class="text-sm text-gray-400 dark:text-gray-500">请先关联仓库</div>
           <div v-else-if="issueRepo?.clone_status !== 'cloned'" class="text-sm text-gray-400 dark:text-gray-500">请先同步仓库代码</div>
 
-          <!-- 分析历史 -->
-          <div v-if="analyses.length" class="space-y-2 max-h-[1248px] overflow-y-auto">
-            <div v-for="a in analyses" :key="a.id" class="rounded-lg border text-sm"
-              :class="a.status === 'failed' ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'">
+          <!-- 最新分析结果 -->
+          <div v-if="latestAnalysis" class="space-y-2">
+            <div class="rounded-lg border text-sm"
+              :class="latestAnalysis.status === 'failed' ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'">
               <div class="px-3 py-2">
                 <div class="flex items-center justify-between text-xs mb-1">
-                  <div class="flex items-center gap-1" :class="a.status === 'failed' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'">
+                  <div class="flex items-center gap-1" :class="latestAnalysis.status === 'failed' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'">
                     <UIcon name="i-heroicons-cpu-chip" class="w-3 h-3" />
-                    <span>{{ a.created_at?.slice(0, 16).replace('T', ' ') }}</span>
+                    <span>{{ latestAnalysis.created_at?.slice(0, 16).replace('T', ' ') }}</span>
                   </div>
-                  <UBadge :color="a.triggered_by === 'manual' ? 'primary' : 'neutral'" variant="subtle" size="xs">
-                    {{ a.triggered_by === 'manual' ? '手动' : '自动' }}
+                  <UBadge :color="latestAnalysis.triggered_by === 'manual' ? 'primary' : 'neutral'" variant="subtle" size="xs">
+                    {{ latestAnalysis.triggered_by === 'manual' ? '手动' : '自动' }}
                   </UBadge>
                 </div>
-                <div v-if="a.status === 'failed'" class="text-xs text-red-600 dark:text-red-400">{{ a.error_message }}</div>
-                <div v-else-if="a.status === 'running'" class="text-xs text-blue-500">分析中...</div>
-                <template v-else-if="a.results">
-                  <div v-for="(content, field) in a.results" :key="field" class="mt-1">
+                <div v-if="latestAnalysis.status === 'failed'" class="text-xs text-red-600 dark:text-red-400">{{ latestAnalysis.error_message }}</div>
+                <div v-else-if="latestAnalysis.status === 'running'" class="text-xs text-blue-500">分析中...</div>
+                <template v-else-if="latestAnalysis.results">
+                  <div v-for="(content, field) in latestAnalysis.results" :key="field" class="mt-1">
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ fieldLabel(field as string) }}</div>
                     <div class="markdown-body text-sm mt-0.5 text-gray-700 dark:text-gray-300 max-h-[840px] overflow-y-auto" v-html="renderMarkdown(content as string)"></div>
                   </div>
@@ -656,6 +656,7 @@ function fieldLabel(field: string) {
   return labels[field] || field
 }
 
+const latestAnalysis = computed(() => analyses.value[0] || null)
 const latestAiCause = computed(() => {
   const done = analyses.value.find(a => a.status === 'done' && a.results?.cause)
   return done?.results?.cause || ''

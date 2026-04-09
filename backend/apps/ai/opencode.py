@@ -54,8 +54,11 @@ class OpenCodeRunner:
                 "opencode 未安装。请设置 OPENCODE_PATH 环境变量指向 opencode 可执行文件路径。"
             )
 
+        # Pass prompt via stdin to avoid CLI argument length/escaping issues
+        # and to keep error messages clean on timeout
         result = subprocess.run(
-            [bin_path, "run", "--format", "json", "--model", model_id, prompt],
+            [bin_path, "run", "--format", "json", "--model", model_id],
+            input=prompt,
             cwd=repo_path,
             capture_output=True,
             text=True,
