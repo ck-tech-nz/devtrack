@@ -184,7 +184,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
                 user=user, issue=issue, action=action,
                 detail=f"状态从 {old_status} 改为 {new_status}",
             )
-            if new_status == "已解决" and not issue.resolved_at:
+            if new_status in ("已解决", "已关闭") and not issue.resolved_at:
                 issue.resolved_at = timezone.now()
                 issue.save(update_fields=["resolved_at"])
 

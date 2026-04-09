@@ -272,8 +272,8 @@
             </span>
           </div>
         </template>
-        <template #resolution_hours-cell="{ row }">
-          {{ row.original.resolution_hours ? row.original.resolution_hours + 'h' : '-' }}
+        <template #estimated_completion-cell="{ row }">
+          {{ row.original.estimated_completion ? row.original.estimated_completion.slice(5) : '-' }}
         </template>
         <template #github_issues-cell="{ row }">
           <div v-if="row.original.github_issues?.length" class="flex flex-wrap gap-1">
@@ -448,7 +448,7 @@ const columns = computed(() => {
     { accessorKey: 'status', header: '状态' },
     { accessorKey: 'reporter', header: '提出人' },
     { accessorKey: 'created_at', header: '历时' },
-    { accessorKey: 'resolution_hours', header: '解决耗时' },
+    { accessorKey: 'estimated_completion', header: '预计完成' },
   ]
   if (showGHColumn.value) {
     cols.push({ accessorKey: 'github_issues', header: 'GitHub Issues' })
@@ -809,7 +809,7 @@ async function checkAnalyzingIssues() {
 }
 /*
  * Issues table: fixed layout so we control column widths.
- * Columns: select | ID | 标题 | 负责人 | 原因分析 | 解决方案 | 备注 | 优先级 | 状态 | 提出人 | 历时 | 解决耗时
+ * Columns: select | ID | 标题 | 负责人 | 原因分析 | 解决方案 | 备注 | 优先级 | 状态 | 提出人 | 历时 | 预计完成
  * Narrow cols get fixed width; 标题/原因/方案 share remaining space.
  */
 .issues-table :deep(table) { table-layout: fixed; width: 100%; }
@@ -824,5 +824,5 @@ async function checkAnalyzingIssues() {
 .issues-table :deep(:is(th, td):nth-child(9)) { width: 5.5%; }   /* 状态 */
 .issues-table :deep(:is(th, td):nth-child(10)) { width: 6%; }    /* 提出人 */
 .issues-table :deep(:is(th, td):nth-child(11)) { width: 7%; }    /* 历时 */
-.issues-table :deep(:is(th, td):nth-child(12)) { width: 5%; }    /* 解决耗时 */
+.issues-table :deep(:is(th, td):nth-child(12)) { width: 5%; }    /* 预计完成 */
 </style>
