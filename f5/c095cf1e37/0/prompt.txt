@@ -1,0 +1,6 @@
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/frontend/app/pages/app/issues/index.vue in the IDE. This may or may not be related to the current task.</ide_opened_file>
+- 修改提示词/代码逻辑,避免再次出现:
+```
+Command '['/root/.opencode/bin/opencode', 'run', '--format', 'json', '--model', 'deepseek/deepseek-chat', '你是代码分析专家。分析代码仓库，返回JSON（不含markdown标记）：\n{"cause": "根因分析", "solution": "IDE可执行的修改指令"}\n\n规则：\n- cause：1-3句话说清根因，引用具体文件路径和行号\n- solution：写成可以直接复制粘贴到IDE（如Claude Code）执行的修改提示词。用自然语言指令说清：改哪些文件、改什么、怎么改。不要贴代码片段\n- 用中文\n\n问题: 部分功能页面在租户管理员账号可看到系统全局数据，需调整\n描述: 1.处置计划-调度监控 https://agent.matrixai.xin/plan-scheduler 所有功能可看到全局数据\n2.数据分析-费用账单https://agent.matrixai.xin/billing 所有功能可看到全局数据 总费用 智能体费用数据不准确\n优先级: P2\n标签: Bug']' timed out after 600 seconds
+```
+- 多次分析的只需要展示最后一次分析结果
