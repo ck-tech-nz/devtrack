@@ -1,4 +1,4 @@
-FROM node:22-slim AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM node:22-slim
+FROM node:24-alpine
 
 WORKDIR /app
 
