@@ -1,0 +1,125 @@
+/ckm:ui-styling
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/deploy/test/.env in the IDE. This may or may not be related to the current task.</ide_opened_file>
+help me build a home page.
+
+---
+
+yes
+
+---
+
+C
+
+---
+
+A
+
+---
+
+D
+
+---
+
+1,2,3,4,5
+
+---
+
+B
+
+---
+
+it's not showing
+
+---
+
+B
+
+---
+
+A
+
+---
+
+yes
+
+---
+
+yes
+
+---
+
+good
+
+---
+
+go for it
+
+---
+
+1
+
+---
+
+如果用户属于测试组,
+那么它的待办是所有以它为负责人的问题+所有"已完成" 但未关闭的问题.
+你可以写个专门的函数用来给 测试组的用户检索:”我的待办”
+
+---
+
+有详情页的都应该可以点进去看
+
+---
+
+cool, 截图,做一个release note 通知
+
+---
+
+user:ck
+pwd:dwjmck
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/.gitignore in the IDE. This may or may not be related to the current task.</ide_opened_file>
+把这个截图,做一个release note 通知,整理成 release notification skill custom command
+测试账号:test
+密码:password123
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/.claude/commands/release-notification.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+command 里的测试账号 test/password123 我改好了,你可以再试试
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/frontend/app/pages/app/profile.vue in the IDE. This may or may not be related to the current task.</ide_opened_file>
+OK commit
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/.claude/commands/release-notification.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+里面的账号密码没改,amend commit
+
+---
+
+commit the rest change
+
+---
+
+why I see this
+
+---
+
+remove the git cache
+
+---
+
+fix :
+
+---
+
+1. merge the origin main
+2. squash current main to 1 commit 
+3. push
