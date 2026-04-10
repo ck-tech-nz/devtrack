@@ -1,0 +1,72 @@
+/ckm:ui-styling
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/deploy/test/.env in the IDE. This may or may not be related to the current task.</ide_opened_file>
+help me build a home page.
+
+---
+
+yes
+
+---
+
+C
+
+---
+
+A
+
+---
+
+D
+
+---
+
+1,2,3,4,5
+
+---
+
+B
+
+---
+
+it's not showing
+
+---
+
+B
+
+---
+
+A
+
+---
+
+yes
+
+---
+
+yes
+
+---
+
+good
+
+---
+
+go for it
+
+---
+
+1
+
+---
+
+如果用户属于测试组,
+那么它的待办是所有以它为负责人的问题+所有"已完成" 但未关闭的问题.
+你可以写个专门的函数用来给 测试组的用户检索:”我的待办”
+
+---
+
+有详情页的都应该可以点进去看
