@@ -1,0 +1,38 @@
+/ckm:ui-styling
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/deploy/test/.env in the IDE. This may or may not be related to the current task.</ide_opened_file>
+help me build a home page.
+
+---
+
+yes
+
+---
+
+C
+
+---
+
+A
+
+---
+
+D
+
+---
+
+1,2,3,4,5
+
+---
+
+B
+
+---
+
+it's not showing
+
+---
+
+B
