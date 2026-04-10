@@ -19,6 +19,7 @@ staticfiles/
 # Local tool data
 .entire/
 .claude/settings.local.json
+.gstack/
 
 # DB backups
 .backups/

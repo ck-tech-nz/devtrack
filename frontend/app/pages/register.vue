@@ -47,7 +47,7 @@
 
     <p class="text-center text-sm text-gray-500 mt-4">
       已有账号？
-      <NuxtLink to="/" class="text-crystal-500 hover:text-crystal-700 font-medium">返回登录</NuxtLink>
+      <NuxtLink to="/login" class="text-crystal-500 hover:text-crystal-700 font-medium">返回登录</NuxtLink>
     </p>
     <p class="text-center text-xs text-gray-400 mt-6">&copy; 2026 DevTrakr 项目管理平台</p>
   </div>
@@ -105,7 +105,7 @@ async function handleRegister() {
       method: 'POST',
       body: form.value,
     })
-    await navigateTo('/?registered=1')
+    await navigateTo('/login?registered=1')
   } catch (e: any) {
     const data = e?.data || e?.response?._data
     if (data && typeof data === 'object' && !Array.isArray(data)) {

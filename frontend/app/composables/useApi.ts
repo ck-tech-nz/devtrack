@@ -24,7 +24,7 @@ export function useApi() {
       return data.access
     } catch {
       clearTokens()
-      navigateTo('/')
+      navigateTo('/login')
       return null
     }
   }

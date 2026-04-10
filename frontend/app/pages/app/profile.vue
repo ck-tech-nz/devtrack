@@ -43,8 +43,8 @@
       <div class="pt-4 border-t border-gray-100 dark:border-gray-800">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">修改密码</h3>
         <div class="space-y-3">
-          <UFormField label="当前密码">
-            <UInput v-model="pw.current" type="password" placeholder="请输入当前密码" size="lg" class="w-full" />
+          <UFormField label="当前密码" :error="pwError">
+            <UInput v-model="pw.current" type="password" placeholder="请输入当前密码" size="lg" class="w-full" :color="pwError ? 'error' : undefined" />
           </UFormField>
           <div class="grid grid-cols-2 gap-4">
             <UFormField label="新密码">
@@ -111,6 +111,7 @@ const { settings } = useUserSettings()
 
 const saving = ref(false)
 const error = ref('')
+const pwError = ref('')
 const success = ref('')
 const generatingName = ref(false)
 const generatedNames = ref<string[]>([])
@@ -151,19 +152,28 @@ watch(settings, (s) => {
 async function handleSave() {
   saving.value = true
   error.value = ''
+  pwError.value = ''
   success.value = ''
   try {
+    if (pw.value.new_password || pw.value.confirm) {
+      if (!pw.value.current) {
+        pwError.value = '请输入当前密码'
+        saving.value = false
+        return
+      }
+      if (pw.value.new_password !== pw.value.confirm) {
+        pwError.value = '两次新密码输入不一致'
+        saving.value = false
+        return
+      }
+    }
+
     await api('/api/auth/me/', {
       method: 'PATCH',
       body: { name: form.value.name, email: form.value.email, avatar: form.value.avatar, settings: settingsForm.value },
     })
 
-    if (pw.value.current && pw.value.new_password) {
-      if (pw.value.new_password !== pw.value.confirm) {
-        error.value = '两次新密码输入不一致'
-        saving.value = false
-        return
-      }
+    if (pw.value.new_password || pw.value.confirm) {
       await api('/api/auth/me/change-password/', {
         method: 'POST',
         body: {
