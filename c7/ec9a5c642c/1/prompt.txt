@@ -79,3 +79,10 @@ cool, 截图,做一个release note 通知
 
 user:ck
 pwd:dwjmck
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/.gitignore in the IDE. This may or may not be related to the current task.</ide_opened_file>
+把这个截图,做一个release note 通知,整理成 release notification skill custom command
+测试账号:test
+密码:password123
