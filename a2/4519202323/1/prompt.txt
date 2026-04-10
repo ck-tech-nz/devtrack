@@ -96,3 +96,8 @@ command 里的测试账号 test/password123 我改好了,你可以再试试
 
 <ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/frontend/app/pages/app/profile.vue in the IDE. This may or may not be related to the current task.</ide_opened_file>
 OK commit
+
+---
+
+<ide_opened_file>The user opened the file /Users/ck/Git/matrix/devtrack/.claude/commands/release-notification.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+里面的账号密码没改,amend commit
