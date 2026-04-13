@@ -4,7 +4,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const { getToken } = useApi()
   if (!getToken()) {
-    return navigateTo('/')
+    return navigateTo('/login')
   }
 
   const { user, fetchMe, can } = useAuth()
@@ -15,7 +15,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!user.value) {
-    return navigateTo('/')
+    return navigateTo('/login')
   }
 
   if (!loaded.value) {

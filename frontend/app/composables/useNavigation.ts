@@ -43,13 +43,16 @@ export const useNavigation = () => {
       }))
   })
 
+  const homeItem: NavItem = { label: '工作台', icon: 'i-heroicons-home', to: '/app/home' }
+
   const filteredNavItems = computed(() => {
     if (!user.value) return []
-    return navItems.value.filter(item => {
+    const items = navItems.value.filter(item => {
       if (item.meta?.superuserOnly && !user.value?.is_superuser) return false
       if (item.permission && !can(item.permission)) return false
       return true
     })
+    return [homeItem, ...items]
   })
 
   // Grouped nav: items belonging to a GROUP_DEF are collapsed under a parent entry.
@@ -90,7 +93,7 @@ export const useNavigation = () => {
 
   const breadcrumbs = computed(() => {
     const path = route.path
-    const crumbs: { label: string; to?: string }[] = [{ label: '首页', to: '/app/issues' }]
+    const crumbs: { label: string; to?: string }[] = [{ label: '首页', to: '/app/home' }]
 
     // 独立页面直接返回页面标题，不显示"首页"面包屑
     const standaloneName = standalonePages[path]

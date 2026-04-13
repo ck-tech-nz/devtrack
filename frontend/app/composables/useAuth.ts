@@ -34,7 +34,7 @@ export function useAuth() {
   function logout() {
     clearTokens()
     user.value = null
-    navigateTo('/')
+    navigateTo('/login')
   }
 
   return { user, fetchMe, can, hasGroup, logout }
