@@ -143,7 +143,6 @@ async function fetchUserSuggestions(query: string) {
   const q = query.toLowerCase()
   return userCache
     .filter(u => u.name.toLowerCase().includes(q))
-    .slice(0, 8)
     .map(u => ({ id: u.id, label: u.name }))
 }
 
