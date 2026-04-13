@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevTrakr — MATRIXAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;600;800&family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============ BASE ============ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Noto Sans SC","Unbounded",sans-serif;
+  background:#050a18;
+  color:#e2e8f0;
+  overflow-x:hidden;
+  line-height:1.6;
+  font-weight:300;
+  letter-spacing:0.01em;
+  min-height:100vh;
+}
+:root{
+  --bg-0:#050a18;
+  --bg-1:#081325;
+  --bg-2:#0c1a33;
+  --ink-0:#f0faff;
+  --ink-1:#e2e8f0;
+  --ink-2:#94a3b8;
+  --ink-3:#475569;
+  --cyan:#22d3ee;
+  --cyan-bright:#67e8f9;
+  --cyan-deep:#0891b2;
+  --teal:#14b8a6;
+  --amber:#fbbf24;
+  --grid-line:rgba(34,211,238,0.06);
+  --glow-cyan:rgba(34,211,238,0.35);
+  --max-w:1280px;
+}
+::selection{background:var(--cyan);color:var(--bg-0)}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+/* ============ GLOBAL BG ============ */
+.bg-field{
+  position:fixed;inset:0;z-index:-2;
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 10%, rgba(34,211,238,0.15), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 20% 80%, rgba(14,116,144,0.2), transparent 60%),
+    linear-gradient(180deg,#050a18 0%, #020611 100%);
+}
+.bg-grid{
+  position:fixed;inset:0;z-index:-1;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+  animation:gridDrift 60s linear infinite;
+}
+@keyframes gridDrift{
+  from{background-position:0 0,0 0}
+  to{background-position:60px 60px,60px 60px}
+}
+.noise{
+  position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:0.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============ NAV ============ */
+nav.top{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:22px 48px;
+  display:flex;align-items:center;justify-content:space-between;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  background:linear-gradient(180deg,rgba(5,10,24,0.85),rgba(5,10,24,0.4));
+  border-bottom:1px solid rgba(34,211,238,0.08);
+}
+.brand{
+  font-family:"Unbounded",sans-serif;
+  font-weight:800;
+  font-size:15px;
+  letter-spacing:0.22em;
+  color:var(--ink-0);
+  display:flex;align-items:center;gap:10px;
+}
+.brand::before{
+  content:"";
+  width:8px;height:8px;
+  background:var(--cyan);
+  border-radius:1px;
+  box-shadow:0 0 12px var(--glow-cyan);
+  animation:pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.6;transform:scale(0.85)}
+}
+.nav-links{
+  display:flex;gap:44px;
+  font-size:13px;
+  font-weight:400;
+  letter-spacing:0.06em;
+  color:var(--ink-2);
+}
+.nav-links a{
+  position:relative;
+  transition:color 0.25s ease;
+}
+.nav-links a:hover{color:var(--cyan-bright)}
+.nav-links a::after{
+  content:"";
+  position:absolute;left:0;bottom:-6px;
+  width:0;height:1px;background:var(--cyan);
+  transition:width 0.3s ease;
+}
+.nav-links a:hover::after{width:100%}
+
+.lang-switch{
+  display:flex;align-items:center;
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;letter-spacing:0.1em;
+  border:1px solid rgba(148,163,184,0.18);
+  border-radius:2px;
+  padding:2px;
+}
+.lang-switch button{
+  padding:6px 12px;
+  color:var(--ink-3);
+  transition:all 0.2s ease;
+  border-radius:1px;
+}
+.lang-switch button.active{
+  background:var(--cyan);
+  color:var(--bg-0);
+  font-weight:600;
+}
+
+/* ============ SECTIONS ============ */
+section{position:relative;padding:120px 48px}
+.wrap{max-width:var(--max-w);margin:0 auto;position:relative;z-index:2}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;letter-spacing:0.2em;
+  color:var(--cyan);
+  text-transform:uppercase;
+  margin-bottom:24px;
+}
+.eyebrow::before{
+  content:"";
+  width:28px;height:1px;
+  background:var(--cyan);
+}
+h2.section-title{
+  font-family:"Unbounded",sans-serif;
+  font-weight:300;
+  font-size:clamp(36px,4.5vw,56px);
+  line-height:1.05;
+  letter-spacing:-0.02em;
+  color:var(--ink-0);
+  margin-bottom:24px;
+  max-width:850px;
+}
+h2.section-title em{
+  font-style:normal;
+  color:var(--cyan-bright);
+  font-weight:400;
+  background:linear-gradient(180deg,var(--cyan-bright),var(--cyan));
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+p.section-sub{
+  font-size:17px;line-height:1.7;
+  color:var(--ink-2);
+  max-width:680px;
+  font-weight:300;
+}
+
+/* ============ HERO ============ */
+.hero{
+  min-height:100vh;
+  padding:140px 48px 80px;
+  display:flex;align-items:center;
+  position:relative;overflow:hidden;
+}
+.hero-wrap{
+  max-width:var(--max-w);margin:0 auto;width:100%;
+  display:grid;grid-template-columns:1.1fr 1fr;gap:60px;align-items:center;
+  position:relative;z-index:3;
+}
+.hero-copy .tagline{
+  font-family:"JetBrains Mono",monospace;
+  font-size:12px;letter-spacing:0.24em;
+  color:var(--cyan);text-transform:uppercase;
+  margin-bottom:32px;
+  display:flex;align-items:center;gap:12px;
+}
+.hero-copy .tagline .dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 10px var(--cyan);
+  animation:pulse 2s ease-in-out infinite;
+}
+.hero-title{
+  font-family:"Unbounded",sans-serif;
+  font-weight:800;
+  font-size:clamp(72px,11vw,148px);
+  line-height:0.88;
+  letter-spacing:-0.04em;
+  color:var(--ink-0);
+  margin-bottom:36px;
+  position:relative;
+}
+.hero-title::after{
+  content:"_";
+  color:var(--cyan);
+  font-weight:300;
+  animation:blink 1.2s step-start infinite;
+}
+@keyframes blink{
+  50%{opacity:0}
+}
+.hero-sub{
+  font-size:18px;
+  line-height:1.7;
+  color:var(--ink-1);
+  max-width:520px;
+  margin-bottom:48px;
+  font-weight:300;
+}
+.hero-sub strong{
+  color:var(--cyan-bright);
+  font-weight:500;
+}
+.hero-ctas{
+  display:flex;gap:20px;align-items:center;flex-wrap:wrap;
+}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:14px;
+  padding:16px 32px;
+  background:var(--cyan);
+  color:var(--bg-0);
+  font-family:"Unbounded",sans-serif;
+  font-weight:600;font-size:14px;
+  letter-spacing:0.05em;
+  border-radius:2px;
+  transition:all 0.3s cubic-bezier(.2,.9,.3,1);
+  position:relative;overflow:hidden;
+}
+.btn-primary::before{
+  content:"";position:absolute;inset:0;
+  background:var(--cyan-bright);
+  transform:translateX(-101%);
+  transition:transform 0.4s cubic-bezier(.2,.9,.3,1);
+}
+.btn-primary span,.btn-primary svg{position:relative;z-index:2}
+.btn-primary:hover::before{transform:translateX(0)}
+.btn-primary svg{transition:transform 0.3s ease}
+.btn-primary:hover svg{transform:translate(4px,-4px)}
+
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:16px 0;
+  color:var(--ink-2);
+  font-family:"JetBrains Mono",monospace;
+  font-size:12px;letter-spacing:0.16em;
+  text-transform:uppercase;
+  transition:color 0.3s ease;
+}
+.btn-ghost:hover{color:var(--cyan-bright)}
+.btn-ghost .bar{
+  width:36px;height:1px;background:currentColor;
+  transition:width 0.3s ease;
+}
+.btn-ghost:hover .bar{width:56px}
+
+/* Hero visual — floating code panel */
+.hero-visual{
+  position:relative;height:520px;
+  perspective:1400px;
+}
+.panel{
+  position:absolute;
+  background:linear-gradient(145deg,rgba(12,26,51,0.85),rgba(5,10,24,0.7));
+  border:1px solid rgba(34,211,238,0.2);
+  border-radius:4px;
+  backdrop-filter:blur(10px);
+  box-shadow:
+    0 30px 60px -20px rgba(0,0,0,0.6),
+    0 0 60px -20px var(--glow-cyan),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  overflow:hidden;
+}
+.panel::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:28px;
+  background:linear-gradient(180deg,rgba(34,211,238,0.08),transparent);
+  border-bottom:1px solid rgba(34,211,238,0.1);
+}
+.panel .dots{
+  position:absolute;top:10px;left:12px;display:flex;gap:5px;
+}
+.panel .dots span{
+  width:8px;height:8px;border-radius:50%;
+  background:rgba(148,163,184,0.3);
+}
+.panel .dots span:first-child{background:var(--cyan)}
+.panel .ptitle{
+  position:absolute;top:8px;right:14px;
+  font-family:"JetBrains Mono",monospace;font-size:10px;
+  color:var(--ink-3);letter-spacing:0.08em;
+}
+.panel .pbody{
+  padding:44px 20px 20px;
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;line-height:1.8;
+  color:var(--ink-2);
+}
+.panel .kw{color:#c084fc}
+.panel .str{color:#fde68a}
+.panel .fn{color:var(--cyan-bright)}
+.panel .cm{color:var(--ink-3);font-style:italic}
+
+.p1{
+  top:20px;left:0;width:320px;height:200px;
+  transform:rotateY(-8deg) rotateX(4deg);
+  animation:float1 8s ease-in-out infinite;
+}
+.p2{
+  top:120px;right:0;width:300px;height:220px;
+  transform:rotateY(6deg) rotateX(-2deg);
+  animation:float2 10s ease-in-out infinite;
+  border-color:rgba(34,211,238,0.3);
+}
+.p3{
+  bottom:30px;left:80px;width:340px;height:180px;
+  transform:rotateY(-4deg) rotateX(6deg);
+  animation:float3 9s ease-in-out infinite;
+}
+@keyframes float1{
+  0%,100%{transform:rotateY(-8deg) rotateX(4deg) translateY(0)}
+  50%{transform:rotateY(-8deg) rotateX(4deg) translateY(-14px)}
+}
+@keyframes float2{
+  0%,100%{transform:rotateY(6deg) rotateX(-2deg) translateY(0)}
+  50%{transform:rotateY(6deg) rotateX(-2deg) translateY(-18px)}
+}
+@keyframes float3{
+  0%,100%{transform:rotateY(-4deg) rotateX(6deg) translateY(0)}
+  50%{transform:rotateY(-4deg) rotateX(6deg) translateY(-10px)}
+}
+
+/* scanline */
+.panel::after{
+  content:"";position:absolute;left:0;right:0;top:0;height:60px;
+  background:linear-gradient(180deg,transparent,rgba(34,211,238,0.08),transparent);
+  animation:scan 4s linear infinite;
+}
+@keyframes scan{
+  from{transform:translateY(-60px)}
+  to{transform:translateY(220px)}
+}
+
+/* hero status strip */
+.hero-status{
+  position:absolute;left:48px;right:48px;bottom:40px;
+  display:flex;justify-content:space-between;
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;letter-spacing:0.14em;
+  color:var(--ink-3);text-transform:uppercase;
+  z-index:3;
+  max-width:var(--max-w);margin:0 auto;
+  padding:16px 0 0;
+  border-top:1px solid rgba(34,211,238,0.08);
+}
+.hero-status span strong{color:var(--cyan-bright);font-weight:500}
+
+/* ============ VALUE LINES ============ */
+.values{padding:140px 48px;position:relative}
+.value-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1px;
+  background:rgba(34,211,238,0.08);
+  border:1px solid rgba(34,211,238,0.08);
+  margin-top:72px;
+}
+.value-cell{
+  background:var(--bg-0);
+  padding:56px 48px;
+  position:relative;
+  transition:background 0.4s ease;
+}
+.value-cell:hover{background:var(--bg-1)}
+.value-cell .num{
+  font-family:"Unbounded",sans-serif;
+  font-weight:300;
+  font-size:14px;
+  color:var(--cyan);
+  letter-spacing:0.3em;
+  margin-bottom:28px;
+  display:flex;align-items:center;gap:14px;
+}
+.value-cell .num::after{
+  content:"";
+  flex:1;height:1px;
+  background:linear-gradient(90deg,var(--cyan),transparent);
+}
+.value-cell h3{
+  font-family:"Unbounded",sans-serif;
+  font-weight:400;
+  font-size:28px;
+  line-height:1.2;
+  color:var(--ink-0);
+  margin-bottom:20px;
+  letter-spacing:-0.01em;
+}
+.value-cell p{
+  color:var(--ink-2);
+  font-size:15px;
+  line-height:1.75;
+  font-weight:300;
+}
+.value-cell .tag{
+  display:inline-block;
+  margin-top:24px;
+  padding:6px 12px;
+  background:rgba(34,211,238,0.08);
+  border:1px solid rgba(34,211,238,0.2);
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;letter-spacing:0.14em;
+  color:var(--cyan-bright);text-transform:uppercase;
+  border-radius:2px;
+}
+
+/* ============ FLOW ============ */
+.flow{padding:140px 48px;background:linear-gradient(180deg,transparent,rgba(8,19,37,0.5))}
+.flow-line{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:0;
+  margin-top:80px;
+  position:relative;
+}
+.flow-line::before{
+  content:"";
+  position:absolute;left:10%;right:10%;top:28px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  z-index:1;
+}
+.flow-step{
+  text-align:center;position:relative;padding:0 16px;
+}
+.flow-step .node{
+  width:56px;height:56px;
+  background:var(--bg-0);
+  border:1px solid var(--cyan);
+  border-radius:50%;
+  margin:0 auto 24px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;
+  font-size:14px;font-weight:500;
+  color:var(--cyan-bright);
+  position:relative;z-index:2;
+  box-shadow:0 0 20px rgba(34,211,238,0.15), inset 0 0 20px rgba(34,211,238,0.08);
+}
+.flow-step .node::before,.flow-step .node::after{
+  content:"";position:absolute;
+  width:100%;height:100%;
+  border:1px solid rgba(34,211,238,0.2);
+  border-radius:50%;
+  animation:ring 3s ease-out infinite;
+}
+.flow-step .node::after{animation-delay:1.5s}
+@keyframes ring{
+  0%{transform:scale(1);opacity:0.6}
+  100%{transform:scale(2.2);opacity:0}
+}
+.flow-step h4{
+  font-family:"Unbounded",sans-serif;
+  font-weight:500;font-size:14px;
+  color:var(--ink-0);
+  margin-bottom:10px;
+  letter-spacing:0.02em;
+}
+.flow-step p{
+  font-size:12px;color:var(--ink-3);
+  font-family:"JetBrains Mono",monospace;
+  letter-spacing:0.08em;
+}
+
+/* ============ CAPABILITIES ============ */
+.caps{padding:140px 48px;position:relative;background:linear-gradient(180deg,transparent,rgba(8,19,37,0.4),transparent)}
+.cap-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+  margin-top:72px;
+}
+.cap-card{
+  position:relative;
+  padding:44px 36px 40px;
+  background:linear-gradient(180deg,rgba(12,26,51,0.55),rgba(5,10,24,0.4));
+  border:1px solid rgba(34,211,238,0.12);
+  border-radius:3px;
+  overflow:hidden;
+  transition:all 0.4s cubic-bezier(.2,.9,.3,1);
+}
+.cap-card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:0.3;
+  transition:opacity 0.4s ease;
+}
+.cap-card:hover{
+  border-color:rgba(34,211,238,0.4);
+  transform:translateY(-6px);
+  box-shadow:0 20px 60px -20px rgba(34,211,238,0.2);
+}
+.cap-card:hover::before{opacity:1}
+.cap-card:hover .cap-glyph{color:var(--cyan-bright);transform:rotate(-6deg) scale(1.08)}
+
+.cap-glyph{
+  width:52px;height:52px;
+  color:var(--cyan);
+  margin-bottom:28px;
+  transition:all 0.5s cubic-bezier(.2,.9,.3,1);
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(34,211,238,0.25);
+  border-radius:2px;
+  background:rgba(34,211,238,0.04);
+}
+.cap-card .cap-id{
+  position:absolute;top:20px;right:24px;
+  font-family:"JetBrains Mono",monospace;
+  font-size:10px;
+  color:var(--ink-3);
+  letter-spacing:0.14em;
+}
+.cap-card h3{
+  font-family:"Unbounded",sans-serif;
+  font-weight:400;font-size:22px;
+  line-height:1.25;
+  color:var(--ink-0);
+  margin-bottom:16px;
+  letter-spacing:-0.01em;
+}
+.cap-card p{
+  font-size:14px;
+  color:var(--ink-2);
+  line-height:1.7;
+  font-weight:300;
+  margin-bottom:24px;
+}
+.cap-card ul{
+  list-style:none;
+  border-top:1px dashed rgba(34,211,238,0.15);
+  padding-top:18px;
+}
+.cap-card ul li{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;letter-spacing:0.06em;
+  color:var(--ink-3);
+  padding:5px 0;
+  display:flex;align-items:center;gap:10px;
+}
+.cap-card ul li::before{
+  content:"▸";color:var(--cyan);font-size:10px;
+}
+
+/* ============ PAIN ============ */
+.pain{padding:140px 48px}
+.pain-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:24px;
+  margin-top:64px;
+}
+.pain-card{
+  padding:40px 28px;
+  background:linear-gradient(180deg,rgba(12,26,51,0.3),transparent);
+  border:1px solid rgba(148,163,184,0.1);
+  border-radius:2px;
+  position:relative;
+  transition:all 0.3s ease;
+}
+.pain-card:hover{
+  border-color:rgba(34,211,238,0.3);
+  transform:translateY(-4px);
+}
+.pain-card .strike{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;letter-spacing:0.12em;
+  color:#64748b;
+  text-decoration:line-through;
+  text-decoration-color:rgba(239,68,68,0.6);
+  margin-bottom:16px;
+}
+.pain-card h4{
+  font-family:"Unbounded",sans-serif;
+  font-weight:400;font-size:18px;
+  color:var(--ink-0);
+  margin-bottom:14px;
+  letter-spacing:-0.01em;
+}
+.pain-card p{
+  font-size:13px;color:var(--ink-2);line-height:1.6;
+  font-weight:300;
+}
+
+/* ============ CTA ============ */
+.cta-section{
+  padding:160px 48px;
+  position:relative;
+  text-align:center;
+  overflow:hidden;
+}
+.cta-section::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 60% at center, rgba(34,211,238,0.12), transparent 70%);
+}
+.cta-section .wrap{position:relative}
+.cta-section h2{
+  font-family:"Unbounded",sans-serif;
+  font-weight:300;
+  font-size:clamp(44px,6vw,80px);
+  line-height:1;
+  letter-spacing:-0.03em;
+  color:var(--ink-0);
+  margin-bottom:32px;
+}
+.cta-section h2 em{
+  font-style:italic;
+  font-weight:800;
+  background:linear-gradient(135deg,var(--cyan-bright),var(--cyan));
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.cta-section p{
+  color:var(--ink-2);
+  font-size:17px;max-width:600px;margin:0 auto 48px;
+}
+.cta-buttons{display:flex;gap:20px;justify-content:center;flex-wrap:wrap}
+
+/* ============ FOOTER ============ */
+footer{
+  padding:48px;
+  border-top:1px solid rgba(34,211,238,0.08);
+  font-family:"JetBrains Mono",monospace;
+  font-size:12px;
+  color:var(--ink-3);
+  letter-spacing:0.08em;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;
+}
+footer .links{display:flex;gap:28px}
+footer .links a{transition:color 0.2s ease}
+footer .links a:hover{color:var(--cyan)}
+
+/* ============ LANG TOGGLE ============ */
+[data-lang="zh"] .en{display:none}
+[data-lang="en"] .zh{display:none}
+[data-lang="en"] body{font-family:"Unbounded","Noto Sans SC",sans-serif}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:960px){
+  nav.top{padding:18px 24px}
+  .nav-links{display:none}
+  section,.hero{padding-left:24px;padding-right:24px}
+  .hero{padding-top:120px}
+  .hero-wrap{grid-template-columns:1fr;gap:40px}
+  .hero-visual{height:360px}
+  .p1,.p2,.p3{transform:none !important;animation:none}
+  .p1{width:80%;left:5%}
+  .p2{width:70%;right:5%;top:140px}
+  .p3{width:75%;left:10%;bottom:10px}
+  .value-grid,.pain-grid,.cap-grid{grid-template-columns:1fr}
+  .flow-line{grid-template-columns:1fr;gap:40px}
+  .flow-line::before{display:none}
+  .hero-status{position:static;flex-direction:column;gap:8px;margin-top:40px}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-field"></div>
+<div class="bg-grid"></div>
+<div class="noise"></div>
+
+<!-- ===== NAV ===== -->
+<nav class="top">
+  <div class="brand">MATRIXAI</div>
+  <div class="nav-links">
+    <a href="#product"><span class="zh">产品</span><span class="en">Product</span></a>
+    <a href="#api"><span class="zh">API</span><span class="en">API</span></a>
+    <a href="#llm"><span class="zh">大模型</span><span class="en">Models</span></a>
+    <a href="#about"><span class="zh">关于我们</span><span class="en">About</span></a>
+  </div>
+  <div class="lang-switch" id="langSwitch">
+    <button data-lang="en">EN</button>
+    <button data-lang="zh" class="active">中文</button>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-wrap">
+    <div class="hero-copy">
+      <div class="tagline">
+        <span class="dot"></span>
+        <span class="zh">MATRIXAI · 产品线</span>
+        <span class="en">MATRIXAI · PRODUCT SUITE</span>
+      </div>
+      <h1 class="hero-title">DevTrakr</h1>
+      <p class="hero-sub">
+        <span class="zh">AI 驱动的研发项目管理平台。将 <strong>Issue 分析</strong>、<strong>GitHub 上下文</strong>、<strong>自动化测试</strong> 与 <strong>团队治理</strong> 整合至同一工作台,让研发过程既高效又可控。</span>
+        <span class="en">AI-native research & engineering platform. Unify <strong>issue analysis</strong>, <strong>GitHub context</strong>, <strong>automated testing</strong>, and <strong>team governance</strong> into one operational cockpit.</span>
+      </p>
+      <div class="hero-ctas">
+        <a class="btn-primary" href="#values">
+          <span class="zh">了解更多</span>
+          <span class="en">Explore</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 13L13 3M13 3H6M13 3V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/></svg>
+        </a>
+        <a class="btn-ghost" href="#cta">
+          <span class="bar"></span>
+          <span class="zh">预约演示</span>
+          <span class="en">Book a demo</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="panel p1">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="ptitle">ISS-4821.md</div>
+        <div class="pbody">
+          <div><span class="cm">// AI root-cause analysis</span></div>
+          <div><span class="kw">scope</span>: <span class="str">"auth/session"</span></div>
+          <div><span class="kw">severity</span>: <span class="fn">P1</span></div>
+          <div><span class="kw">linked_pr</span>: <span class="str">#3419</span></div>
+          <div><span class="cm">// 3 candidate fixes →</span></div>
+        </div>
+      </div>
+      <div class="panel p2">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="ptitle">repo/sync.log</div>
+        <div class="pbody">
+          <div><span class="fn">✓</span> commit.synced <span class="cm">: 48ms</span></div>
+          <div><span class="fn">✓</span> pr.linked <span class="cm">: ISS-4821</span></div>
+          <div><span class="fn">✓</span> ci.report <span class="cm">: 212/214</span></div>
+          <div><span class="fn">▸</span> ai.review <span class="cm">: queued</span></div>
+          <div><span class="kw">coverage</span>: <span class="str">"+2.4%"</span></div>
+          <div><span class="kw">velocity</span>: <span class="str">"↑ 18%"</span></div>
+        </div>
+      </div>
+      <div class="panel p3">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="ptitle">insights.view</div>
+        <div class="pbody">
+          <div><span class="cm">// team bottleneck report</span></div>
+          <div><span class="kw">bottleneck</span> → <span class="fn">code_review</span></div>
+          <div><span class="kw">avg_wait</span>: <span class="str">"14h"</span></div>
+          <div><span class="kw">suggest</span>: <span class="str">"rotate reviewers"</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-status">
+    <span><span class="zh">系统状态</span><span class="en">SYSTEM</span> · <strong>ONLINE</strong></span>
+    <span>v2.14.3 · <span class="zh">核心流程稳定</span><span class="en">STABLE CORE</span></span>
+    <span><span class="zh">实时同步</span><span class="en">REALTIME SYNC</span> · <strong>48ms</strong></span>
+  </div>
+</section>
+
+<!-- ===== VALUES ===== -->
+<section class="values" id="values">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span class="zh">四条主价值线</span><span class="en">Four core value lines</span>
+    </div>
+    <h2 class="section-title">
+      <span class="zh">不只是任务看板 — 是<em>研发问题处理中枢</em>。</span>
+      <span class="en">Not a board. A <em>research operations cockpit</em>.</span>
+    </h2>
+    <p class="section-sub">
+      <span class="zh">DevTrakr 把问题从被提出,推进到被分析、被处理、被解决,最后被沉淀,形成闭环。</span>
+      <span class="en">DevTrakr moves an issue from report → analysis → resolution → retrospective — in one continuous loop.</span>
+    </p>
+
+    <div class="value-grid">
+      <div class="value-cell">
+        <div class="num">01 / 04</div>
+        <h3 class="zh">Issue 闭环管理</h3>
+        <h3 class="en">Closed-loop issues</h3>
+        <p class="zh">问题从创建、分派、分析、处理到复盘,全流程都在一个系统内完成。看板、列表双视图,筛选、排序、批量操作一气呵成。</p>
+        <p class="en">From creation → triage → analysis → resolution → retrospective in a single system. Board & list views, filtering, bulk ops — all of it, in flow.</p>
+        <span class="tag">workbench · triage · closure</span>
+      </div>
+      <div class="value-cell">
+        <div class="num">02 / 04</div>
+        <h3 class="zh">研发上下文联动</h3>
+        <h3 class="en">Unified dev context</h3>
+        <p class="zh">Issue 不再与 GitHub 仓库、提交记录、PR、代码分析割裂。打开一条 Issue,你看到的是完整的研发现场。</p>
+        <p class="en">Issues stay wired to the GitHub repos, commits, PRs, and code analysis that produced them. Open any issue and see the whole scene.</p>
+        <span class="tag">github · pr · commit · code</span>
+      </div>
+      <div class="value-cell">
+        <div class="num">03 / 04</div>
+        <h3 class="zh">AI 驱动的团队洞察</h3>
+        <h3 class="en">AI-driven insight</h3>
+        <p class="zh">AI 不只是生成文案,而是帮助团队识别问题原因、处理瓶颈、效率趋势。它是研发过程的分析层,而不是聊天助手。</p>
+        <p class="en">AI here isn't a chat assistant — it's an analytical layer that surfaces root causes, bottlenecks, and velocity trends across the org.</p>
+        <span class="tag">root-cause · trends · bottlenecks</span>
+      </div>
+      <div class="value-cell">
+        <div class="num">04 / 04</div>
+        <h3 class="zh">自动化测试与软件治理</h3>
+        <h3 class="en">Testing & governance</h3>
+        <p class="zh">自动化测试结果、质量门禁、权限与合规策略全部纳入平台,让研发过程既高效又可控,适合正式团队部署。</p>
+        <p class="en">Automated test reports, quality gates, permissions and compliance policy all live in one place — fast execution with real control.</p>
+        <span class="tag">tests · gates · rbac · audit</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CAPABILITIES ===== -->
+<section class="caps" id="product">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span class="zh">核心能力矩阵</span><span class="en">Core capability matrix</span>
+    </div>
+    <h2 class="section-title">
+      <span class="zh">不止于管理 —— 会<em>执行</em>、会<em>观测</em>、会<em>修复</em>。</span>
+      <span class="en">Beyond management — it <em>executes</em>, <em>observes</em>, and <em>repairs</em>.</span>
+    </h2>
+    <p class="section-sub">
+      <span class="zh">DevTrakr 将自动化执行、系统可观测与 AI 自愈能力嵌入研发流程,让问题处理从"人驱动"走向"平台驱动"。</span>
+      <span class="en">Automated execution, full observability, and AI-driven remediation — embedded directly into the research workflow.</span>
+    </p>
+
+    <div class="cap-grid">
+      <!-- Headless Automation -->
+      <div class="cap-card">
+        <span class="cap-id">CAP / 01</span>
+        <div class="cap-glyph">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="5" width="18" height="13" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M7 9L9 11L7 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/>
+            <path d="M11 14H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/>
+            <circle cx="19" cy="5" r="2" fill="currentColor"/>
+          </svg>
+        </div>
+        <h3 class="zh">无头自动化测试</h3>
+        <h3 class="en">Headless automation</h3>
+        <p class="zh">无需人盯屏。Headless 浏览器编排端到端、回归、冒烟测试,结果直连 Issue 与 PR,构建每一次提交的真实质量画像。</p>
+        <p class="en">Run end-to-end, regression, and smoke suites in headless browsers. Results wire straight back to issues and PRs — a real quality picture for every commit.</p>
+        <ul>
+          <li>playwright · puppeteer</li>
+          <li>parallel grid runner</li>
+          <li>diff reports on PR</li>
+          <li>flake-rate tracking</li>
+        </ul>
+      </div>
+
+      <!-- Runtime Monitoring -->
+      <div class="cap-card">
+        <span class="cap-id">CAP / 02</span>
+        <div class="cap-glyph">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 14L7 10L11 13L16 7L21 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"/>
+            <circle cx="16" cy="7" r="1.8" fill="currentColor"/>
+            <path d="M3 19H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" opacity="0.5"/>
+            <path d="M3 4V20" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" opacity="0.5"/>
+          </svg>
+        </div>
+        <h3 class="zh">系统运行监控</h3>
+        <h3 class="en">Runtime monitoring</h3>
+        <p class="zh">服务健康、延迟、错误率、业务指标实时可视化。异常自动转化为 Issue 进入工作台,监控与处理不再两张皮。</p>
+        <p class="en">Health, latency, error rates and business KPIs — live. Anomalies auto-convert into issues on the board. Observability and response, unified.</p>
+        <ul>
+          <li>metrics · traces · logs</li>
+          <li>anomaly → issue auto-file</li>
+          <li>SLO / error-budget burn</li>
+          <li>oncall rotation aware</li>
+        </ul>
+      </div>
+
+      <!-- AI Repair -->
+      <div class="cap-card">
+        <span class="cap-id">CAP / 03</span>
+        <div class="cap-glyph">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3V6M12 18V21M3 12H6M18 12H21M5.6 5.6L7.7 7.7M16.3 16.3L18.4 18.4M5.6 18.4L7.7 16.3M16.3 7.7L18.4 5.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" opacity="0.4"/>
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <h3 class="zh">AI 修复</h3>
+        <h3 class="en">AI-driven repair</h3>
+        <p class="zh">AI 不只分析根因,还给出可执行补丁。一键生成 PR、补测试用例、写回 changelog,从"发现问题"到"解决问题"被压缩到几分钟。</p>
+        <p class="en">AI doesn't stop at root-cause — it drafts executable patches. One-click PR, generated tests, changelog. From "bug reported" to "fix shipped" in minutes.</p>
+        <ul>
+          <li>patch generation</li>
+          <li>auto test scaffolding</li>
+          <li>guarded auto-merge</li>
+          <li>human-in-the-loop review</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAIN ===== -->
+<section class="pain">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span class="zh">研发团队的日常痛点</span><span class="en">The daily frictions</span>
+    </div>
+    <h2 class="section-title">
+      <span class="zh">你的团队正在与<em>碎片化</em>作战。</span>
+      <span class="en">Your team is fighting <em>fragmentation</em>.</span>
+    </h2>
+
+    <div class="pain-grid">
+      <div class="pain-card">
+        <div class="strike">status: DEPRECATED</div>
+        <h4 class="zh">Issue 分散在多处</h4>
+        <h4 class="en">Issues everywhere</h4>
+        <p class="zh">邮件、聊天、工单、GitHub — 没有人知道完整状态。</p>
+        <p class="en">Email, chat, tickets, GitHub — no single source of truth.</p>
+      </div>
+      <div class="pain-card">
+        <div class="strike">status: DEPRECATED</div>
+        <h4 class="zh">GitHub 上下文割裂</h4>
+        <h4 class="en">Context detached</h4>
+        <p class="zh">Issue 与代码、PR、commit 脱节,排查全靠记忆。</p>
+        <p class="en">Tickets and commits drift apart. Investigation lives in memory.</p>
+      </div>
+      <div class="pain-card">
+        <div class="strike">status: DEPRECATED</div>
+        <h4 class="zh">协作信息断层</h4>
+        <h4 class="en">Handoffs break</h4>
+        <p class="zh">责任人、下一步、阻塞点 — 谁也说不清。</p>
+        <p class="en">Who owns it, what's next, what's blocked — nobody's sure.</p>
+      </div>
+      <div class="pain-card">
+        <div class="strike">status: DEPRECATED</div>
+        <h4 class="zh">缺少全局洞察</h4>
+        <h4 class="en">No global view</h4>
+        <p class="zh">瓶颈、趋势、效率 — 靠人肉拉表,永远滞后。</p>
+        <p class="en">Bottlenecks and trends only surface after the quarter ends.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FLOW ===== -->
+<section class="flow">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span class="zh">工作流</span><span class="en">Workflow</span>
+    </div>
+    <h2 class="section-title">
+      <span class="zh">从接入到复盘,<em>一条管线</em>。</span>
+      <span class="en">Onboard to retrospective — <em>one pipeline</em>.</span>
+    </h2>
+
+    <div class="flow-line">
+      <div class="flow-step">
+        <div class="node">01</div>
+        <h4 class="zh">接入仓库</h4>
+        <h4 class="en">Connect repo</h4>
+        <p>github / gitlab</p>
+      </div>
+      <div class="flow-step">
+        <div class="node">02</div>
+        <h4 class="zh">同步 Issue</h4>
+        <h4 class="en">Sync issues</h4>
+        <p>import · map</p>
+      </div>
+      <div class="flow-step">
+        <div class="node">03</div>
+        <h4 class="zh">AI 分析</h4>
+        <h4 class="en">AI analyse</h4>
+        <p>root · impact</p>
+      </div>
+      <div class="flow-step">
+        <div class="node">04</div>
+        <h4 class="zh">协作推进</h4>
+        <h4 class="en">Collaborate</h4>
+        <p>assign · notify</p>
+      </div>
+      <div class="flow-step">
+        <div class="node">05</div>
+        <h4 class="zh">复盘优化</h4>
+        <h4 class="en">Retrospect</h4>
+        <p>trends · learn</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="cta-section" id="cta">
+  <div class="wrap">
+    <h2>
+      <span class="zh">把研发<em>全过程</em><br>放进同一个工作台。</span>
+      <span class="en">Put the <em>entire</em> research loop<br>into one cockpit.</span>
+    </h2>
+    <p>
+      <span class="zh">申请试用、预约演示,或与我们的团队聊聊你的研发协同诉求。</span>
+      <span class="en">Request a trial, book a demo, or talk to us about your research-ops stack.</span>
+    </p>
+    <div class="cta-buttons">
+      <a class="btn-primary" href="#">
+        <span class="zh">申请试用</span>
+        <span class="en">Request trial</span>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 13L13 3M13 3H6M13 3V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/></svg>
+      </a>
+      <a class="btn-ghost" href="#">
+        <span class="bar"></span>
+        <span class="zh">预约演示</span>
+        <span class="en">Book demo</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 MATRIXAI · DevTrakr</div>
+  <div class="links">
+    <a href="#"><span class="zh">隐私</span><span class="en">Privacy</span></a>
+    <a href="#"><span class="zh">条款</span><span class="en">Terms</span></a>
+    <a href="#"><span class="zh">联系</span><span class="en">Contact</span></a>
+    <a href="#">status.matrixai.io</a>
+  </div>
+</footer>
+
+<script>
+  const html = document.documentElement;
+  const btns = document.querySelectorAll('#langSwitch button');
+  btns.forEach(b => b.addEventListener('click', () => {
+    const lang = b.dataset.lang;
+    html.dataset.lang = lang;
+    html.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    btns.forEach(x => x.classList.toggle('active', x === b));
+  }));
+</script>
+</body>
+</html>
