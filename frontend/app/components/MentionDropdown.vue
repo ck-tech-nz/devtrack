@@ -1,12 +1,14 @@
 <template>
   <div
     v-if="visible && items.length > 0"
+    ref="containerRef"
     class="absolute z-50 w-64 max-h-48 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
     :style="{ top: `${position.top}px`, left: `${position.left}px` }"
   >
     <button
       v-for="(item, idx) in items"
       :key="item.id"
+      :ref="(el) => { if (el) itemRefs[idx] = el as HTMLElement }"
       class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2"
       :class="idx === selectedIndex
         ? 'bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300'
@@ -44,9 +46,27 @@ const emit = defineEmits<{
 }>()
 
 const selectedIndex = ref(0)
+const containerRef = ref<HTMLElement | null>(null)
+const itemRefs = ref<HTMLElement[]>([])
 
 watch(() => props.items, () => {
   selectedIndex.value = 0
+  itemRefs.value = []
+})
+
+watch(selectedIndex, (idx) => {
+  nextTick(() => {
+    const item = itemRefs.value[idx]
+    const container = containerRef.value
+    if (!item || !container) return
+    const itemTop = item.offsetTop
+    const itemBottom = itemTop + item.offsetHeight
+    if (itemTop < container.scrollTop) {
+      container.scrollTop = itemTop
+    } else if (itemBottom > container.scrollTop + container.clientHeight) {
+      container.scrollTop = itemBottom - container.clientHeight
+    }
+  })
 })
 
 function selectItem(idx: number) {
