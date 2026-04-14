@@ -8,7 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.db.models import Count, Avg, F, Subquery, OuterRef, Value, TextField
+from django.db.models import Count, Avg, Case, F, IntegerField, Subquery, OuterRef, Value, TextField, When
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import TruncDate, Coalesce
 from apps.repos.models import Repo, GitHubIssue
@@ -56,7 +56,7 @@ class IssueListCreateView(generics.ListCreateAPIView):
     filterset_fields = ["priority", "status", "assignee", "project", "helpers"]
     search_fields = ["title", "=id"]
     ordering_fields = ["created_at", "priority", "updated_at"]
-    ordering = ["-created_at"]
+    ordering = ["status_order", "priority", "-created_at"]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -64,7 +64,16 @@ class IssueListCreateView(generics.ListCreateAPIView):
         return IssueListSerializer
 
     def get_queryset(self):
-        qs = _with_ai_fields(super().get_queryset())
+        qs = _with_ai_fields(super().get_queryset()).annotate(
+            status_order=Case(
+                When(status="待处理", then=Value(0)),
+                When(status="进行中", then=Value(1)),
+                When(status="已解决", then=Value(2)),
+                When(status="已关闭", then=Value(3)),
+                default=Value(4),
+                output_field=IntegerField(),
+            ),
+        )
         labels = self.request.query_params.get("labels")
         if labels:
             qs = qs.filter(labels__contains=[labels])
