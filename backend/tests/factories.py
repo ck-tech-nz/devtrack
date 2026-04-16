@@ -193,6 +193,24 @@ class AttachmentFactory(factory.django.DjangoModelFactory):
     mime_type = "image/png"
 
 
+from apps.kpi.models import KPISnapshot
+
+
+class KPISnapshotFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = KPISnapshot
+
+    user = factory.SubFactory(UserFactory)
+    period_start = factory.LazyFunction(lambda: tz.now().date().replace(day=1))
+    period_end = factory.LazyFunction(lambda: tz.now().date())
+    issue_metrics = factory.LazyFunction(lambda: {"assigned_count": 10, "resolved_count": 8})
+    commit_metrics = factory.LazyFunction(lambda: {"total_commits": 50})
+    scores = factory.LazyFunction(lambda: {"efficiency": 70, "output": 75, "quality": 80, "capability": 65, "growth": 50, "overall": 72})
+    rankings = factory.LazyFunction(lambda: {"overall_rank": 1, "total_developers": 1})
+    suggestions = factory.LazyFunction(lambda: {"profile": "均衡发展型", "shortcomings": [], "trends": []})
+    computed_at = factory.LazyFunction(tz.now)
+
+
 from apps.settings.models import ExternalAPIKey
 
 
