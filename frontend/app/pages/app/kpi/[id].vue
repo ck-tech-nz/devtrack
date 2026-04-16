@@ -454,12 +454,12 @@ const trendXData = computed(() => {
   return trends.value.history.map((h: any) => h.period_start?.slice(5) || '')
 })
 
-const trendSeries = computed(() => {
+const trendSeries = computed<{ name: string; data: number[] }[]>(() => {
   if (!trends.value?.history?.length) return []
-  const dims = ['efficiency', 'output', 'quality', 'capability', 'growth']
+  const dims = ['efficiency', 'output', 'quality', 'capability', 'growth'] as const
   const labels: Record<string, string> = { efficiency: '效率', output: '产出', quality: '质量', capability: '能力', growth: '成长' }
   return dims.map(dim => ({
-    name: labels[dim],
+    name: labels[dim]!,
     data: trends.value.history.map((h: any) => Number(h.scores?.[dim]) || 0),
   }))
 })

@@ -84,55 +84,55 @@
           <template #rank-cell="{ row }">
             <span
               class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold"
-              :class="rankClass(row.original.rank)"
+              :class="rankClass(r(row).rank)"
             >
-              {{ row.original.rank }}
+              {{ r(row).rank }}
             </span>
           </template>
           <template #developer-cell="{ row }">
             <NuxtLink
-              :to="`/app/kpi/${row.original.user_id}`"
+              :to="`/app/kpi/${r(row).user_id}`"
               class="flex items-center gap-2 text-crystal-500 dark:text-crystal-400 hover:text-crystal-700 dark:hover:text-crystal-300 font-medium"
             >
               <img
-                v-if="row.original.avatar"
-                :src="resolveAvatarUrl(row.original.avatar)"
+                v-if="r(row).avatar"
+                :src="resolveAvatarUrl(r(row).avatar)"
                 class="w-6 h-6 rounded-full"
               />
               <div
                 v-else
                 class="w-6 h-6 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center text-xs font-semibold text-crystal-600 dark:text-crystal-400"
               >
-                {{ (row.original.user_name || '?').slice(0, 1) }}
+                {{ (r(row).user_name || '?').slice(0, 1) }}
               </div>
-              {{ row.original.user_name }}
+              {{ r(row).user_name }}
             </NuxtLink>
           </template>
           <template #overall-cell="{ row }">
-            <span class="font-semibold text-gray-900 dark:text-gray-100">{{ formatScore(row.original.overall) }}</span>
+            <span class="font-semibold text-gray-900 dark:text-gray-100">{{ formatScore(r(row).overall) }}</span>
           </template>
           <template #efficiency-cell="{ row }">
-            {{ formatScore(row.original.efficiency) }}
+            {{ formatScore(r(row).efficiency) }}
           </template>
           <template #output-cell="{ row }">
-            {{ formatScore(row.original.output) }}
+            {{ formatScore(r(row).output) }}
           </template>
           <template #quality-cell="{ row }">
-            {{ formatScore(row.original.quality) }}
+            {{ formatScore(r(row).quality) }}
           </template>
           <template #capability-cell="{ row }">
-            {{ formatScore(row.original.capability) }}
+            {{ formatScore(r(row).capability) }}
           </template>
           <template #growth-cell="{ row }">
-            {{ formatScore(row.original.growth) }}
+            {{ formatScore(r(row).growth) }}
           </template>
           <template #trend-cell="{ row }">
-            <span v-if="row.original.trend > 0" class="text-emerald-500">+{{ row.original.trend.toFixed(1) }}</span>
-            <span v-else-if="row.original.trend < 0" class="text-red-500">{{ row.original.trend.toFixed(1) }}</span>
+            <span v-if="r(row).trend > 0" class="text-emerald-500">+{{ r(row).trend.toFixed(1) }}</span>
+            <span v-else-if="r(row).trend < 0" class="text-red-500">{{ r(row).trend.toFixed(1) }}</span>
             <span v-else class="text-gray-400">-</span>
           </template>
           <template #action-cell="{ row }">
-            <NuxtLink :to="`/app/kpi/${row.original.user_id}`">
+            <NuxtLink :to="`/app/kpi/${r(row).user_id}`">
               <UButton size="xs" variant="ghost" color="primary" trailing-icon="i-heroicons-arrow-right">
                 查看详情
               </UButton>
@@ -204,25 +204,43 @@ const summaryCards = computed(() => {
   ]
 })
 
-const tableRows = computed(() => {
+interface TableRow {
+  user_id: number
+  user_name: string
+  avatar: string
+  rank: number
+  overall: number
+  efficiency: number
+  output: number
+  quality: number
+  capability: number
+  growth: number
+  trend: number
+}
+
+const tableRows = computed<TableRow[]>(() => {
   if (!data.value?.developers) return []
   return data.value.developers.map((d: any, i: number) => ({
     user_id: d.user_id,
-    user_name: d.user_name,
-    avatar: d.avatar,
-    rank: d.rankings?.overall ?? i + 1,
-    overall: d.scores?.overall,
-    efficiency: d.scores?.efficiency,
-    output: d.scores?.output,
-    quality: d.scores?.quality,
-    capability: d.scores?.capability,
-    growth: d.scores?.growth,
+    user_name: d.user_name ?? '',
+    avatar: d.avatar ?? '',
+    rank: d.rankings?.overall_rank ?? i + 1,
+    overall: d.scores?.overall ?? 0,
+    efficiency: d.scores?.efficiency ?? 0,
+    output: d.scores?.output ?? 0,
+    quality: d.scores?.quality ?? 0,
+    capability: d.scores?.capability ?? 0,
+    growth: d.scores?.growth ?? 0,
     trend: d.scores?.trend_delta ?? 0,
   }))
 })
 
 function formatScore(v: any) {
   return v != null ? Number(v).toFixed(1) : '-'
+}
+
+function r(row: any): TableRow {
+  return row.original as TableRow
 }
 
 function rankClass(rank: number) {
