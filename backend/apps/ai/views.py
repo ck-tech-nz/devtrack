@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
@@ -6,6 +8,8 @@ from rest_framework.views import APIView
 from apps.permissions import FullDjangoModelPermissions
 from .models import Analysis, LLMConfig, Prompt
 from .client import LLMClient
+
+logger = logging.getLogger(__name__)
 
 
 class InsightsView(APIView):
@@ -43,7 +47,14 @@ class InsightsView(APIView):
 
         # 派发异步任务
         from .tasks import run_team_insights
-        run_team_insights.delay()
+        try:
+            run_team_insights.delay()
+        except Exception as e:
+            logger.warning("无法派发 AI 分析任务: %s", e)
+            return Response(
+                {"detail": "任务队列不可用，请稍后重试"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         # 若有旧结果则返回，否则返回 pending
         if latest:
@@ -70,7 +81,14 @@ class InsightsRefreshView(APIView):
 
     def post(self, request):
         from .tasks import refresh_team_insights
-        refresh_team_insights.delay(user_id=request.user.id)
+        try:
+            refresh_team_insights.delay(user_id=request.user.id)
+        except Exception as e:
+            logger.warning("无法派发刷新任务: %s", e)
+            return Response(
+                {"detail": "任务队列不可用，请稍后重试"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response({
             "status": "pending",
             "message": "已提交刷新请求",
