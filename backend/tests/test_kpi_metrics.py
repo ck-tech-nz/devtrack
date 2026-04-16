@@ -1,8 +1,10 @@
 import pytest
 from datetime import date, timedelta
+from django.contrib.auth.models import Group
 from django.utils import timezone
 from apps.kpi.models import KPISnapshot
 from apps.kpi.metrics import compute_issue_metrics, compute_commit_metrics
+from apps.kpi.services import KPIService
 from tests.factories import (
     UserFactory,
     ProjectFactory,
@@ -257,3 +259,51 @@ class TestCommitMetrics:
         assert result["commit_type_distribution"] == {}
         assert result["conventional_ratio"] == 0
         assert result["repo_coverage"] == []
+
+
+# ---------------------------------------------------------------------------
+# KPI Service Tests
+# ---------------------------------------------------------------------------
+
+
+class TestKPIService:
+    def test_refresh_computes_snapshots(self, site_settings):
+        group, _ = Group.objects.get_or_create(name="开发者")
+        user1 = UserFactory()
+        user1.groups.add(group)
+        user2 = UserFactory()
+        user2.groups.add(group)
+        project = ProjectFactory()
+
+        for u in (user1, user2):
+            IssueFactory(
+                project=project, assignee=u, priority="P1",
+                status="已解决", created_by=UserFactory(),
+                resolved_at=timezone.now(), created_at=timezone.now() - timedelta(hours=10),
+            )
+
+        start = date(2026, 1, 1)
+        end = date(2026, 12, 31)
+        result = KPIService().refresh(start, end, role="开发者")
+
+        assert result["user_count"] == 2
+        assert KPISnapshot.objects.count() == 2
+
+        snap = KPISnapshot.objects.filter(user=user1).first()
+        assert snap is not None
+        assert snap.scores["overall"] >= 0
+        assert snap.rankings["total_developers"] == 2
+        assert snap.suggestions["profile"]
+
+    def test_refresh_updates_existing_snapshot(self, site_settings):
+        group, _ = Group.objects.get_or_create(name="开发者")
+        user = UserFactory()
+        user.groups.add(group)
+
+        start = date(2026, 4, 1)
+        end = date(2026, 4, 15)
+        KPIService().refresh(start, end, role="开发者")
+        assert KPISnapshot.objects.count() == 1
+
+        KPIService().refresh(start, end, role="开发者")
+        assert KPISnapshot.objects.count() == 1
