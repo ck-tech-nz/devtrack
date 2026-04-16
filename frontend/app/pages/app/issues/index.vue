@@ -373,12 +373,12 @@ const projectRepoOptions = computed(() => projectRepos.value.map(r => ({ label: 
 
 const projectOptions = computed(() => projects.value.map(p => ({ label: p.name, value: String(p.id) })))
 const createPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.label}`, value: p.value }))
-const createStatusOptions = [{ label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
+const createStatusOptions = [{ label: '积压', value: '积压' }, { label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
 const createAssigneeOptions = computed(() => [{ label: '无', value: '_none' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
 
 const filterAssigneeOptions = computed(() => users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })))
 const filterPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.label}`, value: p.value }))
-const filterStatusOptions = [{ label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
+const filterStatusOptions = [{ label: '积压', value: '积压' }, { label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
 
 function closeCreateModal() {
   showCreateModal.value = false
@@ -476,6 +476,7 @@ async function onStatusChange({ issueId, newStatus }: { issueId: number, newStat
 
 const kanbanColumns = computed(() => {
   const cols = [
+    { key: '积压', label: '积压', color: '#8b5cf6', items: issues.value.filter(i => i.status === '积压') },
     { key: '待处理', label: '待处理', color: '#f59e0b', items: issues.value.filter(i => i.status === '待处理') },
     { key: '进行中', label: '进行中', color: '#3b82f6', items: issues.value.filter(i => i.status === '进行中') },
     { key: '已解决', label: '已解决', color: '#10b981', items: issues.value.filter(i => i.status === '已解决') },
@@ -562,7 +563,7 @@ function issueDuration(issue: any): { pct: number; color: string; label: string 
 }
 
 function statusColor(s: string) {
-  return s === '待处理' ? 'warning' : s === '进行中' ? 'info' : s === '已解决' ? 'success' : 'neutral'
+  return s === '积压' ? 'secondary' : s === '待处理' ? 'warning' : s === '进行中' ? 'info' : s === '已解决' ? 'success' : 'neutral'
 }
 
 async function fetchIssues() {

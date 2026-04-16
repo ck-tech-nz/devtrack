@@ -42,7 +42,7 @@ class SiteSettingsFactory(factory.django.DjangoModelFactory):
         "UI/UX": {"foreground": "#ffffff", "background": "#bfd4f2", "description": ""},
     }
     priorities = ["P0", "P1", "P2", "P3"]
-    issue_statuses = ["待处理", "进行中", "已解决", "已关闭"]
+    issue_statuses = ["积压", "待处理", "进行中", "已解决", "已关闭"]
 
 
 class ProjectFactory(factory.django.DjangoModelFactory):
