@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.ai",
     "apps.tools",
     "apps.notifications",
+    "apps.kpi",
     # Packages
     "page_perms",
 ]
