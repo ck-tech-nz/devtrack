@@ -125,6 +125,27 @@
             />
           </div>
 
+          <!-- 我的提升计划 -->
+          <div v-if="planData" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">我的提升计划</h3>
+              <NuxtLink to="/app/ai/my-plan" class="text-xs text-crystal-500 hover:text-crystal-700">
+                查看全部 →
+              </NuxtLink>
+            </div>
+            <div class="flex items-center gap-4 mb-3 text-sm">
+              <span class="text-gray-500 dark:text-gray-400">{{ planData.done }}/{{ planData.total }} 已完成</span>
+              <span class="text-gray-500 dark:text-gray-400">{{ planData.earned }} / {{ planData.total_points }} 分</span>
+            </div>
+            <UProgress :value="planData.total > 0 ? planData.done / planData.total * 100 : 0" size="xs" class="mb-3" />
+            <div class="space-y-2">
+              <div v-for="item in planData.pending_items" :key="item.id" class="flex items-center justify-between text-sm">
+                <span class="text-gray-700 dark:text-gray-300 truncate">{{ item.title }}</span>
+                <span class="text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">{{ item.points }}分</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Recent Activity -->
           <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">最近动态</h3>
@@ -162,6 +183,7 @@ const myIssues = ref<any[]>([])
 const mentions = ref<any[]>([])
 const stats = ref({ total: 0, pending: 0, in_progress: 0, resolved_this_week: 0 })
 const recentActivity = ref<any[]>([])
+const planData = ref<any>(null)
 const isTester = computed(() => hasGroup('测试'))
 
 function handleSearch() {
@@ -231,6 +253,22 @@ function timeAgo(isoDate: string): string {
   return `${diffDay} 天前`
 }
 
+async function fetchPlanSummary() {
+  try {
+    const res = await api<any>('/api/kpi/plans/me/')
+    if (res.current) {
+      const items = res.current.action_items || []
+      const done = items.filter((i: any) => i.status === 'verified').length
+      const earned = items.reduce((s: number, i: any) => s + (i.earned_points || 0), 0)
+      const total_points = items.reduce((s: number, i: any) => s + i.points, 0)
+      const pending_items = items
+        .filter((i: any) => !['verified', 'not_achieved'].includes(i.status))
+        .slice(0, 3)
+      planData.value = { done, total: items.length, earned, total_points, pending_items }
+    }
+  } catch { /* plan not available */ }
+}
+
 async function fetchTesterTodos(): Promise<any[]> {
   const userId = user.value?.id
   const [assignedData, resolvedData] = await Promise.all([
@@ -258,6 +296,7 @@ onMounted(async () => {
       api<any>('/api/dashboard/stats/'),
       api<any[]>('/api/dashboard/recent-activity/'),
     ])
+    fetchPlanSummary()
 
     myIssues.value = issueResults
 
