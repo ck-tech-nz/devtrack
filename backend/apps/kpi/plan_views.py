@@ -135,25 +135,26 @@ class PlanGenerateView(APIView):
         from .services import KPIService
 
         User = get_user_model()
-        user_id = request.data.get("user_id")
-        if not user_id:
-            return Response({"detail": "缺少 user_id"}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            target_user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
-
-        period = timezone.now().strftime("%Y-%m")
-        if ImprovementPlan.objects.filter(user=target_user, period=period).exists():
-            return Response({"detail": "该用户本月已有计划"}, status=status.HTTP_409_CONFLICT)
-
+        svc = KPIService()
         today = timezone.now().date()
         month_start = today.replace(day=1)
-        svc = KPIService()
-        kpi_data = svc.compute_for_user(target_user, month_start, today)
+        period = today.strftime("%Y-%m")
 
-        users = svc._get_target_users()
-        team_scores = [svc.compute_for_user(u, month_start, today)["scores"] for u in users]
+        user_id = request.data.get("user_id")
+
+        # 确定目标用户列表
+        if user_id:
+            try:
+                target_users = [User.objects.get(pk=user_id)]
+            except User.DoesNotExist:
+                return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # 批量模式：为所有活跃用户生成
+            target_users = list(svc._get_target_users())
+
+        # 预计算团队均值（只算一次）
+        all_users = svc._get_target_users()
+        team_scores = [svc.compute_for_user(u, month_start, today)["scores"] for u in all_users]
         dims = ("efficiency", "output", "quality", "capability")
         team_avgs = {}
         if team_scores:
@@ -161,20 +162,31 @@ class PlanGenerateView(APIView):
                 vals = [s.get(d, 0) for s in team_scores]
                 team_avgs[d] = round(sum(vals) / len(vals), 1)
 
-        items_data = generate_action_items(
-            kpi_data["scores"], kpi_data["issue_metrics"],
-            kpi_data["commit_metrics"], team_avgs,
-        )
+        created = 0
+        for target_user in target_users:
+            if ImprovementPlan.objects.filter(user=target_user, period=period).exists():
+                continue
 
-        plan = ImprovementPlan.objects.create(
-            user=target_user, period=period,
-            status=ImprovementPlan.Status.DRAFT,
-            source_kpi_scores=kpi_data["scores"],
-        )
-        for i, item_data in enumerate(items_data):
-            ActionItem.objects.create(plan=plan, sort_order=i, **item_data)
+            kpi_data = svc.compute_for_user(target_user, month_start, today)
+            items_data = generate_action_items(
+                kpi_data["scores"], kpi_data["issue_metrics"],
+                kpi_data["commit_metrics"], team_avgs,
+            )
 
-        return Response(PlanDetailSerializer(plan).data, status=status.HTTP_201_CREATED)
+            plan = ImprovementPlan.objects.create(
+                user=target_user, period=period,
+                status=ImprovementPlan.Status.DRAFT,
+                source_kpi_scores=kpi_data["scores"],
+            )
+            for i, item_data in enumerate(items_data):
+                ActionItem.objects.create(plan=plan, sort_order=i, **item_data)
+            created += 1
+
+        if user_id and created == 1:
+            plan = ImprovementPlan.objects.filter(user_id=user_id, period=period).first()
+            return Response(PlanDetailSerializer(plan).data, status=status.HTTP_201_CREATED)
+
+        return Response({"created": created, "period": period}, status=status.HTTP_201_CREATED)
 
 
 class PlanEditView(APIView):
