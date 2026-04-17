@@ -5,6 +5,11 @@ from .views import (
     KPIMeSummaryView, KPIMeIssuesView, KPIMeCommitsView, KPIMeTrendsView, KPIMeSuggestionsView,
     KPIScoringConfigView,
 )
+from .plan_views import (
+    PlanListView, MyPlanView, PlanDetailView, PlanEditView,
+    PlanPublishView, PlanArchiveView, PlanGenerateView,
+    ActionItemStatusView, ActionItemVerifyView, ActionItemCommentListView,
+)
 
 urlpatterns = [
     path("team/", KPITeamView.as_view(), name="kpi-team"),
@@ -20,4 +25,16 @@ urlpatterns = [
     path("users/<int:user_id>/commits/", KPIUserCommitsView.as_view(), name="kpi-user-commits"),
     path("users/<int:user_id>/trends/", KPIUserTrendsView.as_view(), name="kpi-user-trends"),
     path("users/<int:user_id>/suggestions/", KPIUserSuggestionsView.as_view(), name="kpi-user-suggestions"),
+    # 提升计划
+    path("plans/", PlanListView.as_view(), name="plan-list"),
+    path("plans/me/", MyPlanView.as_view(), name="plan-me"),
+    path("plans/generate/", PlanGenerateView.as_view(), name="plan-generate"),
+    path("plans/<uuid:pk>/", PlanDetailView.as_view(), name="plan-detail"),
+    path("plans/<uuid:pk>/edit/", PlanEditView.as_view(), name="plan-edit"),
+    path("plans/<uuid:pk>/publish/", PlanPublishView.as_view(), name="plan-publish"),
+    path("plans/<uuid:pk>/archive/", PlanArchiveView.as_view(), name="plan-archive"),
+    # 行动项
+    path("action-items/<uuid:pk>/status/", ActionItemStatusView.as_view(), name="action-item-status"),
+    path("action-items/<uuid:pk>/verify/", ActionItemVerifyView.as_view(), name="action-item-verify"),
+    path("action-items/<uuid:pk>/comments/", ActionItemCommentListView.as_view(), name="action-item-comments"),
 ]
