@@ -145,3 +145,123 @@ class KPISnapshot(models.Model):
 
     def __str__(self):
         return f"{self.user} | {self.period_start} ~ {self.period_end}"
+
+
+# ---------------------------------------------------------------------------
+# 提升计划
+# ---------------------------------------------------------------------------
+
+class ImprovementPlan(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "草案"
+        PUBLISHED = "published", "已发布"
+        ARCHIVED = "archived", "已归档"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="improvement_plans", verbose_name="员工",
+    )
+    period = models.CharField(max_length=7, verbose_name="月度周期", help_text="格式: 2026-04")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT, verbose_name="状态")
+    source_kpi_scores = models.JSONField(default=dict, verbose_name="KPI 评分快照")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", verbose_name="创建人",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", verbose_name="审核人",
+    )
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name="发布时间")
+    archived_at = models.DateTimeField(null=True, blank=True, verbose_name="归档时间")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "提升计划"
+        verbose_name_plural = "提升计划"
+        unique_together = ("user", "period")
+        ordering = ["-period", "-created_at"]
+        permissions = [
+            ("view_own_plan", "Can view own improvement plan"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.name} | {self.period}"
+
+
+class ActionItem(models.Model):
+    class Source(models.TextChoices):
+        AI = "ai_generated", "AI 生成"
+        MANAGER = "manager_added", "管理员添加"
+
+    class Priority(models.TextChoices):
+        HIGH = "high", "高"
+        MEDIUM = "medium", "中"
+        LOW = "low", "低"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "待执行"
+        IN_PROGRESS = "in_progress", "进行中"
+        SUBMITTED = "submitted", "已提交"
+        VERIFIED = "verified", "已验收"
+        NOT_ACHIEVED = "not_achieved", "未达成"
+
+    QUALITY_FACTORS = [("0.50", "0.5"), ("0.80", "0.8"), ("1.00", "1.0"), ("1.20", "1.2")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    plan = models.ForeignKey(
+        ImprovementPlan, on_delete=models.CASCADE,
+        related_name="action_items", verbose_name="所属计划",
+    )
+    source = models.CharField(max_length=15, choices=Source.choices, default=Source.MANAGER)
+    dimension = models.CharField(max_length=20, default="general", verbose_name="KPI 维度")
+    title = models.CharField(max_length=200, verbose_name="标题")
+    description = models.TextField(blank=True, default="", verbose_name="描述")
+    measurable_target = models.CharField(max_length=200, blank=True, default="", verbose_name="可量化目标")
+    points = models.PositiveIntegerField(default=10, verbose_name="分值")
+    priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    quality_factor = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True, verbose_name="完成质量系数")
+    sort_order = models.PositiveIntegerField(default=0, verbose_name="排序")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "行动项"
+        verbose_name_plural = "行动项"
+        ordering = ["sort_order", "-priority", "created_at"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def earned_points(self) -> int:
+        if self.status == self.Status.VERIFIED and self.quality_factor:
+            return round(self.points * float(self.quality_factor))
+        return 0
+
+
+class ActionItemComment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    action_item = models.ForeignKey(
+        ActionItem, on_delete=models.CASCADE,
+        related_name="comments", verbose_name="行动项",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="+", verbose_name="作者",
+    )
+    content = models.TextField(verbose_name="内容")
+    attachment_url = models.URLField(blank=True, default="", verbose_name="附件 URL")
+    attachment_key = models.CharField(max_length=200, blank=True, default="", verbose_name="附件 Key")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "行动项评论"
+        verbose_name_plural = "行动项评论"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.author.name}: {self.content[:30]}"

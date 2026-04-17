@@ -193,7 +193,7 @@ class AttachmentFactory(factory.django.DjangoModelFactory):
     mime_type = "image/png"
 
 
-from apps.kpi.models import KPISnapshot
+from apps.kpi.models import KPISnapshot, ImprovementPlan, ActionItem, ActionItemComment
 
 
 class KPISnapshotFactory(factory.django.DjangoModelFactory):
@@ -209,6 +209,40 @@ class KPISnapshotFactory(factory.django.DjangoModelFactory):
     rankings = factory.LazyFunction(lambda: {"overall_rank": 1, "total_developers": 1})
     suggestions = factory.LazyFunction(lambda: {"profile": "均衡发展型", "shortcomings": [], "trends": []})
     computed_at = factory.LazyFunction(tz.now)
+
+
+class ImprovementPlanFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ImprovementPlan
+
+    user = factory.SubFactory(UserFactory)
+    period = factory.LazyFunction(lambda: tz.now().strftime("%Y-%m"))
+    status = "draft"
+    source_kpi_scores = factory.LazyFunction(lambda: {"efficiency": 70, "output": 75, "overall": 72})
+
+
+class ActionItemFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ActionItem
+
+    plan = factory.SubFactory(ImprovementPlanFactory)
+    source = "ai_generated"
+    dimension = "efficiency"
+    title = factory.Sequence(lambda n: f"改进行动 {n}")
+    description = "具体改进建议"
+    measurable_target = "达到目标值"
+    points = 20
+    priority = "medium"
+    status = "pending"
+
+
+class ActionItemCommentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ActionItemComment
+
+    action_item = factory.SubFactory(ActionItemFactory)
+    author = factory.SubFactory(UserFactory)
+    content = "完成情况说明"
 
 
 from apps.settings.models import ExternalAPIKey
