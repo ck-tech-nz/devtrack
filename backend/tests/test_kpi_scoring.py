@@ -1,6 +1,7 @@
 import pytest
 from apps.kpi.scoring import compute_scores, compute_rankings
 
+pytestmark = pytest.mark.django_db
 
 DIMENSIONS = ("efficiency", "output", "quality", "capability", "growth", "overall")
 

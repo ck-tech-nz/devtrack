@@ -13,8 +13,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from rest_framework.permissions import IsAdminUser
+
 from apps.permissions import FullDjangoModelPermissions
-from .models import KPISnapshot
+from .models import KPISnapshot, KPIScoringConfig
 from .serializers import KPITeamDeveloperSerializer, KPISummarySerializer
 from .services import KPIService
 
@@ -333,3 +335,45 @@ class KPIMeSuggestionsView(KPIUserSuggestionsView):
     """GET /api/kpi/me/suggestions/"""
     def get(self, request):
         return super().get(request, user_id=request.user.id)
+
+
+# ------------------------------------------------------------------
+# Scoring config
+# ------------------------------------------------------------------
+
+class KPIScoringConfigView(APIView):
+    """GET/PUT /api/kpi/scoring-config/ — 查看和修改评分规则。"""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cfg = KPIScoringConfig.get_solo()
+        return Response({
+            "dimension_weights": cfg.dimension_weights,
+            "efficiency_formula": cfg.efficiency_formula,
+            "output_formula": cfg.output_formula,
+            "quality_formula": cfg.quality_formula,
+            "capability_formula": cfg.capability_formula,
+            "ceilings": cfg.ceilings,
+            "updated_at": cfg.updated_at,
+        })
+
+    def put(self, request):
+        cfg = KPIScoringConfig.get_solo()
+        fields = [
+            "dimension_weights", "efficiency_formula", "output_formula",
+            "quality_formula", "capability_formula", "ceilings",
+        ]
+        for field in fields:
+            if field in request.data:
+                setattr(cfg, field, request.data[field])
+        cfg.save()
+        return Response({
+            "dimension_weights": cfg.dimension_weights,
+            "efficiency_formula": cfg.efficiency_formula,
+            "output_formula": cfg.output_formula,
+            "quality_formula": cfg.quality_formula,
+            "capability_formula": cfg.capability_formula,
+            "ceilings": cfg.ceilings,
+            "updated_at": cfg.updated_at,
+        })

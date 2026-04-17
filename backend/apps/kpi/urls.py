@@ -3,11 +3,13 @@ from .views import (
     KPITeamView, KPIUserSummaryView, KPIUserIssuesView, KPIUserCommitsView,
     KPIUserTrendsView, KPIUserSuggestionsView, KPIRefreshView,
     KPIMeSummaryView, KPIMeIssuesView, KPIMeCommitsView, KPIMeTrendsView, KPIMeSuggestionsView,
+    KPIScoringConfigView,
 )
 
 urlpatterns = [
     path("team/", KPITeamView.as_view(), name="kpi-team"),
     path("refresh/", KPIRefreshView.as_view(), name="kpi-refresh"),
+    path("scoring-config/", KPIScoringConfigView.as_view(), name="kpi-scoring-config"),
     path("me/summary/", KPIMeSummaryView.as_view(), name="kpi-me-summary"),
     path("me/issues/", KPIMeIssuesView.as_view(), name="kpi-me-issues"),
     path("me/commits/", KPIMeCommitsView.as_view(), name="kpi-me-commits"),
