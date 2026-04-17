@@ -83,11 +83,17 @@
         </UPopover>
       </div>
 
+      <!-- 该周期暂无数据 -->
+      <div v-if="!summary?.scores" class="bg-amber-50 dark:bg-amber-950 rounded-xl border border-amber-100 dark:border-amber-900 p-6 text-center">
+        <UIcon name="i-heroicons-information-circle" class="w-8 h-8 text-amber-400 mx-auto mb-2" />
+        <p class="text-sm text-amber-700 dark:text-amber-300">该周期暂无 KPI 数据，请先在团队页面刷新数据</p>
+      </div>
+
       <!-- 标签页 -->
-      <UTabs :items="tabs" class="w-full">
-        <template #content="{ item }">
+      <UTabs v-if="summary?.scores" v-model="activeTab" :items="tabs" class="w-full">
+        <template #issues>
           <!-- 问题指标 -->
-          <div v-if="item.value === 'issues'" class="space-y-6 pt-4">
+          <div class="space-y-6 pt-4">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <!-- 雷达图 -->
               <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
@@ -123,8 +129,10 @@
             </div>
           </div>
 
+        </template>
+        <template #commits>
           <!-- Commit 分析 -->
-          <div v-if="item.value === 'commits'" class="space-y-6 pt-4">
+          <div class="space-y-6 pt-4">
             <!-- 汇总卡片 -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div
@@ -215,8 +223,10 @@
             </div>
           </div>
 
+        </template>
+        <template #trends>
           <!-- 趋势变化 -->
-          <div v-if="item.value === 'trends'" class="space-y-6 pt-4">
+          <div class="space-y-6 pt-4">
             <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
               <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">各维度趋势</h3>
               <ChartsLineChart
@@ -231,8 +241,10 @@
             </div>
           </div>
 
+        </template>
+        <template #suggestions>
           <!-- 改进建议 -->
-          <div v-if="item.value === 'suggestions'" class="space-y-6 pt-4">
+          <div class="space-y-6 pt-4">
             <!-- 画像 -->
             <div
               v-if="suggestions?.profile"
@@ -333,6 +345,7 @@ const { resolveAvatarUrl } = useAvatars()
 const { user: authUser } = useAuth()
 
 const loading = ref(true)
+const activeTab = ref('issues')
 const activePeriod = ref('month')
 const customStart = ref('')
 const customEnd = ref('')
@@ -350,10 +363,10 @@ const periods = [
 ]
 
 const tabs = [
-  { label: '问题指标', value: 'issues' },
-  { label: 'Commit 分析', value: 'commits' },
-  { label: '趋势变化', value: 'trends' },
-  { label: '改进建议', value: 'suggestions' },
+  { label: '问题指标', value: 'issues', slot: 'issues' },
+  { label: 'Commit 分析', value: 'commits', slot: 'commits' },
+  { label: '趋势变化', value: 'trends', slot: 'trends' },
+  { label: '改进建议', value: 'suggestions', slot: 'suggestions' },
 ]
 
 // 解析用户 ID，支持 'me' 别名
@@ -516,7 +529,12 @@ async function fetchAll() {
       api<any>(`/api/kpi/users/${uid}/trends/?periods=6`).catch(() => null),
       api<any>(`/api/kpi/users/${uid}/suggestions/?${q}`).catch(() => null),
     ])
-    summary.value = summaryRes
+    // 切换周期时保留用户基本信息，仅更新分数和指标
+    if (summaryRes) {
+      summary.value = summaryRes
+    } else if (summary.value) {
+      summary.value = { ...summary.value, scores: null, rankings: null }
+    }
     issues.value = issuesRes
     commits.value = commitsRes
     trends.value = trendsRes

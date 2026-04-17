@@ -167,7 +167,7 @@ const data = ref<any>(null)
 const activePeriod = ref('month')
 const customStart = ref('')
 const customEnd = ref('')
-const selectedRole = ref('开发人员')
+const selectedRole = ref('开发者')
 
 const periods = [
   { label: '周', value: 'week' },
@@ -176,7 +176,7 @@ const periods = [
 ]
 
 const roleOptions = [
-  { label: '开发人员', value: '开发人员' },
+  { label: '开发者', value: '开发者' },
   { label: '全部', value: '' },
 ]
 

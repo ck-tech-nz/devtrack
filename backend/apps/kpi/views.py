@@ -25,6 +25,23 @@ User = get_user_model()
 # Helpers
 # ------------------------------------------------------------------
 
+def _all_periods(today: date) -> list[tuple[date, date]]:
+    """返回所有标准周期 (week, month, quarter) 的 (start, end)。"""
+    # week
+    week_start = today - timedelta(days=today.weekday())
+    # month
+    month_start = today.replace(day=1)
+    # quarter
+    quarter_start_month = ((today.month - 1) // 3) * 3 + 1
+    quarter_start = today.replace(month=quarter_start_month, day=1)
+
+    return [
+        (week_start, today),
+        (month_start, today),
+        (quarter_start, today),
+    ]
+
+
 def _parse_period(request) -> tuple[date, date]:
     """Parse period from query params. Returns (start, end).
 
@@ -88,26 +105,77 @@ class KPITeamView(APIView):
     queryset = KPISnapshot.objects.none()  # needed for FullDjangoModelPermissions
 
     def get(self, request):
+        from apps.kpi.scoring import compute_rankings
+
         period_start, period_end = _parse_period(request)
-        snapshots = (
-            KPISnapshot.objects.filter(
-                period_start=period_start,
-                period_end=period_end,
-            )
-            .select_related("user")
-            .order_by("-scores__overall")
-        )
-        serializer = KPITeamDeveloperSerializer(snapshots, many=True)
+        role = request.query_params.get("role")
+        svc = KPIService()
+        users = svc._get_target_users(role)
+
+        # 按需计算每个用户的 KPI
+        user_data = []
+        for user in users:
+            d = svc.compute_for_user(user, period_start, period_end)
+            user_data.append(d)
+
+        # 计算排名
+        all_scores = [{"user_id": d["user"].pk, "scores": d["scores"]} for d in user_data]
+        rankings_map = compute_rankings(all_scores)
+
+        # 构造响应
+        developers = []
+        for d in user_data:
+            u = d["user"]
+            developers.append({
+                "user_id": u.id,
+                "user_name": u.name,
+                "avatar": u.avatar or "",
+                "scores": d["scores"],
+                "rankings": rankings_map.get(u.pk, {}),
+            })
+        developers.sort(key=lambda x: x["scores"].get("overall", 0), reverse=True)
+
+        # 汇总
+        total_resolved = sum(d["issue_metrics"].get("resolved_count", 0) for d in user_data)
+        avg_hours_list = [
+            d["issue_metrics"].get("avg_resolution_hours")
+            for d in user_data
+            if d["issue_metrics"].get("avg_resolution_hours") is not None
+        ]
+        overall_scores = [d["scores"].get("overall", 0) for d in user_data]
+
         return Response({
             "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(),
-            "developers": serializer.data,
+            "developers": developers,
+            "summary": {
+                "active_count": len(user_data),
+                "resolved_count": total_resolved,
+                "avg_resolution_hours": (
+                    round(sum(avg_hours_list) / len(avg_hours_list), 1)
+                    if avg_hours_list else None
+                ),
+                "avg_overall_score": (
+                    round(sum(overall_scores) / len(overall_scores), 1)
+                    if overall_scores else None
+                ),
+            },
         })
 
 
 # ------------------------------------------------------------------
 # Individual KPI views (by user_id)
 # ------------------------------------------------------------------
+
+def _compute_user(request, user_id):
+    """按需计算单用户 KPI（任意周期）。"""
+    user = User.objects.filter(pk=user_id).first()
+    if not user:
+        return None, None, None
+    period_start, period_end = _parse_period(request)
+    data = KPIService().compute_for_user(user, period_start, period_end)
+    return user, (period_start, period_end), data
+
 
 class KPIUserSummaryView(APIView):
     """GET /api/kpi/users/{user_id}/summary/"""
@@ -118,13 +186,20 @@ class KPIUserSummaryView(APIView):
         if not _has_kpi_access(request, user_id):
             return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
 
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(user_id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
+        user, period, data = _compute_user(request, user_id)
+        if not user:
+            return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = KPISummarySerializer(snap)
-        return Response(serializer.data)
+        return Response({
+            "user_id": user.id,
+            "user_name": user.name,
+            "avatar": user.avatar or "",
+            "groups": list(user.groups.values_list("name", flat=True)),
+            "scores": data["scores"],
+            "rankings": {},
+            "period_start": period[0].isoformat(),
+            "period_end": period[1].isoformat(),
+        })
 
 
 class KPIUserIssuesView(APIView):
@@ -136,12 +211,11 @@ class KPIUserIssuesView(APIView):
         if not _has_kpi_access(request, user_id):
             return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
 
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(user_id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
+        user, _, data = _compute_user(request, user_id)
+        if not user:
+            return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(snap.issue_metrics)
+        return Response(data["issue_metrics"])
 
 
 class KPIUserCommitsView(APIView):
@@ -153,12 +227,11 @@ class KPIUserCommitsView(APIView):
         if not _has_kpi_access(request, user_id):
             return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
 
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(user_id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
+        user, _, data = _compute_user(request, user_id)
+        if not user:
+            return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(snap.commit_metrics)
+        return Response(data["commit_metrics"])
 
 
 class KPIUserTrendsView(APIView):
@@ -197,12 +270,11 @@ class KPIUserSuggestionsView(APIView):
         if not _has_kpi_access(request, user_id):
             return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
 
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(user_id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
+        user, _, data = _compute_user(request, user_id)
+        if not user:
+            return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(snap.suggestions)
+        return Response(data["suggestions"])
 
 
 # ------------------------------------------------------------------
@@ -218,8 +290,10 @@ class KPIRefreshView(APIView):
         if not request.user.has_perm("kpi.refresh_kpi"):
             return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
 
-        period_start, period_end = _parse_period(request)
-        result = KPIService().refresh(period_start=period_start, period_end=period_end)
+        # 仅保存月度快照（用于趋势历史），视图层按需计算
+        today = timezone.now().date()
+        month_start = today.replace(day=1)
+        result = KPIService().refresh(period_start=month_start, period_end=today)
         return Response({
             "status": "completed",
             "computed_at": result["computed_at"],
@@ -231,97 +305,31 @@ class KPIRefreshView(APIView):
 # /me shortcuts
 # ------------------------------------------------------------------
 
-class KPIMeSummaryView(APIView):
+class KPIMeSummaryView(KPIUserSummaryView):
     """GET /api/kpi/me/summary/"""
-
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        if not _has_kpi_access(request, request.user.id):
-            return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
-
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(request.user.id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = KPISummarySerializer(snap)
-        return Response(serializer.data)
+        return super().get(request, user_id=request.user.id)
 
 
-class KPIMeIssuesView(APIView):
+class KPIMeIssuesView(KPIUserIssuesView):
     """GET /api/kpi/me/issues/"""
-
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        if not _has_kpi_access(request, request.user.id):
-            return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
-
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(request.user.id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response(snap.issue_metrics)
+        return super().get(request, user_id=request.user.id)
 
 
-class KPIMeCommitsView(APIView):
+class KPIMeCommitsView(KPIUserCommitsView):
     """GET /api/kpi/me/commits/"""
-
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        if not _has_kpi_access(request, request.user.id):
-            return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
-
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(request.user.id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response(snap.commit_metrics)
+        return super().get(request, user_id=request.user.id)
 
 
-class KPIMeTrendsView(APIView):
+class KPIMeTrendsView(KPIUserTrendsView):
     """GET /api/kpi/me/trends/"""
-
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        if not _has_kpi_access(request, request.user.id):
-            return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
-
-        limit = int(request.query_params.get("limit", 6))
-        snapshots = (
-            KPISnapshot.objects.filter(user_id=request.user.id)
-            .order_by("period_end", "computed_at")[:limit]
-        )
-        data = [
-            {
-                "period_start": s.period_start.isoformat(),
-                "period_end": s.period_end.isoformat(),
-                "scores": s.scores,
-                "rankings": s.rankings,
-                "computed_at": s.computed_at.isoformat(),
-            }
-            for s in snapshots
-        ]
-        return Response(data)
+        return super().get(request, user_id=request.user.id)
 
 
-class KPIMeSuggestionsView(APIView):
+class KPIMeSuggestionsView(KPIUserSuggestionsView):
     """GET /api/kpi/me/suggestions/"""
-
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        if not _has_kpi_access(request, request.user.id):
-            return Response({"detail": "权限不足"}, status=status.HTTP_403_FORBIDDEN)
-
-        period_start, period_end = _parse_period(request)
-        snap = _get_snapshot(request.user.id, period_start, period_end)
-        if not snap:
-            return Response({"detail": "未找到 KPI 数据"}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response(snap.suggestions)
+        return super().get(request, user_id=request.user.id)

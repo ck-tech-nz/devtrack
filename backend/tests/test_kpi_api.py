@@ -65,7 +65,8 @@ class TestTeamDashboardAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert "developers" in data
-        assert len(data["developers"]) == 2
+        assert "summary" in data
+        assert len(data["developers"]) >= 2
         assert data["period_start"] == period_start.isoformat()
         assert data["period_end"] == today.isoformat()
 

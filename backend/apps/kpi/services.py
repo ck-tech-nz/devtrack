@@ -104,6 +104,26 @@ class KPIService:
         }
 
     # ------------------------------------------------------------------
+    # 按需计算（单用户，任意周期）
+    # ------------------------------------------------------------------
+
+    def compute_for_user(self, user, period_start: date, period_end: date) -> dict:
+        """为单个用户按需计算 KPI，不保存快照。"""
+        issue_metrics = compute_issue_metrics(user, period_start, period_end)
+        commit_metrics = compute_commit_metrics(user, period_start, period_end)
+        prev_scores = self._get_previous_scores(user, period_start)
+        scores = compute_scores(issue_metrics, commit_metrics, prev_scores)
+        suggestions = generate_suggestions(scores, issue_metrics, commit_metrics, {}, prev_scores)
+
+        return {
+            "user": user,
+            "issue_metrics": issue_metrics,
+            "commit_metrics": commit_metrics,
+            "scores": scores,
+            "suggestions": suggestions,
+        }
+
+    # ------------------------------------------------------------------
     # 辅助方法
     # ------------------------------------------------------------------
 
