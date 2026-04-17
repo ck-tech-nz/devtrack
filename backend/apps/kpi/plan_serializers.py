@@ -1,0 +1,90 @@
+from rest_framework import serializers
+from .models import ImprovementPlan, ActionItem, ActionItemComment
+
+
+class ActionItemCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source="author.name", read_only=True)
+    author_avatar = serializers.CharField(source="author.avatar", default="", read_only=True)
+
+    class Meta:
+        model = ActionItemComment
+        fields = [
+            "id", "author", "author_name", "author_avatar",
+            "content", "attachment_url", "created_at",
+        ]
+        read_only_fields = ["id", "author", "author_name", "author_avatar", "created_at"]
+
+
+class ActionItemSerializer(serializers.ModelSerializer):
+    earned_points = serializers.IntegerField(read_only=True)
+    comments = ActionItemCommentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ActionItem
+        fields = [
+            "id", "source", "dimension", "title", "description",
+            "measurable_target", "points", "priority", "status",
+            "quality_factor", "earned_points", "sort_order",
+            "comments", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "source", "earned_points", "created_at", "updated_at"]
+
+
+class ActionItemBriefSerializer(serializers.ModelSerializer):
+    """行动项简要信息（用于计划列表和工作台）。"""
+    earned_points = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ActionItem
+        fields = ["id", "title", "points", "priority", "status", "earned_points", "dimension"]
+
+
+class PlanDetailSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    user_avatar = serializers.CharField(source="user.avatar", default="", read_only=True)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.name", default="", read_only=True)
+    action_items = ActionItemSerializer(many=True, read_only=True)
+    total_points = serializers.SerializerMethodField()
+    earned_points = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ImprovementPlan
+        fields = [
+            "id", "user", "user_name", "user_avatar", "period", "status",
+            "source_kpi_scores", "reviewed_by", "reviewed_by_name",
+            "published_at", "archived_at", "action_items",
+            "total_points", "earned_points", "created_at", "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_total_points(self, obj):
+        return sum(item.points for item in obj.action_items.all())
+
+    def get_earned_points(self, obj):
+        return sum(item.earned_points for item in obj.action_items.all())
+
+
+class PlanListSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    user_avatar = serializers.CharField(source="user.avatar", default="", read_only=True)
+    item_count = serializers.SerializerMethodField()
+    total_points = serializers.SerializerMethodField()
+    earned_points = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ImprovementPlan
+        fields = [
+            "id", "user", "user_name", "user_avatar", "period", "status",
+            "item_count", "total_points", "earned_points",
+            "published_at", "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_item_count(self, obj):
+        return obj.action_items.count()
+
+    def get_total_points(self, obj):
+        return sum(item.points for item in obj.action_items.all())
+
+    def get_earned_points(self, obj):
+        return sum(item.earned_points for item in obj.action_items.all())
