@@ -17,21 +17,21 @@
         <div class="flex items-center gap-4 flex-wrap">
           <!-- 头像 -->
           <img
-            v-if="plan.user?.avatar"
-            :src="resolveAvatarUrl(plan.user.avatar)"
+            v-if="plan.user_avatar"
+            :src="resolveAvatarUrl(plan.user_avatar)"
             class="w-14 h-14 rounded-full flex-shrink-0"
           />
           <div
             v-else
             class="w-14 h-14 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center text-lg font-semibold text-crystal-600 dark:text-crystal-400 flex-shrink-0"
           >
-            {{ (plan.user?.name || plan.user?.username || '?').slice(0, 1) }}
+            {{ (plan.user_name || '?').slice(0, 1) }}
           </div>
 
           <!-- 用户信息 -->
           <div class="flex-1 min-w-0">
             <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {{ plan.user?.name || plan.user?.username || '未知用户' }}
+              {{ plan.user_name || '未知用户' }}
             </h1>
             <div class="flex items-center gap-2 mt-1.5 flex-wrap">
               <span class="text-sm text-gray-500 dark:text-gray-400">{{ plan.period }}</span>
