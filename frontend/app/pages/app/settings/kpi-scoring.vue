@@ -115,6 +115,69 @@
           />
         </div>
       </ScoringCard>
+
+      <!-- 算法说明 -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-6">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">算法说明</h3>
+        <div class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-400 space-y-5">
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">综合分计算</h4>
+            <p>综合分 = 效率 × W<sub>效率</sub> + 产出 × W<sub>产出</sub> + 质量 × W<sub>质量</sub> + 能力 × W<sub>能力</sub> + 成长 × W<sub>成长</sub></p>
+            <p>各维度权重之和应等于 1.0，每个维度评分范围 0-100。</p>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">效率维度</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li><b>日均解决</b> — 期间平均每天解决的问题数，达到天花板值即满分</li>
+              <li><b>解决速度</b> — 平均解决耗时的反向映射：0 小时 = 100 分，达到天花板值（默认 168h）= 0 分</li>
+              <li><b>P0/P1 速度</b> — P0（权重 2）和 P1（权重 1）的加权平均解决时间，同样反向映射</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">产出维度</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li><b>加权价值</b> — 按优先级加权的已解决问题总价值（P0=4, P1=3, P2=2, P3=1）</li>
+              <li><b>解决数量</b> — 期间已解决问题总数</li>
+              <li><b>提交量</b> — 期间 Git commit 总数</li>
+              <li><b>仓库广度</b> — 有提交的仓库数量</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">质量维度</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li><b>反向 Bug 率</b> — (1 - 自引 Bug 率) × 100，Bug 率越低分数越高</li>
+              <li><b>反向 Churn 率</b> — (1 - 代码 Churn 率) × 100，Churn 率越低越好</li>
+              <li><b>提交大小</b> — 平均 commit 大小在 50-150 行为满分，偏离越大扣分越多（高斯衰减）</li>
+              <li><b>规范提交率</b> — 符合 Conventional Commits 规范的提交占比</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">能力维度</h4>
+            <ul class="list-disc pl-5 space-y-1">
+              <li><b>文件类型广度</b> — 涉及的不同文件扩展名种类数</li>
+              <li><b>仓库覆盖</b> — 有提交的仓库数量</li>
+              <li><b>P0 处理比</b> — 已解决的 P0 问题占全部已解决问题的比例</li>
+              <li><b>协助参与</b> — 以协助者身份参与的问题数</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">成长维度</h4>
+            <p>与上一周期四个维度（效率、产出、质量、能力）的均分差值映射到 0-100：差值为 0 → 50 分，+50 → 100 分，-50 → 0 分。首次无历史数据时固定为 50。</p>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">饱和天花板值</h4>
+            <p>各子指标使用线性饱和映射：<code>分数 = min(实际值 / 天花板值 × 100, 100)</code>。例如"日均解决"天花板为 3，当日均解决 1.5 个时得分 50，达到 3 个时得分 100。调高天花板使满分更难获得，调低则更容易。</p>
+          </div>
+
+        </div>
+      </div>
     </template>
   </div>
 </template>
