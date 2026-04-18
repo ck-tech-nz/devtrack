@@ -103,64 +103,39 @@
           </div>
 
           <!-- 可编辑字段 -->
-          <div class="grid grid-cols-1 gap-3">
-            <!-- 标题 -->
-            <div class="space-y-1">
-              <label class="text-xs font-medium text-gray-500 dark:text-gray-400">标题</label>
-              <UInput
-                v-model="item.title"
-                placeholder="行动项标题"
-                :disabled="plan.status === 'archived'"
-              />
+          <div class="space-y-3">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <!-- 标题 -->
+              <div class="space-y-1">
+                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">标题</label>
+                <UInput v-model="item.title" size="sm" placeholder="行动项标题" :disabled="plan.status === 'archived'" />
+              </div>
+              <!-- 可量化目标 -->
+              <div class="space-y-1">
+                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">可量化目标</label>
+                <UInput v-model="item.measurable_target" size="sm" placeholder="例如：完成 5 个 PR" :disabled="plan.status === 'archived'" />
+              </div>
             </div>
 
             <!-- 描述 -->
             <div class="space-y-1">
               <label class="text-xs font-medium text-gray-500 dark:text-gray-400">描述</label>
-              <UTextarea
-                v-model="item.description"
-                placeholder="描述此行动项的内容和背景"
-                :rows="2"
-                :disabled="plan.status === 'archived'"
-              />
-            </div>
-
-            <!-- 可量化目标 -->
-            <div class="space-y-1">
-              <label class="text-xs font-medium text-gray-500 dark:text-gray-400">可量化目标</label>
-              <UInput
-                v-model="item.measurable_target"
-                placeholder="例如：完成 5 个 PR"
-                :disabled="plan.status === 'archived'"
-              />
+              <UTextarea v-model="item.description" size="sm" placeholder="描述此行动项的内容和背景" :rows="2" :disabled="plan.status === 'archived'" />
             </div>
 
             <!-- 积分、优先级、维度 -->
             <div class="grid grid-cols-3 gap-3">
               <div class="space-y-1">
                 <label class="text-xs font-medium text-gray-500 dark:text-gray-400">积分</label>
-                <UInput
-                  v-model.number="item.points"
-                  type="number"
-                  placeholder="20"
-                  :disabled="plan.status === 'archived'"
-                />
+                <UInput v-model.number="item.points" size="sm" type="number" :disabled="plan.status === 'archived'" />
               </div>
               <div class="space-y-1">
                 <label class="text-xs font-medium text-gray-500 dark:text-gray-400">优先级</label>
-                <USelect
-                  v-model="item.priority"
-                  :items="priorityOptions"
-                  :disabled="plan.status === 'archived'"
-                />
+                <USelect v-model="item.priority" size="sm" :items="priorityOptions" :disabled="plan.status === 'archived'" />
               </div>
               <div class="space-y-1">
                 <label class="text-xs font-medium text-gray-500 dark:text-gray-400">维度</label>
-                <USelect
-                  v-model="item.dimension"
-                  :items="dimensionOptions"
-                  :disabled="plan.status === 'archived'"
-                />
+                <USelect v-model="item.dimension" size="sm" :items="dimensionOptions" :disabled="plan.status === 'archived'" />
               </div>
             </div>
           </div>
@@ -244,6 +219,7 @@
               <UTextarea
                 v-model="newComments[item.id]"
                 placeholder="添加评论..."
+                size="sm"
                 :rows="2"
                 class="flex-1"
               />
