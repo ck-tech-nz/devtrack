@@ -7,7 +7,7 @@ on:
       - env/prod
 
 env:
-  REGISTRY: registry.aimenu.tech
+  REGISTRY: registry.cktech.hk
   REGISTRY_USERNAME: ck
   PROJECT_NAME: devtrack
 

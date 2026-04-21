@@ -22,8 +22,9 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 // The group appears at the position of its first matching child in the route list.
 const GROUP_DEFS: { label: string; icon: string; paths: string[] }[] = [
   { label: '项目管理', icon: 'i-heroicons-folder', paths: ['/app/projects', '/app/repos'] },
-  { label: '用户管理', icon: 'i-heroicons-users', paths: ['/app/users', '/app/permissions'] },
-  { label: '系统管理', icon: 'i-heroicons-cog-6-tooth', paths: ['/app/settings/backups', '/app/api-docs', '/app/about'] },
+  { label: 'AI 分析', icon: 'i-heroicons-cpu-chip', paths: ['/app/ai/team-analysis', '/app/ai/my-plan', '/app/ai/plans'] },
+  { label: '用户管理', icon: 'i-heroicons-users', paths: ['/app/users', '/app/kpi', '/app/permissions'] },
+  { label: '系统管理', icon: 'i-heroicons-cog-6-tooth', paths: ['/app/settings/kpi-scoring', '/app/settings/backups', '/app/api-docs', '/app/about'] },
 ]
 
 export const useNavigation = () => {

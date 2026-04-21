@@ -80,5 +80,8 @@
     "deny": [
       "Read(./.entire/metadata/**)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true
   }
 }
