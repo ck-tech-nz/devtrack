@@ -8,7 +8,7 @@ from apps.repos.serializers import GitHubIssueBriefSerializer
 from apps.tools.models import Attachment
 from apps.tools.serializers import AttachmentSerializer
 from apps.notifications.services import create_mention_notifications
-from .models import Issue, Activity
+from .models import Issue, IssueStatus, Activity
 
 User = get_user_model()
 
@@ -136,8 +136,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_status(self, value):
-        site_settings = SiteSettings.get_solo()
-        if value not in site_settings.issue_statuses:
+        if value not in IssueStatus.values:
             raise serializers.ValidationError(f"无效的状态: {value}")
         return value
 
@@ -184,7 +183,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
                 user=user, issue=issue, action=action,
                 detail=f"状态从 {old_status} 改为 {new_status}",
             )
-            if new_status in ("已解决", "已关闭") and not issue.resolved_at:
+            if new_status in ("已解决", "已发布", "已关闭") and not issue.resolved_at:
                 issue.resolved_at = timezone.now()
                 issue.save(update_fields=["resolved_at"])
 

@@ -103,7 +103,7 @@
             <UBadge :color="row.original.priority === 'P0' ? 'error' : row.original.priority === 'P1' ? 'warning' : row.original.priority === 'P2' ? 'warning' : 'neutral'" variant="subtle" size="xs">{{ row.original.priority }}</UBadge>
           </template>
           <template #status-cell="{ row }">
-            <UBadge :color="row.original.status === '积压' ? 'secondary' : row.original.status === '待处理' ? 'warning' : row.original.status === '进行中' ? 'info' : row.original.status === '已解决' ? 'success' : 'neutral'" variant="subtle" size="xs">{{ row.original.status }}</UBadge>
+            <UBadge :color="row.original.status === '未计划' ? 'secondary' : row.original.status === '待处理' ? 'warning' : row.original.status === '进行中' ? 'info' : row.original.status === '已解决' ? 'success' : row.original.status === '已发布' ? 'primary' : 'neutral'" variant="subtle" size="xs">{{ row.original.status }}</UBadge>
           </template>
           <template #assignee_name-cell="{ row }">
             {{ row.original.assignee_name || '-' }}
@@ -141,7 +141,7 @@ const filterStatus = ref('_all')
 const filterAssignee = ref('_all')
 
 const priorityOptions = [{ label: '全部', value: '_all' }, { label: 'P0', value: 'P0' }, { label: 'P1', value: 'P1' }, { label: 'P2', value: 'P2' }, { label: 'P3', value: 'P3' }]
-const statusOptions = [{ label: '全部', value: '_all' }, { label: '积压', value: '积压' }, { label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已关闭', value: '已关闭' }]
+const statusOptions = [{ label: '全部', value: '_all' }, { label: '未计划', value: '未计划' }, { label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已发布', value: '已发布' }, { label: '已关闭', value: '已关闭' }]
 const assigneeOptions = computed(() => [{ label: '全部', value: '_all' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
 
 const filteredIssues = computed(() => {

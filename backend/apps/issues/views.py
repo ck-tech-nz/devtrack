@@ -66,12 +66,13 @@ class IssueListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = _with_ai_fields(super().get_queryset()).annotate(
             status_order=Case(
-                When(status="积压", then=Value(0)),
+                When(status="未计划", then=Value(0)),
                 When(status="待处理", then=Value(1)),
                 When(status="进行中", then=Value(2)),
                 When(status="已解决", then=Value(3)),
-                When(status="已关闭", then=Value(4)),
-                default=Value(5),
+                When(status="已发布", then=Value(4)),
+                When(status="已关闭", then=Value(5)),
+                default=Value(6),
                 output_field=IntegerField(),
             ),
         )

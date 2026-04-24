@@ -21,7 +21,7 @@ class TestSiteSettingsModel:
         assert site_settings.priorities == ["P0", "P1", "P2", "P3"]
 
     def test_default_issue_statuses(self, site_settings):
-        assert site_settings.issue_statuses == ["积压", "待处理", "进行中", "已解决", "已关闭"]
+        assert site_settings.issue_statuses == ["未计划", "待处理", "进行中", "已解决", "已发布", "已关闭"]
 
 
 class TestSiteSettingsAPI:

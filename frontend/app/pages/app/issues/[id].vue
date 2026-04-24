@@ -802,9 +802,11 @@ const form = ref({
 
 const priorityItems = PRIORITY_ITEMS
 const statusItems = [
+  { label: '未计划', value: '未计划', activeClass: 'bg-violet-500 text-white dark:bg-violet-600 dark:text-white' },
   { label: '待处理', value: '待处理', activeClass: 'bg-amber-500 text-white dark:bg-amber-600 dark:text-white' },
   { label: '进行中', value: '进行中', activeClass: 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white' },
   { label: '已解决', value: '已解决', activeClass: 'bg-emerald-500 text-white dark:bg-emerald-600 dark:text-white' },
+  { label: '已发布', value: '已发布', activeClass: 'bg-teal-500 text-white dark:bg-teal-600 dark:text-white' },
   { label: '已关闭', value: '已关闭', activeClass: 'bg-gray-500 text-white dark:bg-gray-600 dark:text-white' },
 ]
 const assigneeItems = computed(() => [

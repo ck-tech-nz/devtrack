@@ -16,7 +16,7 @@
     </div>
     <div class="mt-2 flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
       <UBadge
-        :color="issue.status === '积压' ? 'secondary' : issue.status === '待处理' ? 'warning' : issue.status === '进行中' ? 'info' : issue.status === '已解决' ? 'success' : 'neutral'"
+        :color="issue.status === '未计划' ? 'secondary' : issue.status === '待处理' ? 'warning' : issue.status === '进行中' ? 'info' : issue.status === '已解决' ? 'success' : issue.status === '已发布' ? 'primary' : 'neutral'"
         variant="solid"
         size="xs"
       >

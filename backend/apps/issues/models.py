@@ -9,6 +9,15 @@ class Priority(models.TextChoices):
     P3 = 'P3', '低'
 
 
+class IssueStatus(models.TextChoices):
+    UNPLANNED = '未计划', '未计划'
+    PENDING = '待处理', '待处理'
+    IN_PROGRESS = '进行中', '进行中'
+    RESOLVED = '已解决', '已解决'
+    PUBLISHED = '已发布', '已发布'
+    CLOSED = '已关闭', '已关闭'
+
+
 class IssueManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
@@ -34,7 +43,7 @@ class Issue(models.Model):
         verbose_name="关联仓库",
     )
     priority = models.CharField(max_length=10, choices=Priority.choices, verbose_name="优先级")
-    status = models.CharField(max_length=20, verbose_name="状态")
+    status = models.CharField(max_length=20, choices=IssueStatus.choices, verbose_name="状态")
     labels = models.JSONField(default=list, verbose_name="标签", blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,

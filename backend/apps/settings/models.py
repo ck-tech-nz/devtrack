@@ -25,7 +25,7 @@ def default_priorities():
 
 
 def default_issue_statuses():
-    return ["积压", "待处理", "进行中", "已解决", "已关闭"]
+    return ["未计划", "待处理", "进行中", "已解决", "已发布", "已关闭"]
 
 
 class SiteSettings(SingletonModel):
