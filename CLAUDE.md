@@ -82,9 +82,11 @@ PostgreSQL. Default local connection: `127.0.0.1:25432`, database `devtrack`. Co
 
 Push to `env/test` or `env/prod` branch triggers CI (`.github/workflows/build-push.yml`) which builds and pushes both backend and frontend Docker images.
 
+`env/test` and `env/prod` are release branches — they only track what is currently deployed. Divergence from `main` is expected and can be ignored; always force-push from `main`.
+
 ```bash
-git push origin main:env/test     # Deploy to test (builds both frontend + backend)
-git push origin main:env/prod     # Deploy to production
+git push -f origin main:env/test     # Deploy to test (builds both frontend + backend)
+git push -f origin main:env/prod     # Deploy to production
 ```
 
 ## Key Conventions
