@@ -45,7 +45,7 @@
             >
               {{ task.status }}
             </UBadge>
-            <template v-if="task.status === '已解决' && isTester">
+            <template v-if="task.status === '已发布' && isTester">
               <UButton
                 size="xs"
                 color="neutral"
@@ -79,6 +79,7 @@ function statusColor(status: string) {
   if (status === '待处理') return 'warning'
   if (status === '进行中') return 'info'
   if (status === '已解决') return 'success'
+  if (status === '已发布') return 'success'
   return 'neutral'
 }
 
@@ -93,7 +94,7 @@ async function loadTasks() {
       api<any>(`/api/issues/?helpers=${uid}&status=进行中&page_size=8`),
     ]
     if (isTester.value) {
-      fetches.push(api<any>(`/api/issues/?status=已解决&page_size=8`))
+      fetches.push(api<any>(`/api/issues/?status=已发布&page_size=8`))
     }
     const results = await Promise.all(fetches)
     const seen = new Set<number>()
