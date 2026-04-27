@@ -5,9 +5,10 @@
       <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
       <div class="flex items-center justify-between md:justify-end space-x-3">
         <label class="flex items-center gap-1.5 cursor-pointer select-none">
-          <span class="text-sm text-gray-500 dark:text-gray-400">查看已关闭</span>
+          <span class="text-sm text-gray-500 dark:text-gray-400">查看全部</span>
           <USwitch v-model="showCompleted" size="lg" />
         </label>
+        <UInput v-model="searchQuery" placeholder="搜索标题或编号" icon="i-heroicons-magnifying-glass" size="sm" class="w-44" />
         <div class="relative">
           <USelect v-model="filterAssignee" :items="filterAssigneeOptions" size="sm" class="w-28" value-key="value" placeholder="负责人" />
           <button v-if="filterAssignee" class="filter-clear" @click="filterAssignee = ''">
@@ -319,6 +320,7 @@ const pageSize = 15
 const filterAssignee = ref('')
 const filterPriority = ref('')
 const filterStatus = ref('')
+const searchQuery = ref('')
 const rowSelection = ref<Record<string, boolean>>({})
 const showBatchDeleteConfirm = ref(false)
 const batchDeleting = ref(false)
@@ -476,13 +478,13 @@ async function onStatusChange({ issueId, newStatus }: { issueId: number, newStat
 
 const kanbanColumns = computed(() => {
   const cols = [
-    { key: '未计划', label: '未计划', color: '#8b5cf6', items: issues.value.filter(i => i.status === '未计划') },
     { key: '待处理', label: '待处理', color: '#f59e0b', items: issues.value.filter(i => i.status === '待处理') },
     { key: '进行中', label: '进行中', color: '#3b82f6', items: issues.value.filter(i => i.status === '进行中') },
     { key: '已解决', label: '已解决', color: '#10b981', items: issues.value.filter(i => i.status === '已解决') },
     { key: '已发布', label: '已发布', color: '#14b8a6', items: issues.value.filter(i => i.status === '已发布') },
   ]
   if (showCompleted.value) {
+    cols.unshift({ key: '未计划', label: '未计划', color: '#8b5cf6', items: issues.value.filter(i => i.status === '未计划') })
     cols.push({ key: '已关闭', label: '已关闭', color: '#6b7280', items: issues.value.filter(i => i.status === '已关闭') })
   }
   return cols
@@ -574,11 +576,12 @@ async function fetchIssues() {
     params.set('page', String(page.value))
     params.set('page_size', String(pageSize))
     if (!showCompleted.value && !filterStatus.value) {
-      params.set('exclude_statuses', '已关闭')
+      params.set('exclude_statuses', '已关闭,未计划')
     }
     if (filterAssignee.value) params.set('assignee', filterAssignee.value)
     if (filterPriority.value) params.set('priority', filterPriority.value)
     if (filterStatus.value) params.set('status', filterStatus.value)
+    if (searchQuery.value.trim()) params.set('search', searchQuery.value.trim())
 
     const data = await api<any>(`/api/issues/?${params.toString()}`)
     issues.value = data.results || data || []
@@ -654,6 +657,16 @@ watch([filterAssignee, filterPriority, filterStatus], () => {
   page.value = 1
   rowSelection.value = {}
   fetchIssues()
+})
+
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+watch(searchQuery, () => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    page.value = 1
+    rowSelection.value = {}
+    fetchIssues()
+  }, 300)
 })
 
 onMounted(async () => {
