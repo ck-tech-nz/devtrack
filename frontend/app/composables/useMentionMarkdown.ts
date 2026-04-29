@@ -54,8 +54,9 @@ function fileCardPlugin(md: MarkdownIt) {
     token.attrJoin('class', `md-file-card md-file-${category}`)
     token.attrSet('target', '_blank')
     token.attrSet('rel', 'noopener')
+    // download is honored only for same-origin URLs; cross-origin opens the browser default handler
     token.attrSet('download', '')
-    // Mark for link_close to know it should append the badge
+    // Spread preserves meta from earlier plugins; downstream plugins must do the same on link tokens
     token.meta = { ...(token.meta || {}), fileCategory: category }
     const opener = self.renderToken(tokens, idx, options)
     return `${opener}<span class="md-file-icon" aria-hidden="true"></span><span class="md-file-name">`
