@@ -6,7 +6,51 @@ import apps.tools.storage as tools_storage
 from .models import Attachment
 
 MAX_SIZE = 20 * 1024 * 1024  # 20MB
-IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+
+# Mirror this allowlist with frontend/app/components/MarkdownEditor.vue (ALLOWED_TYPES + EXTENSION_FALLBACK).
+ALLOWED_TYPES = {
+    # Images
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    # PDF
+    "application/pdf",
+    # Word
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    # Excel
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    # PowerPoint
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    # Text / data
+    "text/plain",
+    "text/markdown",
+    "text/csv",
+    "application/json",
+    # Archive
+    "application/zip",
+    "application/x-zip-compressed",
+}
+
+# Extensions that are allowed even when the browser reports an unusual MIME type
+# (e.g. some browsers report .md as text/plain or empty).
+EXTENSION_FALLBACK = {
+    "md", "txt", "csv", "json", "zip",
+}
+
+
+def _is_allowed(file) -> bool:
+    if file.content_type in ALLOWED_TYPES:
+        return True
+    name = file.name or ""
+    if "." in name:
+        ext = name.rsplit(".", 1)[-1].lower()
+        if ext in EXTENSION_FALLBACK:
+            return True
+    return False
 
 
 class ImageUploadView(APIView):
@@ -16,9 +60,14 @@ class ImageUploadView(APIView):
         file = request.FILES.get("file")
         if not file:
             return Response({"detail": "未提供文件"}, status=400)
+        if not _is_allowed(file):
+            return Response(
+                {"detail": f"不支持的文件类型: {file.content_type}"},
+                status=400,
+            )
         if file.size > MAX_SIZE:
             return Response(
-                {"detail": f"文件大小超过限制 (20MB)"},
+                {"detail": "文件大小超过限制 (20MB)"},
                 status=400,
             )
 

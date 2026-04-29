@@ -35,8 +35,8 @@
           <UIcon :name="btn.icon" class="w-4 h-4" />
         </button>
         <span class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
-        <button title="上传图片" class="toolbar-btn" @click="triggerFileInput">
-          <UIcon name="i-heroicons-photo" class="w-4 h-4" />
+        <button title="上传文件" class="toolbar-btn" @click="triggerFileInput">
+          <UIcon name="i-heroicons-paper-clip" class="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -63,11 +63,11 @@
       />
       <!-- Bottom bar -->
       <div class="flex items-center gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-        <span class="text-xs text-gray-400 dark:text-gray-500">支持 Markdown 格式 · 粘贴、拖放或点击上传图片</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">支持 Markdown 格式 · 粘贴、拖放或点击上传图片和文件</span>
         <input
           ref="fileInputRef"
           type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp"
+          accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/csv,application/json,application/zip,application/x-zip-compressed,.md,.txt,.csv,.json,.zip"
           multiple
           class="hidden"
           @change="handleFileSelect"
@@ -232,8 +232,46 @@ const renderedHtml = computed(() => {
     .replace(/<input class="task-list-item-checkbox"type="checkbox">/g, '<span class="md-checkbox"></span>')
 })
 
-const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
-const MAX_SIZE = 5 * 1024 * 1024
+const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+// Mirror this allowlist with backend/apps/tools/views.py (ALLOWED_TYPES + EXTENSION_FALLBACK).
+const ALLOWED_TYPES = new Set([
+  // Images
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+  // PDF
+  'application/pdf',
+  // Word
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  // Excel
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  // PowerPoint
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  // Text / data
+  'text/plain', 'text/markdown', 'text/csv', 'application/json',
+  // Archive
+  'application/zip', 'application/x-zip-compressed',
+])
+const EXTENSION_FALLBACK = new Set(['md', 'txt', 'csv', 'json', 'zip'])
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 20 * 1024 * 1024
+
+function isAllowed(file: File): boolean {
+  if (ALLOWED_TYPES.has(file.type)) return true
+  const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : ''
+  return EXTENSION_FALLBACK.has(ext)
+}
+
+function isImage(file: File): boolean {
+  return IMAGE_TYPES.has(file.type)
+}
+
+// Escape characters that would break out of markdown link text and let a
+// user-controlled filename inject a different link target.
+function escapeMdLinkText(s: string): string {
+  return s.replace(/([\\\[\]])/g, '\\$1')
+}
 
 // --- Toolbar ---
 
@@ -425,16 +463,23 @@ function replacePlaceholder(placeholder: string, replacement: string) {
 
 async function uploadFiles(files: File[]) {
   for (const file of files) {
-    if (!ALLOWED_TYPES.has(file.type)) {
-      toast.add({ title: `不支持的文件类型: ${file.type}`, color: 'error' })
+    if (!isAllowed(file)) {
+      const typeLabel = file.type || `未知类型 (${file.name})`
+      toast.add({ title: `不支持的文件类型: ${typeLabel}`, color: 'error' })
       continue
     }
-    if (file.size > MAX_SIZE) {
-      toast.add({ title: `文件 ${file.name} 超过 5MB 限制`, color: 'error' })
+    const image = isImage(file)
+    const limit = image ? MAX_IMAGE_SIZE : MAX_FILE_SIZE
+    if (file.size > limit) {
+      const label = image ? '图片' : '文件'
+      const limitMb = image ? 5 : 20
+      toast.add({ title: `${label} ${file.name} 超过 ${limitMb}MB 限制`, color: 'error' })
       continue
     }
 
-    const placeholder = `![上传中 ${file.name}...]()`
+    const prefix = image ? '!' : ''
+    const safeName = escapeMdLinkText(file.name)
+    const placeholder = `${prefix}[上传中 ${safeName}...]()`
     insertAtCursor('\n' + placeholder + '\n')
 
     try {
@@ -444,10 +489,10 @@ async function uploadFiles(files: File[]) {
         method: 'POST',
         body: formData,
       })
-      replacePlaceholder(placeholder, `![${res.filename}](${res.url})`)
+      replacePlaceholder(placeholder, `${prefix}[${escapeMdLinkText(res.filename)}](${res.url})`)
       emit('upload-complete', { url: res.url, filename: res.filename, id: res.id })
     } catch {
-      replacePlaceholder(placeholder, `![上传失败 ${file.name}]()`)
+      replacePlaceholder(placeholder, `${prefix}[上传失败 ${safeName}]()`)
       toast.add({ title: `上传失败: ${file.name}`, color: 'error' })
     }
   }
@@ -551,4 +596,85 @@ async function uploadFiles(files: File[]) {
   background: #14532d;
   color: #86efac;
 }
+
+/* File card (non-image attachments in markdown preview) */
+.markdown-body .md-file-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.4em 0.75em;
+  margin: 0.25em 0.25em 0.25em 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #1f2937;
+  text-decoration: none;
+  font-size: 0.875em;
+  line-height: 1.2;
+  transition: background 0.15s, border-color 0.15s;
+  max-width: 100%;
+}
+.markdown-body .md-file-card:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  text-decoration: none;
+}
+.markdown-body .md-file-card .md-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.markdown-body .md-file-card .md-file-ext {
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.06);
+  color: #4b5563;
+}
+.markdown-body .md-file-card .md-file-icon {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.markdown-body .md-file-pdf .md-file-icon::before { content: '📄'; }
+.markdown-body .md-file-word .md-file-icon::before { content: '📝'; }
+.markdown-body .md-file-excel .md-file-icon::before { content: '📊'; }
+.markdown-body .md-file-ppt .md-file-icon::before { content: '📽'; }
+.markdown-body .md-file-text .md-file-icon::before { content: '📄'; }
+.markdown-body .md-file-archive .md-file-icon::before { content: '📦'; }
+
+.markdown-body .md-file-pdf .md-file-ext { background: #fee2e2; color: #b91c1c; }
+.markdown-body .md-file-word .md-file-ext { background: #dbeafe; color: #1d4ed8; }
+.markdown-body .md-file-excel .md-file-ext { background: #dcfce7; color: #15803d; }
+.markdown-body .md-file-ppt .md-file-ext { background: #ffedd5; color: #c2410c; }
+.markdown-body .md-file-text .md-file-ext { background: #f3f4f6; color: #4b5563; }
+.markdown-body .md-file-archive .md-file-ext { background: #e5e7eb; color: #374151; }
+
+:root.dark .markdown-body .md-file-card {
+  background: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+:root.dark .markdown-body .md-file-card:hover {
+  background: #374151;
+  border-color: #4b5563;
+}
+:root.dark .markdown-body .md-file-card .md-file-ext {
+  background: rgba(255, 255, 255, 0.08);
+  color: #d1d5db;
+}
+:root.dark .markdown-body .md-file-pdf .md-file-ext { background: #7f1d1d; color: #fecaca; }
+:root.dark .markdown-body .md-file-word .md-file-ext { background: #1e3a5f; color: #bfdbfe; }
+:root.dark .markdown-body .md-file-excel .md-file-ext { background: #14532d; color: #bbf7d0; }
+:root.dark .markdown-body .md-file-ppt .md-file-ext { background: #7c2d12; color: #fed7aa; }
+:root.dark .markdown-body .md-file-text .md-file-ext { background: #374151; color: #e5e7eb; }
+:root.dark .markdown-body .md-file-archive .md-file-ext { background: #4b5563; color: #f3f4f6; }
 </style>
