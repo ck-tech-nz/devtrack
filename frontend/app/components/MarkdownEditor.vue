@@ -300,6 +300,10 @@ async function fetchMdContent(url: string): Promise<string> {
 function showMdPreview(el: HTMLAnchorElement) {
   if (hideTimer) { clearTimeout(hideTimer); hideTimer = null }
   if (showTimer) clearTimeout(showTimer)
+  // Start prefetch immediately so the file is in cache by the time the
+  // popup opens. Users who click-to-download within the 500ms delay
+  // navigate before the popup ever appears (no wasted UI work).
+  void fetchMdContent(el.href)
   showTimer = setTimeout(async () => {
     const rect = el.getBoundingClientRect()
     const popupHeight = Math.min(window.innerHeight * 0.7, 640)
@@ -326,7 +330,7 @@ function showMdPreview(el: HTMLAnchorElement) {
       mdHover.value.loading = false
       mdHover.value.content = md.render(text)
     }
-  }, 300)
+  }, 500)
 }
 
 function hideMdPreview() {
