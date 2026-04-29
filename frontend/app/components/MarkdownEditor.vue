@@ -457,7 +457,8 @@ function replacePlaceholder(placeholder: string, replacement: string) {
 async function uploadFiles(files: File[]) {
   for (const file of files) {
     if (!isAllowed(file)) {
-      toast.add({ title: `不支持的文件类型: ${file.type || file.name}`, color: 'error' })
+      const typeLabel = file.type || `未知类型 (${file.name})`
+      toast.add({ title: `不支持的文件类型: ${typeLabel}`, color: 'error' })
       continue
     }
     const image = isImage(file)
