@@ -16,13 +16,13 @@ class TestImageUpload:
         assert response.status_code == 400
 
     def test_invalid_type_returns_400(self, auth_client):
-        f = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
+        f = SimpleUploadedFile("malware.exe", b"MZ", content_type="application/x-msdownload")
         response = auth_client.post(self.URL, {"file": f}, format="multipart")
         assert response.status_code == 400
         assert "类型" in response.data["detail"]
 
     def test_oversized_file_returns_400(self, auth_client):
-        f = SimpleUploadedFile("big.png", b"x" * (6 * 1024 * 1024), content_type="image/png")
+        f = SimpleUploadedFile("big.png", b"x" * (21 * 1024 * 1024), content_type="image/png")
         response = auth_client.post(self.URL, {"file": f}, format="multipart")
         assert response.status_code == 400
         assert "大小" in response.data["detail"]
@@ -41,3 +41,59 @@ class TestImageUpload:
         assert response.data["filename"] == "screenshot.png"
         assert "id" in response.data
         assert Attachment.objects.filter(file_url=response.data["url"]).exists()
+
+    @patch("apps.tools.storage.upload_image")
+    def test_pdf_upload_succeeds(self, mock_upload, auth_client):
+        mock_upload.return_value = (
+            "http://minio:9000/devtrack-uploads/2026/04/29/abc.pdf",
+            "2026/04/29/abc.pdf",
+        )
+        f = SimpleUploadedFile("report.pdf", b"%PDF-1.4\n%test", content_type="application/pdf")
+        response = auth_client.post(self.URL, {"file": f}, format="multipart")
+        assert response.status_code == 200
+        assert response.data["filename"] == "report.pdf"
+
+    @patch("apps.tools.storage.upload_image")
+    def test_docx_upload_succeeds(self, mock_upload, auth_client):
+        mock_upload.return_value = (
+            "http://minio:9000/devtrack-uploads/2026/04/29/abc.docx",
+            "2026/04/29/abc.docx",
+        )
+        f = SimpleUploadedFile(
+            "spec.docx",
+            b"PK\x03\x04",
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        response = auth_client.post(self.URL, {"file": f}, format="multipart")
+        assert response.status_code == 200
+
+    @patch("apps.tools.storage.upload_image")
+    def test_zip_upload_succeeds(self, mock_upload, auth_client):
+        mock_upload.return_value = (
+            "http://minio:9000/devtrack-uploads/2026/04/29/abc.zip",
+            "2026/04/29/abc.zip",
+        )
+        f = SimpleUploadedFile("bundle.zip", b"PK\x03\x04", content_type="application/zip")
+        response = auth_client.post(self.URL, {"file": f}, format="multipart")
+        assert response.status_code == 200
+
+    @patch("apps.tools.storage.upload_image")
+    def test_markdown_with_textplain_succeeds(self, mock_upload, auth_client):
+        """Some browsers report .md files as text/plain — allow if extension matches."""
+        mock_upload.return_value = (
+            "http://minio:9000/devtrack-uploads/2026/04/29/abc.md",
+            "2026/04/29/abc.md",
+        )
+        f = SimpleUploadedFile("notes.md", b"# Hello", content_type="text/plain")
+        response = auth_client.post(self.URL, {"file": f}, format="multipart")
+        assert response.status_code == 200
+
+    @patch("apps.tools.storage.upload_image")
+    def test_plain_txt_succeeds(self, mock_upload, auth_client):
+        mock_upload.return_value = (
+            "http://minio:9000/devtrack-uploads/2026/04/29/abc.txt",
+            "2026/04/29/abc.txt",
+        )
+        f = SimpleUploadedFile("notes.txt", b"hello", content_type="text/plain")
+        response = auth_client.post(self.URL, {"file": f}, format="multipart")
+        assert response.status_code == 200
