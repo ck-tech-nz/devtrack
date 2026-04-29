@@ -53,7 +53,7 @@ function fileCardPlugin(md: MarkdownIt) {
     }
     token.attrJoin('class', `md-file-card md-file-${category}`)
     token.attrSet('target', '_blank')
-    token.attrSet('rel', 'noopener')
+    token.attrSet('rel', 'noopener noreferrer')
     // download is honored only for same-origin URLs; cross-origin opens the browser default handler
     token.attrSet('download', '')
     // Spread preserves meta from earlier plugins; downstream plugins must do the same on link tokens

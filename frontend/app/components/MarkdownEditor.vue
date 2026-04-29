@@ -267,6 +267,12 @@ function isImage(file: File): boolean {
   return IMAGE_TYPES.has(file.type)
 }
 
+// Escape characters that would break out of markdown link text and let a
+// user-controlled filename inject a different link target.
+function escapeMdLinkText(s: string): string {
+  return s.replace(/([\\\[\]])/g, '\\$1')
+}
+
 // --- Toolbar ---
 
 const toolbarButtons = [
@@ -472,7 +478,8 @@ async function uploadFiles(files: File[]) {
     }
 
     const prefix = image ? '!' : ''
-    const placeholder = `${prefix}[上传中 ${file.name}...]()`
+    const safeName = escapeMdLinkText(file.name)
+    const placeholder = `${prefix}[上传中 ${safeName}...]()`
     insertAtCursor('\n' + placeholder + '\n')
 
     try {
@@ -482,10 +489,10 @@ async function uploadFiles(files: File[]) {
         method: 'POST',
         body: formData,
       })
-      replacePlaceholder(placeholder, `${prefix}[${res.filename}](${res.url})`)
+      replacePlaceholder(placeholder, `${prefix}[${escapeMdLinkText(res.filename)}](${res.url})`)
       emit('upload-complete', { url: res.url, filename: res.filename, id: res.id })
     } catch {
-      replacePlaceholder(placeholder, `${prefix}[上传失败 ${file.name}]()`)
+      replacePlaceholder(placeholder, `${prefix}[上传失败 ${safeName}]()`)
       toast.add({ title: `上传失败: ${file.name}`, color: 'error' })
     }
   }

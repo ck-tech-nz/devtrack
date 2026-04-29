@@ -1083,12 +1083,45 @@ async function handleUploadComplete(uploaded: { url: string; filename: string; i
   }
 }
 
+// Mirror this allowlist with backend/apps/tools/views.py and MarkdownEditor.vue.
+const ATTACHMENT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+const ATTACHMENT_ALLOWED_TYPES = new Set([
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'text/markdown', 'text/csv', 'application/json',
+  'application/zip', 'application/x-zip-compressed',
+])
+const ATTACHMENT_EXTENSION_FALLBACK = new Set(['md', 'txt', 'csv', 'json', 'zip'])
+const ATTACHMENT_MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const ATTACHMENT_MAX_FILE_SIZE = 20 * 1024 * 1024
+
 async function handleAttachmentSelect(e: Event) {
   const input = e.target as HTMLInputElement
   const files = Array.from(input.files || [])
   input.value = ''
   const { api } = useApi()
   for (const file of files) {
+    const allowedByType = ATTACHMENT_ALLOWED_TYPES.has(file.type)
+    const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : ''
+    const allowedByExt = ATTACHMENT_EXTENSION_FALLBACK.has(ext)
+    if (!allowedByType && !allowedByExt) {
+      toast.add({ title: `不支持的文件类型: ${file.type || file.name}`, color: 'error' })
+      continue
+    }
+    const isImg = ATTACHMENT_IMAGE_TYPES.has(file.type)
+    const limit = isImg ? ATTACHMENT_MAX_IMAGE_SIZE : ATTACHMENT_MAX_FILE_SIZE
+    if (file.size > limit) {
+      const label = isImg ? '图片' : '文件'
+      const limitMb = isImg ? 5 : 20
+      toast.add({ title: `${label} ${file.name} 超过 ${limitMb}MB 限制`, color: 'error' })
+      continue
+    }
     try {
       const formData = new FormData()
       formData.append('file', file)
