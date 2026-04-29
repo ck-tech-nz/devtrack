@@ -35,8 +35,8 @@
           <UIcon :name="btn.icon" class="w-4 h-4" />
         </button>
         <span class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
-        <button title="上传图片" class="toolbar-btn" @click="triggerFileInput">
-          <UIcon name="i-heroicons-photo" class="w-4 h-4" />
+        <button title="上传文件" class="toolbar-btn" @click="triggerFileInput">
+          <UIcon name="i-heroicons-paper-clip" class="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -63,11 +63,11 @@
       />
       <!-- Bottom bar -->
       <div class="flex items-center gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-        <span class="text-xs text-gray-400 dark:text-gray-500">支持 Markdown 格式 · 粘贴、拖放或点击上传图片</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">支持 Markdown 格式 · 粘贴、拖放或点击上传图片和文件</span>
         <input
           ref="fileInputRef"
           type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp"
+          accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/csv,application/json,application/zip,application/x-zip-compressed,.md,.txt,.csv,.json,.zip"
           multiple
           class="hidden"
           @change="handleFileSelect"
@@ -232,8 +232,39 @@ const renderedHtml = computed(() => {
     .replace(/<input class="task-list-item-checkbox"type="checkbox">/g, '<span class="md-checkbox"></span>')
 })
 
-const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
-const MAX_SIZE = 5 * 1024 * 1024
+const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+const ALLOWED_TYPES = new Set([
+  // Images
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+  // PDF
+  'application/pdf',
+  // Word
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  // Excel
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  // PowerPoint
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  // Text / data
+  'text/plain', 'text/markdown', 'text/csv', 'application/json',
+  // Archive
+  'application/zip', 'application/x-zip-compressed',
+])
+const EXTENSION_FALLBACK = new Set(['md', 'txt', 'csv', 'json', 'zip'])
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 20 * 1024 * 1024
+
+function isAllowed(file: File): boolean {
+  if (ALLOWED_TYPES.has(file.type)) return true
+  const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : ''
+  return EXTENSION_FALLBACK.has(ext)
+}
+
+function isImage(file: File): boolean {
+  return IMAGE_TYPES.has(file.type)
+}
 
 // --- Toolbar ---
 
@@ -425,16 +456,21 @@ function replacePlaceholder(placeholder: string, replacement: string) {
 
 async function uploadFiles(files: File[]) {
   for (const file of files) {
-    if (!ALLOWED_TYPES.has(file.type)) {
-      toast.add({ title: `不支持的文件类型: ${file.type}`, color: 'error' })
+    if (!isAllowed(file)) {
+      toast.add({ title: `不支持的文件类型: ${file.type || file.name}`, color: 'error' })
       continue
     }
-    if (file.size > MAX_SIZE) {
-      toast.add({ title: `文件 ${file.name} 超过 5MB 限制`, color: 'error' })
+    const image = isImage(file)
+    const limit = image ? MAX_IMAGE_SIZE : MAX_FILE_SIZE
+    if (file.size > limit) {
+      const label = image ? '图片' : '文件'
+      const limitMb = image ? 5 : 20
+      toast.add({ title: `${label} ${file.name} 超过 ${limitMb}MB 限制`, color: 'error' })
       continue
     }
 
-    const placeholder = `![上传中 ${file.name}...]()`
+    const prefix = image ? '!' : ''
+    const placeholder = `${prefix}[上传中 ${file.name}...]()`
     insertAtCursor('\n' + placeholder + '\n')
 
     try {
@@ -444,10 +480,10 @@ async function uploadFiles(files: File[]) {
         method: 'POST',
         body: formData,
       })
-      replacePlaceholder(placeholder, `![${res.filename}](${res.url})`)
+      replacePlaceholder(placeholder, `${prefix}[${res.filename}](${res.url})`)
       emit('upload-complete', { url: res.url, filename: res.filename, id: res.id })
     } catch {
-      replacePlaceholder(placeholder, `![上传失败 ${file.name}]()`)
+      replacePlaceholder(placeholder, `${prefix}[上传失败 ${file.name}]()`)
       toast.add({ title: `上传失败: ${file.name}`, color: 'error' })
     }
   }
