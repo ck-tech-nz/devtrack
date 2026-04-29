@@ -77,11 +77,26 @@
 
     <!-- Preview mode -->
     <div
+      ref="previewRef"
       v-show="mode === 'preview'"
       class="markdown-body min-h-[260px] p-4 bg-white dark:bg-gray-900 text-sm"
       v-html="renderedHtml"
     />
   </div>
+
+  <!-- Hover preview for .md attachments -->
+  <Teleport to="body">
+    <div
+      v-if="mdHover.visible"
+      class="md-hover-preview"
+      :style="{ top: mdHover.top + 'px', left: mdHover.left + 'px' }"
+      @mouseenter="cancelHideMdPreview"
+      @mouseleave="hideMdPreview"
+    >
+      <div v-if="mdHover.loading" class="md-hover-loading">加载中...</div>
+      <div v-else class="markdown-body md-hover-body" v-html="mdHover.content" />
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -230,6 +245,103 @@ const renderedHtml = computed(() => {
   return md.render(props.modelValue)
     .replace(/<input class="task-list-item-checkbox" checked=""type="checkbox">/g, '<span class="md-checkbox md-checked"></span>')
     .replace(/<input class="task-list-item-checkbox"type="checkbox">/g, '<span class="md-checkbox"></span>')
+})
+
+// --- .md hover preview ---
+
+const previewRef = ref<HTMLElement | null>(null)
+const mdHover = ref<{ visible: boolean; loading: boolean; content: string; top: number; left: number }>({
+  visible: false, loading: false, content: '', top: 0, left: 0,
+})
+const mdCache = new Map<string, string>()
+const MD_FETCH_CAP = 200 * 1024
+let showTimer: ReturnType<typeof setTimeout> | null = null
+let hideTimer: ReturnType<typeof setTimeout> | null = null
+
+async function fetchMdContent(url: string): Promise<string> {
+  if (mdCache.has(url)) return mdCache.get(url)!
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const reader = res.body?.getReader()
+    if (!reader) {
+      const text = await res.text()
+      const capped = text.length > MD_FETCH_CAP ? text.slice(0, MD_FETCH_CAP) + '\n\n...(已截断)' : text
+      mdCache.set(url, capped)
+      return capped
+    }
+    const decoder = new TextDecoder()
+    let received = ''
+    while (received.length < MD_FETCH_CAP) {
+      const { done, value } = await reader.read()
+      if (done) break
+      received += decoder.decode(value, { stream: true })
+    }
+    if (received.length >= MD_FETCH_CAP) received = received.slice(0, MD_FETCH_CAP) + '\n\n...(已截断)'
+    mdCache.set(url, received)
+    return received
+  } catch {
+    const fallback = '加载失败'
+    mdCache.set(url, fallback)
+    return fallback
+  }
+}
+
+function showMdPreview(el: HTMLAnchorElement) {
+  if (hideTimer) { clearTimeout(hideTimer); hideTimer = null }
+  if (showTimer) clearTimeout(showTimer)
+  showTimer = setTimeout(async () => {
+    const rect = el.getBoundingClientRect()
+    const popupHeight = Math.min(window.innerHeight * 0.7, 640)
+    const popupWidth = Math.min(window.innerWidth - 32, 720)
+    const wantBelow = rect.bottom + popupHeight + 8 < window.innerHeight
+    const top = wantBelow
+      ? rect.bottom + window.scrollY + 4
+      : Math.max(8 + window.scrollY, rect.top + window.scrollY - popupHeight - 4)
+    // Clamp left so the popup stays in the viewport
+    const rawLeft = rect.left + window.scrollX
+    const left = Math.min(rawLeft, window.scrollX + window.innerWidth - popupWidth - 16)
+    mdHover.value = { visible: true, loading: true, content: '', top, left: Math.max(window.scrollX + 8, left) }
+    const text = await fetchMdContent(el.href)
+    if (mdHover.value.visible) {
+      mdHover.value.loading = false
+      mdHover.value.content = md.render(text)
+    }
+  }, 300)
+}
+
+function hideMdPreview() {
+  if (showTimer) { clearTimeout(showTimer); showTimer = null }
+  if (hideTimer) clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => {
+    mdHover.value.visible = false
+  }, 150)
+}
+
+function cancelHideMdPreview() {
+  if (hideTimer) { clearTimeout(hideTimer); hideTimer = null }
+}
+
+function attachMdHoverHandlers() {
+  if (!previewRef.value) return
+  const cards = previewRef.value.querySelectorAll<HTMLAnchorElement>('a.md-file-card.md-file-text')
+  cards.forEach((card) => {
+    if (!card.href.toLowerCase().endsWith('.md')) return
+    if (card.dataset.mdHoverBound === '1') return
+    card.dataset.mdHoverBound = '1'
+    card.addEventListener('mouseenter', () => showMdPreview(card))
+    card.addEventListener('mouseleave', hideMdPreview)
+  })
+}
+
+watch([renderedHtml, mode], () => {
+  if (mode.value !== 'preview') return
+  nextTick(attachMdHoverHandlers)
+}, { flush: 'post' })
+
+onBeforeUnmount(() => {
+  if (showTimer) clearTimeout(showTimer)
+  if (hideTimer) clearTimeout(hideTimer)
 })
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
@@ -677,4 +789,36 @@ async function uploadFiles(files: File[]) {
 :root.dark .markdown-body .md-file-ppt .md-file-ext { background: #7c2d12; color: #fed7aa; }
 :root.dark .markdown-body .md-file-text .md-file-ext { background: #374151; color: #e5e7eb; }
 :root.dark .markdown-body .md-file-archive .md-file-ext { background: #4b5563; color: #f3f4f6; }
+
+/* Hover preview popup for .md attachments */
+.md-hover-preview {
+  position: absolute;
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(640px, 70vh);
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 10px rgba(0, 0, 0, 0.06);
+  padding: 16px 20px;
+  z-index: 9999;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1f2937;
+}
+.md-hover-preview .md-hover-loading {
+  color: #9ca3af;
+  font-size: 13px;
+  padding: 8px 0;
+}
+.md-hover-preview .md-hover-body {
+  word-wrap: break-word;
+}
+:root.dark .md-hover-preview {
+  background: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+:root.dark .md-hover-preview .md-hover-loading { color: #6b7280; }
 </style>
