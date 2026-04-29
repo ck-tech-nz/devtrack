@@ -624,6 +624,7 @@ const { can } = useAuth()
 const route = useRoute()
 const router = useRouter()
 const { isOnline } = useServiceStatus()
+const toast = useToast()
 
 const loading = ref(true)
 const issue = ref<any>(null)
@@ -1096,8 +1097,9 @@ async function handleAttachmentSelect(e: Event) {
         body: formData,
       })
       await handleUploadComplete(res)
-    } catch {
-      // 上传失败静默处理
+    } catch (e: any) {
+      const detail = e?.data?.detail || `上传失败: ${file.name}`
+      toast.add({ title: detail, color: 'error' })
     }
   }
 }

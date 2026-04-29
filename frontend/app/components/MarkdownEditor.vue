@@ -233,6 +233,7 @@ const renderedHtml = computed(() => {
 })
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+// Mirror this allowlist with backend/apps/tools/views.py (ALLOWED_TYPES + EXTENSION_FALLBACK).
 const ALLOWED_TYPES = new Set([
   // Images
   'image/png', 'image/jpeg', 'image/gif', 'image/webp',

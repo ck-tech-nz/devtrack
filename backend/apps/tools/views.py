@@ -7,6 +7,7 @@ from .models import Attachment
 
 MAX_SIZE = 20 * 1024 * 1024  # 20MB
 
+# Mirror this allowlist with frontend/app/components/MarkdownEditor.vue (ALLOWED_TYPES + EXTENSION_FALLBACK).
 ALLOWED_TYPES = {
     # Images
     "image/png",
