@@ -43,19 +43,19 @@ def get_s3_client():
 
 
 def _content_disposition(filename: str) -> str:
-    """RFC 6266 Content-Disposition: inline with original filename.
-    Browsers display the file inline when possible (PDF viewer, image, text)
-    and use the supplied filename when the user saves it. Non-ASCII names are
-    encoded via filename*= per RFC 5987.
+    """RFC 6266 Content-Disposition: attachment with original filename.
+    Forces the browser to download (instead of rendering inline) and uses
+    the original filename. Non-ASCII names are encoded via filename*=
+    per RFC 5987.
     """
     safe = "".join(c for c in (filename or "") if c >= " " and c not in '\\"')
     if not safe:
         safe = "file"
     try:
         ascii_safe = safe.encode("ascii").decode("ascii")
-        return f'inline; filename="{ascii_safe}"'
+        return f'attachment; filename="{ascii_safe}"'
     except UnicodeEncodeError:
-        return f"inline; filename=\"file\"; filename*=UTF-8''{quote(safe, safe='')}"
+        return f"attachment; filename=\"file\"; filename*=UTF-8''{quote(safe, safe='')}"
 
 
 def upload_image(file) -> tuple[str, str]:
