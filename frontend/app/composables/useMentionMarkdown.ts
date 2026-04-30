@@ -51,15 +51,13 @@ function fileCardPlugin(md: MarkdownIt) {
     if (!category) {
       return defaultLinkOpen(tokens, idx, options, env, self)
     }
-    // Use the link text (filename) as the download attribute value so the
-    // browser saves with the original filename instead of the UUID-based
-    // object key from the URL. Honored only for same-origin URLs.
-    const nextToken = tokens[idx + 1]
-    const filename = nextToken?.type === 'text' ? nextToken.content : ''
+    // No `download` attribute on the card — clicking should let the browser
+    // handle the file by Content-Type (PDF inline, ZIP saves silently, etc).
+    // Correct filename on save is provided by the server's Content-Disposition
+    // header (see backend/apps/tools/storage.py).
     token.attrJoin('class', `md-file-card md-file-${category}`)
     token.attrSet('target', '_blank')
     token.attrSet('rel', 'noopener noreferrer')
-    token.attrSet('download', filename)
     // Spread preserves meta from earlier plugins; downstream plugins must do the same on link tokens
     token.meta = { ...(token.meta || {}), fileCategory: category }
     const opener = self.renderToken(tokens, idx, options)

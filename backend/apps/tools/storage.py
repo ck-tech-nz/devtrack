@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from urllib.parse import quote
 
 import boto3
 from botocore.config import Config as BotoConfig
@@ -41,6 +42,22 @@ def get_s3_client():
     )
 
 
+def _content_disposition(filename: str) -> str:
+    """RFC 6266 Content-Disposition: inline with original filename.
+    Browsers display the file inline when possible (PDF viewer, image, text)
+    and use the supplied filename when the user saves it. Non-ASCII names are
+    encoded via filename*= per RFC 5987.
+    """
+    safe = "".join(c for c in (filename or "") if c >= " " and c not in '\\"')
+    if not safe:
+        safe = "file"
+    try:
+        ascii_safe = safe.encode("ascii").decode("ascii")
+        return f'inline; filename="{ascii_safe}"'
+    except UnicodeEncodeError:
+        return f"inline; filename=\"file\"; filename*=UTF-8''{quote(safe, safe='')}"
+
+
 def upload_image(file) -> tuple[str, str]:
     """Upload a file to MinIO. Returns (public_url, object_key)."""
     ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else "bin"
@@ -53,7 +70,10 @@ def upload_image(file) -> tuple[str, str]:
         file,
         settings.MINIO_BUCKET,
         key,
-        ExtraArgs={"ContentType": safe_mime},
+        ExtraArgs={
+            "ContentType": safe_mime,
+            "ContentDisposition": _content_disposition(file.name),
+        },
     )
     return f"{settings.MINIO_PUBLIC_URL}/{key}", key
 
