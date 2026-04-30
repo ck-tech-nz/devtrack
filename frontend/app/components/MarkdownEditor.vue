@@ -98,6 +98,7 @@
         <a
           class="md-hover-download"
           :href="mdHover.url"
+          :download="mdHover.filename"
           target="_blank"
           rel="noopener noreferrer"
         >下载</a>
