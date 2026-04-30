@@ -357,10 +357,16 @@ function attachMdHoverHandlers() {
   })
 }
 
-watch([renderedHtml, mode], () => {
+function maybeAttachMdHoverHandlers() {
   if (mode.value !== 'preview') return
   nextTick(attachMdHoverHandlers)
-}, { flush: 'post' })
+}
+
+// Attach on mount: covers the case where the component is created with
+// mode=preview and modelValue already populated, so neither watch dep
+// ever changes after setup.
+onMounted(maybeAttachMdHoverHandlers)
+watch([renderedHtml, mode], maybeAttachMdHoverHandlers, { flush: 'post' })
 
 onBeforeUnmount(() => {
   if (showTimer) clearTimeout(showTimer)
