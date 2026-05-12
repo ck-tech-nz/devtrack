@@ -263,43 +263,48 @@
               <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-3">
             <div class="form-row">
               <label class="text-gray-400 dark:text-gray-500">预计完成</label>
-              <UInput v-model="form.estimated_completion" type="date" @update:model-value="(v: string) => autoSave('estimated_completion', v)" />
-            </div>
-            <div class="form-row">
-              <div class="flex items-center justify-between">
-                <label class="text-gray-400 dark:text-gray-500">
-                  预计工时
-                  <span v-if="!canEditEstimatedHours" class="text-[10px] text-gray-400 ml-1">(仅管理员可改)</span>
-                </label>
-                <UButton
-                  v-if="canEditEstimatedHours && isFieldDirty('estimated_hours')"
-                  size="xs"
-                  variant="soft"
-                  :loading="savingField === 'estimated_hours'"
-                  @click="saveField('estimated_hours')"
-                >
-                  保存
-                </UButton>
-              </div>
-              <UInput
-                v-model="form.estimated_hours"
-                type="number"
-                placeholder="小时 (用于工单规模分级)"
-                step="0.5"
-                min="0"
-                :readonly="!canEditEstimatedHours"
-                :disabled="!canEditEstimatedHours"
+              <UCalendar
+                :model-value="calendarValue"
+                class="w-fit"
+                @update:model-value="onCalendarUpdate"
               />
             </div>
-            <div class="form-row">
-              <div class="flex items-center justify-between">
-                <label class="text-gray-400 dark:text-gray-500">实际工时</label>
-                <UButton v-if="isFieldDirty('actual_hours')" size="xs" variant="soft" :loading="savingField === 'actual_hours'" @click="saveField('actual_hours')">保存</UButton>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-row">
+                <div class="flex items-center justify-between">
+                  <label class="text-gray-400 dark:text-gray-500">预计工时</label>
+                  <UButton
+                    v-if="canEditEstimatedHours && isFieldDirty('estimated_hours')"
+                    size="xs"
+                    variant="soft"
+                    :loading="savingField === 'estimated_hours'"
+                    @click="saveField('estimated_hours')"
+                  >
+                    保存
+                  </UButton>
+                </div>
+                <UInput
+                  v-if="canEditEstimatedHours"
+                  v-model="form.estimated_hours"
+                  type="number"
+                  placeholder="小时"
+                  step="0.5"
+                  min="0"
+                />
+                <div v-else class="px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100">
+                  {{ form.estimated_hours ? `${form.estimated_hours} 小时` : '-' }}
+                </div>
               </div>
-              <UInput v-model="form.actual_hours" type="number" placeholder="小时 (用于拖延度统计)" />
+              <div class="form-row">
+                <div class="flex items-center justify-between">
+                  <label class="text-gray-400 dark:text-gray-500">实际工时</label>
+                  <UButton v-if="isFieldDirty('actual_hours')" size="xs" variant="soft" :loading="savingField === 'actual_hours'" @click="saveField('actual_hours')">保存</UButton>
+                </div>
+                <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
+              </div>
             </div>
           </div>
         </div>
@@ -645,11 +650,31 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
 
+import { type CalendarDate, parseDate, type DateValue } from '@internationalized/date'
+
 const { api } = useApi()
 const { can, hasGroup, user: authUser } = useAuth()
 const canEditEstimatedHours = computed(() =>
   hasGroup('管理员') || (authUser.value?.is_superuser ?? false)
 )
+
+const calendarValue = computed<DateValue | undefined>(() => {
+  const v = form.value.estimated_completion
+  if (!v) return undefined
+  try { return parseDate(v) } catch { return undefined }
+})
+
+function onCalendarUpdate(value: unknown) {
+  if (!value || Array.isArray(value)) {
+    form.value.estimated_completion = ''
+    autoSave('estimated_completion', null)
+    return
+  }
+  const d = value as CalendarDate
+  const iso = `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`
+  form.value.estimated_completion = iso
+  autoSave('estimated_completion', iso)
+}
 const route = useRoute()
 const router = useRouter()
 const { isOnline } = useServiceStatus()
