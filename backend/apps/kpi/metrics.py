@@ -21,7 +21,7 @@ from apps.repos.models import Commit, GitAuthorAlias
 # 常量
 # ---------------------------------------------------------------------------
 
-RESOLVED_STATUSES = {"已解决", "已关闭"}
+RESOLVED_STATUSES = {"已解决", "已发布", "已关闭"}
 
 PRIORITY_WEIGHTS = {"P0": 4, "P1": 3, "P2": 2, "P3": 1}
 

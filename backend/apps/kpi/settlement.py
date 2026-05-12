@@ -7,6 +7,8 @@ settle_issue(issue) — 计算并冻结工单的价格/工时/规则快照到 Is
 
 from __future__ import annotations
 
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -18,6 +20,8 @@ from apps.kpi.metrics import (
     _price_for_hours,
 )
 from apps.kpi.models import KPIScoringConfig, _default_piece_rate_config
+
+User = get_user_model()
 
 
 def _season_key(dt) -> str:
@@ -71,11 +75,31 @@ def settle_issue(issue, config: dict | None = None, save: bool = True) -> dict |
 
     bracket_price = _price_for_hours(est_hours, hour_brackets)
     small_tier_index: int | None = None
+
+    # 中/大型固定价不依赖 count → 不需要事务锁
     if bracket_price is not None:
         price = bracket_price
         size = _resolve_size_label(est_hours, hour_brackets)
-    else:
-        # 按 (assignee, season) 统计已结算的小型工单数,得出本单在梯度中的序号
+        payload = _build_payload(
+            price, size, est_hours, actual_hours, season,
+            small_tier_index, cfg,
+        )
+        if save:
+            issue.settlement = payload
+            issue.save(update_fields=["settlement"])
+        return payload
+
+    # 小型工单走 count_tiers 梯度,需要锁 assignee 避免 race 在 20→21 边界双反定价
+    with transaction.atomic():
+        # select_for_update 锁住 assignee 行 → 同人并发结算被串行化
+        User.objects.select_for_update().filter(pk=issue.assignee_id).first()
+
+        # 重新读 issue 以防其他事务已结算
+        fresh = Issue.objects.filter(pk=issue.pk).only("settlement").first()
+        if fresh and fresh.settlement:
+            issue.settlement = fresh.settlement
+            return fresh.settlement
+
         small_tier_index = (
             Issue.objects
             .filter(assignee_id=issue.assignee_id)
@@ -85,9 +109,21 @@ def settle_issue(issue, config: dict | None = None, save: bool = True) -> dict |
             .count()
         )
         price = _price_at_index(small_tier_index, count_tiers)
-        size = "小型"
+        payload = _build_payload(
+            price, "小型", est_hours, actual_hours, season,
+            small_tier_index, cfg,
+        )
 
-    payload = {
+        if save:
+            issue.settlement = payload
+            issue.save(update_fields=["settlement"])
+
+    return payload
+
+
+def _build_payload(price, size, est_hours, actual_hours, season,
+                   small_tier_index, cfg):
+    return {
         "price": int(price),
         "size": size,
         "estimated_hours": round(est_hours, 2),
@@ -97,12 +133,6 @@ def settle_issue(issue, config: dict | None = None, save: bool = True) -> dict |
         "rule_snapshot": cfg,
         "settled_at": timezone.now().isoformat(),
     }
-
-    if save:
-        issue.settlement = payload
-        issue.save(update_fields=["settlement"])
-
-    return payload
 
 
 def backfill_settlements(config: dict | None = None) -> int:

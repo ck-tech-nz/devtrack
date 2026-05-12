@@ -45,7 +45,8 @@ export function computePeriodRange(period: PeriodKey, offset: number): { start: 
   } else if (period === 'quarter') {
     const qIdx = Math.floor(today.getMonth() / 3)
     const target = qIdx + offset
-    const yearDelta = Math.floor(target / 4) - (target < 0 && target % 4 !== 0 ? 1 : 0)
+    // Math.floor already handles negative wrap correctly: floor(-1/4) = -1
+    const yearDelta = Math.floor(target / 4)
     const localQ = ((target % 4) + 4) % 4
     const year = today.getFullYear() + yearDelta
     start = new Date(year, localQ * 3, 1)
