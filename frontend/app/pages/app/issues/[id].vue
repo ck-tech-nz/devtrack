@@ -294,6 +294,16 @@
                 </div>
                 <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
               </div>
+              <div v-if="issue.settlement" class="text-sm">
+                <span class="text-gray-400 dark:text-gray-500">结算</span>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">
+                  <span class="font-medium text-emerald-600 dark:text-emerald-400">¥{{ issue.settlement.price }}</span>
+                  <span class="text-xs text-gray-500 ml-2">{{ issue.settlement.size }}</span>
+                </p>
+                <p class="text-[11px] text-gray-400 mt-0.5">
+                  {{ issue.settlement.settled_at?.slice(0, 10) }} 锁定 · 后续配置变更不影响此单
+                </p>
+              </div>
             </div>
             <!-- 右列: 预计完成日历 -->
             <div class="form-row">

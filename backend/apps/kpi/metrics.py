@@ -347,11 +347,15 @@ NON_RESOLVED_STATUSES = ("未计划", "待处理", "进行中")
 
 
 def _price_for_hours(hours: float, hour_brackets: list[dict]) -> int | None:
-    """根据工时返回固定价格（中/大型工单），匹配不到返回 None（走计件梯度）。"""
+    """根据工时返回固定价格 (中/大型),匹配不到返回 None (走计件梯度)。
+
+    边界: (min_hours, max_hours]。例如 中型 (4, 16] 意为 "超过 4h 且不超过 16h"。
+    这样默认 4h 工单恰好落入「小型」,会走 count_tiers 梯度。
+    """
     for br in hour_brackets:
         min_h = br.get("min_hours") or 0
         max_h = br.get("max_hours")
-        if hours >= min_h and (max_h is None or hours < max_h):
+        if hours > min_h and (max_h is None or hours <= max_h):
             return int(br.get("price", 0))
     return None
 
@@ -436,27 +440,45 @@ def compute_workload_metrics(
     total_overrun_hours = 0.0  # 净偏差 (actual - est),可为负
 
     for issue in resolved_issues:
-        est_hours = _issue_estimated_hours(issue)
-        bracket_price = _price_for_hours(est_hours, hour_brackets)
+        # 优先用结算快照 (已冻结的价格/规模/预计工时不受后续配置影响)
+        settlement = issue.settlement or None
 
-        if bracket_price is not None:
-            price = bracket_price
-            if est_hours >= 16:
-                large_count += 1
-                size_label = large_label
-            else:
-                medium_count += 1
-                size_label = medium_label
+        if settlement:
+            price = int(settlement.get("price", 0))
+            size_label = settlement.get("size", "小型")
+            est_hours = float(settlement.get("estimated_hours") or 0)
+            settled = True
         else:
-            price = _price_at_index(small_cumulative_idx, count_tiers)
-            small_cumulative_idx += 1
+            settled = False
+            est_hours = _issue_estimated_hours(issue)
+            bracket_price = _price_for_hours(est_hours, hour_brackets)
+
+            if bracket_price is not None:
+                price = bracket_price
+                if est_hours > 16:
+                    size_label = large_label
+                else:
+                    size_label = medium_label
+            else:
+                price = _price_at_index(small_cumulative_idx, count_tiers)
+                small_cumulative_idx += 1
+                size_label = "小型"
+
+        if size_label == "小型":
             small_count += 1
-            size_label = "小型"
+        elif size_label == "大型" or size_label == large_label:
+            large_count += 1
+        else:
+            medium_count += 1
 
         total_earnings += price
 
-        # 拖延度
-        actual = _issue_actual_hours(issue)
+        # 拖延度: 实际工时取 settlement 中的 (若有),否则取当前 issue.actual_hours
+        if settlement and settlement.get("actual_hours") is not None:
+            actual = float(settlement["actual_hours"])
+        else:
+            actual = _issue_actual_hours(issue)
+
         if actual is not None and est_hours > 0:
             ratio = actual / est_hours
             delay_ratios.append(ratio)
@@ -477,6 +499,7 @@ def compute_workload_metrics(
             "delay_hours": round(actual - est_hours, 2) if (actual is not None and est_hours > 0) else None,
             "resolved_at": issue.resolved_at.isoformat() if issue.resolved_at else None,
             "priority": issue.priority,
+            "settled": settled,
         })
 
     avg_delay_ratio = (

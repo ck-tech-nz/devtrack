@@ -421,6 +421,75 @@ class TestWorkloadMetrics:
         assert result["rework_count"] == 0
 
 
+class TestSettlement:
+    def test_settle_freezes_price_at_resolve_time(self):
+        """改 piece_rate_config 后已结算工单的金额不变。"""
+        from apps.kpi.settlement import settle_issue
+        from apps.kpi.models import KPIScoringConfig
+
+        user = UserFactory()
+        project = ProjectFactory()
+        issue = IssueFactory(
+            project=project, assignee=user, priority="P2",
+            status="已解决", created_by=user,
+            estimated_hours=4.0,
+        )
+        issue.resolved_at = timezone.now()
+        issue.save(update_fields=["resolved_at"])
+
+        # 用默认配置结算 (4h → 小型 → ¥100)
+        payload = settle_issue(issue)
+        assert payload["price"] == 100
+        assert payload["size"] == "小型"
+
+        # 之后改配置: 小型梯度改 ¥999
+        cfg = KPIScoringConfig.get_solo()
+        new = dict(cfg.piece_rate_config)
+        new["count_tiers"] = [{"max_count": None, "price": 999}]
+        cfg.piece_rate_config = new
+        cfg.save()
+
+        # KPI 计算应该还是用 ¥100,因为已锁定
+        result = compute_workload_metrics(
+            user, date(2026, 1, 1), date(2030, 12, 31)
+        )
+        assert result["estimated_earnings"] == 100
+        assert result["breakdown"][0]["settled"] is True
+        assert result["breakdown"][0]["price"] == 100
+
+    def test_resolve_via_api_locks_settlement(self, auth_client, site_settings):
+        """通过 PATCH 把状态改成已解决,settlement 自动写入。"""
+        user = UserFactory()
+        issue = IssueFactory(status="进行中", estimated_hours=2.0, assignee=user)
+        response = auth_client.patch(
+            f"/api/issues/{issue.id}/", {"status": "已解决"}
+        )
+        assert response.status_code == 200
+        issue.refresh_from_db()
+        assert issue.settlement is not None
+        assert issue.settlement["estimated_hours"] == 2.0
+        assert issue.settlement["price"] > 0
+
+    def test_reopen_does_not_resettle(self):
+        """重修不重新结算 (避免双倍计价)。"""
+        from apps.kpi.settlement import settle_issue
+        user = UserFactory()
+        issue = IssueFactory(
+            assignee=user, status="已解决",
+            estimated_hours=2.0,
+        )
+        issue.resolved_at = timezone.now()
+        issue.save(update_fields=["resolved_at"])
+        first = settle_issue(issue)
+        first_price = first["price"]
+
+        # 改 estimated_hours 后再次调用 settle_issue
+        issue.estimated_hours = 10.0
+        issue.save(update_fields=["estimated_hours"])
+        again = settle_issue(issue)
+        assert again["price"] == first_price  # 不重算
+
+
 class TestTier:
     def test_bronze_for_low_score(self):
         t = compute_tier(20)

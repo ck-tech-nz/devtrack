@@ -79,6 +79,11 @@ class Issue(models.Model):
     source = models.CharField(max_length=50, null=True, blank=True, verbose_name="来源")
     source_meta = models.JSONField(null=True, blank=True, verbose_name="来源元数据")
 
+    settlement = models.JSONField(
+        null=True, blank=True, verbose_name="结算快照",
+        help_text="工单标记完成时冻结的价格/工时/规则,不受后续配置修改影响",
+    )
+
     is_deleted = models.BooleanField(default=False, verbose_name="已删除")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="删除时间")
 

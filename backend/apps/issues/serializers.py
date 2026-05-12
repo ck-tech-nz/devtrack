@@ -99,7 +99,7 @@ class IssueDetailSerializer(IssueListSerializer):
         fields = IssueListSerializer.Meta.fields + [
             "description", "estimated_completion",
             "actual_hours", "resolved_at", "github_issues", "attachments",
-            "source_meta",
+            "source_meta", "settlement",
         ]
 
 
@@ -200,6 +200,10 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
             if new_status in ("已解决", "已发布", "已关闭") and not issue.resolved_at:
                 issue.resolved_at = timezone.now()
                 issue.save(update_fields=["resolved_at"])
+            # 首次进入完成状态时锁定结算 (已结算的不再重算 → 重修不会双倍计价)
+            if new_status in ("已解决", "已发布", "已关闭") and not issue.settlement:
+                from apps.kpi.settlement import settle_issue
+                settle_issue(issue)
 
         new_assignee = validated_data.get("assignee")
         if "assignee" in validated_data and str(getattr(new_assignee, "id", None)) != str(old_assignee):
