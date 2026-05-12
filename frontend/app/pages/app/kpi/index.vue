@@ -75,6 +75,29 @@
         >
           <div class="text-xs text-gray-400 dark:text-gray-500 mb-1">{{ card.label }}</div>
           <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ card.value }}</div>
+          <div v-if="card.sub" class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ card.sub }}</div>
+        </div>
+      </div>
+
+      <!-- Code Arena 工作量统计 -->
+      <div class="bg-gradient-to-r from-violet-50 via-crystal-50 to-amber-50 dark:from-violet-950/40 dark:via-crystal-950/40 dark:to-amber-950/40 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-heroicons-trophy" class="w-5 h-5 text-amber-500" />
+            <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">代码竞技场 · 本期赛况</h2>
+          </div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">数据用于未来对接 AI 计件 / 段位 / 重修惩罚等机制</div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div
+            v-for="card in arenaCards"
+            :key="card.label"
+            class="bg-white/80 dark:bg-gray-900/60 backdrop-blur rounded-lg border border-gray-100 dark:border-gray-800 p-3"
+          >
+            <div class="text-xs text-gray-400 dark:text-gray-500">{{ card.label }}</div>
+            <div class="text-xl font-bold mt-1" :class="card.colorClass">{{ card.value }}</div>
+            <div v-if="card.sub" class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ card.sub }}</div>
+          </div>
         </div>
       </div>
 
@@ -107,6 +130,37 @@
               </div>
               {{ r(row).user_name }}
             </NuxtLink>
+          </template>
+          <template #tier-cell="{ row }">
+            <UBadge
+              v-if="r(row).tier_label"
+              :class="tierBadgeClass(r(row).tier_key)"
+              variant="subtle"
+              size="xs"
+            >
+              {{ r(row).tier_label }}
+            </UBadge>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+          <template #tickets-cell="{ row }">
+            <span class="font-medium text-gray-900 dark:text-gray-100">{{ r(row).completed_count }}</span>
+            <span v-if="r(row).large_count || r(row).medium_count" class="text-xs text-gray-400 ml-1">
+              ({{ r(row).large_count }}大/{{ r(row).medium_count }}中)
+            </span>
+          </template>
+          <template #earnings-cell="{ row }">
+            <span class="text-emerald-600 dark:text-emerald-400 font-medium">¥{{ r(row).estimated_earnings }}</span>
+          </template>
+          <template #rework-cell="{ row }">
+            <span :class="r(row).rework_count > 0 ? 'text-red-500 font-medium' : 'text-gray-400'">
+              {{ r(row).rework_count }}
+            </span>
+          </template>
+          <template #response-cell="{ row }">
+            <span v-if="r(row).avg_first_response_hours" class="text-sm">
+              {{ r(row).avg_first_response_hours.toFixed(1) }}h
+            </span>
+            <span v-else class="text-gray-400">-</span>
           </template>
           <template #overall-cell="{ row }">
             <span class="font-semibold text-gray-900 dark:text-gray-100">{{ formatScore(r(row).overall) }}</span>
@@ -183,6 +237,11 @@ const roleOptions = [
 const columns = [
   { accessorKey: 'rank', header: '排名' },
   { accessorKey: 'developer', header: '开发者' },
+  { accessorKey: 'tier', header: '段位' },
+  { accessorKey: 'tickets', header: '完成工单' },
+  { accessorKey: 'earnings', header: '估算收入' },
+  { accessorKey: 'rework', header: '重修' },
+  { accessorKey: 'response', header: '首响' },
   { accessorKey: 'overall', header: '综合分' },
   { accessorKey: 'efficiency', header: '效率' },
   { accessorKey: 'output', header: '产出' },
@@ -193,7 +252,13 @@ const columns = [
   { accessorKey: 'action', header: '操作' },
 ]
 
-const summaryCards = computed(() => {
+interface SummaryCard {
+  label: string
+  value: string | number
+  sub?: string
+}
+
+const summaryCards = computed<SummaryCard[]>(() => {
   if (!data.value?.summary) return []
   const s = data.value.summary
   return [
@@ -201,6 +266,37 @@ const summaryCards = computed(() => {
     { label: '已解决问题', value: s.resolved_count ?? 0 },
     { label: '平均解决时间', value: s.avg_resolution_hours != null ? `${s.avg_resolution_hours.toFixed(1)}h` : '-' },
     { label: '团队综合分', value: s.avg_overall_score != null ? s.avg_overall_score.toFixed(1) : '-' },
+  ]
+})
+
+const arenaCards = computed(() => {
+  if (!data.value?.summary) return []
+  const s = data.value.summary
+  return [
+    {
+      label: '本期工单总量',
+      value: s.total_tickets ?? 0,
+      colorClass: 'text-violet-600 dark:text-violet-400',
+      sub: '所有完成工单数',
+    },
+    {
+      label: '估算计件总额',
+      value: `¥${s.total_earnings ?? 0}`,
+      colorClass: 'text-emerald-600 dark:text-emerald-400',
+      sub: '按梯度+工时分级',
+    },
+    {
+      label: '保护期重修',
+      value: s.total_rework ?? 0,
+      colorClass: (s.total_rework ?? 0) > 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300',
+      sub: '关联惩罚候选',
+    },
+    {
+      label: '最高段位',
+      value: s.top_tier?.label ?? '-',
+      colorClass: 'text-amber-600 dark:text-amber-400',
+      sub: s.top_tier?.threshold != null ? `≥ ${s.top_tier.threshold} 分` : undefined,
+    },
   ]
 })
 
@@ -216,6 +312,14 @@ interface TableRow {
   capability: number
   growth: number
   trend: number
+  tier_key: string
+  tier_label: string
+  completed_count: number
+  medium_count: number
+  large_count: number
+  estimated_earnings: number
+  rework_count: number
+  avg_first_response_hours: number
 }
 
 const tableRows = computed<TableRow[]>(() => {
@@ -232,8 +336,28 @@ const tableRows = computed<TableRow[]>(() => {
     capability: d.scores?.capability ?? 0,
     growth: d.scores?.growth ?? 0,
     trend: d.scores?.trend_delta ?? 0,
+    tier_key: d.scores?.tier?.key ?? '',
+    tier_label: d.scores?.tier?.label ?? '',
+    completed_count: d.workload?.completed_count ?? 0,
+    medium_count: d.workload?.medium_count ?? 0,
+    large_count: d.workload?.large_count ?? 0,
+    estimated_earnings: d.workload?.estimated_earnings ?? 0,
+    rework_count: d.workload?.rework_count ?? 0,
+    avg_first_response_hours: d.workload?.avg_first_response_hours ?? 0,
   }))
 })
+
+function tierBadgeClass(key: string) {
+  const map: Record<string, string> = {
+    bronze: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+    silver: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
+    gold: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    platinum: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+    diamond: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+    master: 'bg-gradient-to-r from-violet-200 to-pink-200 text-violet-800 dark:from-violet-900/60 dark:to-pink-900/60 dark:text-violet-200',
+  }
+  return map[key] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+}
 
 function formatScore(v: any) {
   return v != null ? Number(v).toFixed(1) : '-'

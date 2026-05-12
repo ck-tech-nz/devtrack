@@ -28,7 +28,7 @@
           </div>
           <div class="flex-1 min-w-0">
             <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ summary.user_name }}</h1>
-            <div class="flex gap-1.5 mt-1.5 flex-wrap">
+            <div class="flex gap-1.5 mt-1.5 flex-wrap items-center">
               <UBadge
                 v-for="g in (summary.groups || [])"
                 :key="g"
@@ -38,12 +38,24 @@
               >
                 {{ g }}
               </UBadge>
+              <UBadge
+                v-if="summary.scores?.tier?.label"
+                :class="tierBadgeClass(summary.scores.tier.key)"
+                variant="subtle"
+                size="xs"
+              >
+                <UIcon name="i-heroicons-trophy" class="w-3 h-3 mr-0.5" />
+                {{ summary.scores.tier.label }}
+              </UBadge>
             </div>
           </div>
           <div class="text-right">
             <div class="text-xs text-gray-400 dark:text-gray-500 mb-1">综合评分</div>
             <div class="text-4xl font-bold text-crystal-600 dark:text-crystal-400">
               {{ summary.scores?.overall != null ? Number(summary.scores.overall).toFixed(1) : '-' }}
+            </div>
+            <div v-if="summary.scores?.tier?.next_label" class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              距 {{ summary.scores.tier.next_label }} 还差 {{ Math.max(0, (summary.scores.tier.next_threshold ?? 0) - (summary.scores.overall ?? 0)) }} 分
             </div>
           </div>
         </div>
@@ -91,6 +103,137 @@
 
       <!-- 标签页 -->
       <UTabs v-if="summary?.scores" v-model="activeTab" :items="tabs" class="w-full">
+        <template #arena>
+          <!-- 代码竞技场: 工单计件 + 重修 + SLA -->
+          <div class="space-y-6 pt-4">
+            <!-- 计件汇总 -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div
+                v-for="card in arenaCards"
+                :key="card.label"
+                class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-4"
+              >
+                <div class="text-xs text-gray-400 dark:text-gray-500 mb-1">{{ card.label }}</div>
+                <div class="text-2xl font-bold" :class="card.colorClass">{{ card.value }}</div>
+                <div v-if="card.sub" class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ card.sub }}</div>
+              </div>
+            </div>
+
+            <!-- 工单规模分布 + 段位进度 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">工单规模分布</h3>
+                <div class="space-y-3">
+                  <div v-for="bar in sizeBars" :key="bar.label" class="space-y-1">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-gray-700 dark:text-gray-300">{{ bar.label }}</span>
+                      <span class="text-gray-500 dark:text-gray-400">{{ bar.count }} 个 · ¥{{ bar.unit_price_hint }}</span>
+                    </div>
+                    <div class="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div :class="bar.colorClass" :style="{ width: bar.pct + '%' }" class="h-full transition-all"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400 dark:text-gray-500">
+                  规则: 工时 &lt; 4h 走计件梯度 (前 20 个 ¥100, 21+ ¥160); 4-16h 中型 ¥250; ≥16h 大型 ¥600 (可在评分配置中调整)
+                </div>
+              </div>
+
+              <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">段位进度</h3>
+                <div v-if="summary?.scores?.tier" class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <UBadge :class="tierBadgeClass(summary.scores.tier.key)" variant="subtle" size="lg">
+                      <UIcon name="i-heroicons-trophy" class="w-4 h-4 mr-1" />
+                      {{ summary.scores.tier.label }}
+                    </UBadge>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">综合分 {{ Number(summary.scores.overall).toFixed(1) }}</span>
+                  </div>
+                  <div v-if="summary.scores.tier.next_label">
+                    <div class="flex items-center justify-between text-xs mb-1">
+                      <span class="text-gray-500 dark:text-gray-400">下一档: {{ summary.scores.tier.next_label }}</span>
+                      <span class="text-gray-500 dark:text-gray-400">{{ Number(summary.scores.overall).toFixed(0) }} / {{ summary.scores.tier.next_threshold }}</span>
+                    </div>
+                    <div class="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        class="h-full bg-gradient-to-r from-crystal-400 to-violet-500 transition-all"
+                        :style="{ width: tierProgressPct + '%' }"
+                      ></div>
+                    </div>
+                  </div>
+                  <div v-else class="text-center text-sm text-gray-400 dark:text-gray-500 py-4">
+                    已抵达最高段位 🎉
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 重修与 SLA -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">保护期 ({{ workload?.protection_days ?? 7 }} 天) 重修</h3>
+                <div class="flex items-end gap-2">
+                  <div class="text-4xl font-bold" :class="(workload?.rework_count ?? 0) > 0 ? 'text-red-500' : 'text-emerald-500'">
+                    {{ workload?.rework_count ?? 0 }}
+                  </div>
+                  <div class="text-sm text-gray-400 dark:text-gray-500 pb-1">单</div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 leading-relaxed">
+                  当 issue 在被标记完成后 7 天内回到待处理/进行中,记为一次重修。未来 AI 关联惩罚将基于此数据。
+                </p>
+              </div>
+              <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">首次响应时间</h3>
+                <div class="flex items-end gap-2">
+                  <div class="text-4xl font-bold text-gray-900 dark:text-gray-100">
+                    {{ workload?.avg_first_response_hours ? workload.avg_first_response_hours.toFixed(1) : '-' }}
+                  </div>
+                  <div class="text-sm text-gray-400 dark:text-gray-500 pb-1">小时</div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 leading-relaxed">
+                  Issue 创建到本人第一次操作的平均耗时,反映派单响应速度。
+                </p>
+              </div>
+            </div>
+
+            <!-- 明细 -->
+            <div
+              v-if="workload?.breakdown?.length"
+              class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden"
+            >
+              <div class="px-5 py-3 border-b border-gray-50 dark:border-gray-800 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">本期完成工单明细</h3>
+                <span class="text-xs text-gray-400">{{ workload.breakdown.length }} 条</span>
+              </div>
+              <UTable :data="workload.breakdown" :columns="breakdownColumns" :ui="{ th: 'text-xs', td: 'text-sm' }">
+                <template #issue_id-cell="{ row }">
+                  <NuxtLink :to="`/app/issues/${b(row).issue_id}`" class="text-crystal-500 hover:text-crystal-700 dark:text-crystal-400">
+                    ISS-{{ String(b(row).issue_id).padStart(3, '0') }}
+                  </NuxtLink>
+                </template>
+                <template #title-cell="{ row }">
+                  <span class="line-clamp-1 max-w-md inline-block align-bottom">{{ b(row).title }}</span>
+                </template>
+                <template #size-cell="{ row }">
+                  <UBadge :class="sizeBadgeClass(b(row).size)" variant="subtle" size="xs">
+                    {{ b(row).size }}
+                  </UBadge>
+                </template>
+                <template #hours-cell="{ row }">
+                  {{ b(row).hours ? Number(b(row).hours).toFixed(1) : '-' }}h
+                </template>
+                <template #price-cell="{ row }">
+                  <span class="text-emerald-600 dark:text-emerald-400 font-medium">¥{{ b(row).price }}</span>
+                </template>
+              </UTable>
+            </div>
+            <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-12 text-center">
+              <UIcon name="i-heroicons-document-text" class="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+              <p class="text-sm text-gray-500 dark:text-gray-400">本期暂无完成工单</p>
+            </div>
+          </div>
+        </template>
+
         <template #issues>
           <!-- 问题指标 -->
           <div class="space-y-6 pt-4">
@@ -345,7 +488,7 @@ const { resolveAvatarUrl } = useAvatars()
 const { user: authUser } = useAuth()
 
 const loading = ref(true)
-const activeTab = ref('issues')
+const activeTab = ref('arena')
 const activePeriod = ref('month')
 const customStart = ref('')
 const customEnd = ref('')
@@ -353,6 +496,7 @@ const customEnd = ref('')
 const summary = ref<any>(null)
 const issues = ref<any>(null)
 const commits = ref<any>(null)
+const workload = ref<any>(null)
 const trends = ref<any>(null)
 const suggestions = ref<any>(null)
 
@@ -363,6 +507,7 @@ const periods = [
 ]
 
 const tabs = [
+  { label: '代码竞技场', value: 'arena', slot: 'arena' },
   { label: '问题指标', value: 'issues', slot: 'issues' },
   { label: 'Commit 分析', value: 'commits', slot: 'commits' },
   { label: '趋势变化', value: 'trends', slot: 'trends' },
@@ -396,6 +541,78 @@ const radarValues = computed(() => {
     Number(s.growth) || 0,
   ]
 })
+
+// Code Arena 汇总卡片
+const arenaCards = computed(() => {
+  const w = workload.value
+  if (!w) return []
+  return [
+    { label: '完成工单', value: w.completed_count ?? 0, colorClass: 'text-violet-600 dark:text-violet-400', sub: `${w.small_count ?? 0} 小 / ${w.medium_count ?? 0} 中 / ${w.large_count ?? 0} 大` },
+    { label: '估算计件', value: `¥${w.estimated_earnings ?? 0}`, colorClass: 'text-emerald-600 dark:text-emerald-400', sub: '按梯度+工时分级' },
+    { label: '保护期重修', value: w.rework_count ?? 0, colorClass: (w.rework_count ?? 0) > 0 ? 'text-red-500' : 'text-gray-900 dark:text-gray-100', sub: `${w.protection_days ?? 7} 天窗口` },
+    { label: '协助修复', value: w.protection_helper_count ?? 0, colorClass: 'text-sky-600 dark:text-sky-400', sub: '帮助他人解决' },
+  ]
+})
+
+const sizeBars = computed(() => {
+  const w = workload.value
+  if (!w) return []
+  const total = (w.small_count ?? 0) + (w.medium_count ?? 0) + (w.large_count ?? 0)
+  const pct = (n: number) => total > 0 ? Math.round(n / total * 100) : 0
+  return [
+    { label: '小型 (< 4h)', count: w.small_count ?? 0, pct: pct(w.small_count ?? 0), colorClass: 'bg-violet-400', unit_price_hint: '100-160' },
+    { label: '中型 (4-16h)', count: w.medium_count ?? 0, pct: pct(w.medium_count ?? 0), colorClass: 'bg-amber-400', unit_price_hint: '250' },
+    { label: '大型 (≥ 16h)', count: w.large_count ?? 0, pct: pct(w.large_count ?? 0), colorClass: 'bg-rose-400', unit_price_hint: '600' },
+  ]
+})
+
+const tierProgressPct = computed(() => {
+  const t = summary.value?.scores?.tier
+  const overall = summary.value?.scores?.overall ?? 0
+  if (!t || t.next_threshold == null) return 100
+  const range = t.next_threshold - (t.threshold ?? 0)
+  if (range <= 0) return 100
+  const progress = Math.max(0, overall - (t.threshold ?? 0))
+  return Math.min(100, Math.round(progress / range * 100))
+})
+
+const breakdownColumns = [
+  { accessorKey: 'issue_id', header: '编号' },
+  { accessorKey: 'title', header: '标题' },
+  { accessorKey: 'size', header: '规模' },
+  { accessorKey: 'hours', header: '工时' },
+  { accessorKey: 'price', header: '单价' },
+]
+
+function tierBadgeClass(key: string) {
+  const map: Record<string, string> = {
+    bronze: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+    silver: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
+    gold: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    platinum: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+    diamond: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+    master: 'bg-gradient-to-r from-violet-200 to-pink-200 text-violet-800 dark:from-violet-900/60 dark:to-pink-900/60 dark:text-violet-200',
+  }
+  return map[key] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+}
+
+interface BreakdownRow {
+  issue_id: number
+  title: string
+  size: string
+  hours: number
+  price: number
+}
+
+function b(row: any): BreakdownRow {
+  return row.original as BreakdownRow
+}
+
+function sizeBadgeClass(size: string) {
+  if (size === '大型') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+  if (size === '中型') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+  return 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+}
 
 // 问题指标卡片
 const issueMetricCards = computed(() => {
@@ -522,10 +739,11 @@ async function fetchAll() {
   const q = buildQuery()
 
   try {
-    const [summaryRes, issuesRes, commitsRes, trendsRes, suggestionsRes] = await Promise.all([
+    const [summaryRes, issuesRes, commitsRes, workloadRes, trendsRes, suggestionsRes] = await Promise.all([
       api<any>(`/api/kpi/users/${uid}/summary/?${q}`).catch(() => null),
       api<any>(`/api/kpi/users/${uid}/issues/?${q}`).catch(() => null),
       api<any>(`/api/kpi/users/${uid}/commits/?${q}`).catch(() => null),
+      api<any>(`/api/kpi/users/${uid}/workload/?${q}`).catch(() => null),
       api<any>(`/api/kpi/users/${uid}/trends/?periods=6`).catch(() => null),
       api<any>(`/api/kpi/users/${uid}/suggestions/?${q}`).catch(() => null),
     ])
@@ -537,6 +755,7 @@ async function fetchAll() {
     }
     issues.value = issuesRes
     commits.value = commitsRes
+    workload.value = workloadRes
     trends.value = trendsRes
     suggestions.value = suggestionsRes
   } catch (e) {
