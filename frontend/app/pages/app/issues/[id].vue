@@ -269,6 +269,7 @@
               <UCalendar
                 :model-value="calendarValue"
                 class="w-fit"
+                :ui="{ cellTrigger: 'data-[selected]:bg-red-500 dark:data-[selected]:bg-red-600' }"
                 @update:model-value="onCalendarUpdate"
               />
             </div>
