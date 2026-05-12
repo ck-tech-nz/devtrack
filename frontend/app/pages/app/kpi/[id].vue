@@ -27,7 +27,10 @@
             {{ (summary.user_name || '?').slice(0, 1) }}
           </div>
           <div class="flex-1 min-w-0">
-            <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ summary.user_name }}</h1>
+            <div class="flex items-baseline gap-3 flex-wrap">
+              <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ summary.user_name }}</h1>
+              <span class="text-sm text-gray-500 dark:text-gray-400">{{ period.label.value }}</span>
+            </div>
             <div class="flex gap-1.5 mt-1.5 flex-wrap items-center">
               <UBadge
                 v-for="g in (summary.groups || [])"
@@ -95,7 +98,6 @@
             @click="period.shift(1)"
           />
         </div>
-        <span class="text-xs text-gray-500 dark:text-gray-400 px-1">{{ period.label.value }}</span>
         <UPopover>
           <UButton size="sm" variant="outline" color="neutral" icon="i-heroicons-calendar-days">
             {{ isCustom ? `${customStart} ~ ${customEnd}` : '自定义' }}

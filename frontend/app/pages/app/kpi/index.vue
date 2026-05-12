@@ -2,7 +2,10 @@
   <div class="space-y-6">
     <!-- 头部 -->
     <div class="flex items-center justify-between flex-wrap gap-3">
-      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">KPI 分析</h1>
+      <div class="flex items-baseline gap-3 flex-wrap">
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">KPI 分析</h1>
+        <span class="text-sm text-gray-500 dark:text-gray-400">{{ period.label.value }}</span>
+      </div>
       <div class="flex items-center gap-2 flex-wrap">
         <!-- 周期选择 (← 周/月/季度 →) -->
         <div class="flex items-center gap-1">
@@ -37,9 +40,6 @@
             @click="period.shift(1)"
           />
         </div>
-
-        <!-- 当前周期范围 -->
-        <span class="text-xs text-gray-500 dark:text-gray-400 px-1">{{ period.label.value }}</span>
 
         <!-- 自定义日期 -->
         <UPopover>
