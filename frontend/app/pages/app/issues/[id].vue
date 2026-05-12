@@ -243,37 +243,25 @@
         </div>
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">信息</h3>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">提出人</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter || issue.created_by_name || '-' }}</p>
-            </div>
-            <div class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">创建时间</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
-            </div>
-          </div>
-          <div v-if="issue.resolved_at || issue.resolution_hours" class="grid grid-cols-2 gap-3">
-            <div v-if="issue.resolved_at" class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">解决时间</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
-            </div>
-            <div v-if="issue.resolution_hours" class="text-sm">
-              <span class="text-gray-400 dark:text-gray-500">解决耗时</span>
-              <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
-            </div>
-          </div>
-          <div class="space-y-3">
-            <div class="form-row">
-              <label class="text-gray-400 dark:text-gray-500">预计完成</label>
-              <UCalendar
-                :model-value="calendarValue"
-                class="w-fit"
-                :ui="{ cellTrigger: 'data-[selected]:bg-red-500 dark:data-[selected]:bg-red-600' }"
-                @update:model-value="onCalendarUpdate"
-              />
-            </div>
-            <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-2 gap-4">
+            <!-- 左列: 元信息 + 工时 -->
+            <div class="space-y-3">
+              <div class="text-sm">
+                <span class="text-gray-400 dark:text-gray-500">提出人</span>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.reporter || issue.created_by_name || '-' }}</p>
+              </div>
+              <div class="text-sm">
+                <span class="text-gray-400 dark:text-gray-500">创建时间</span>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.created_at?.slice(0, 10) }}</p>
+              </div>
+              <div v-if="issue.resolved_at" class="text-sm">
+                <span class="text-gray-400 dark:text-gray-500">解决时间</span>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolved_at.slice(0, 10) }}</p>
+              </div>
+              <div v-if="issue.resolution_hours" class="text-sm">
+                <span class="text-gray-400 dark:text-gray-500">解决耗时</span>
+                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ issue.resolution_hours }}h</p>
+              </div>
               <div class="form-row">
                 <div class="flex items-center justify-between">
                   <label class="text-gray-400 dark:text-gray-500">预计工时</label>
@@ -306,6 +294,17 @@
                 </div>
                 <UInput v-model="form.actual_hours" type="number" placeholder="小时" />
               </div>
+            </div>
+            <!-- 右列: 预计完成日历 -->
+            <div class="form-row">
+              <label class="text-gray-400 dark:text-gray-500">预计完成</label>
+              <UCalendar
+                :model-value="calendarValue"
+                size="xs"
+                class="w-fit"
+                :ui="{ cellTrigger: 'data-[selected]:bg-red-500 dark:data-[selected]:bg-red-600' }"
+                @update:model-value="onCalendarUpdate"
+              />
             </div>
           </div>
         </div>
