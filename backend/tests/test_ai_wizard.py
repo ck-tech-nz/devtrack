@@ -112,3 +112,28 @@ def test_extract_passes_modules_into_template():
 
     assert "通知中心" in captured["user_prompt"]
     assert "审批流程" in captured["user_prompt"]
+
+
+@pytest.mark.django_db
+def test_generate_returns_parsed_json():
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    fake = (
+        '{"repro_steps": "1. 点击铃铛\\n2. 看不到列表",'
+        ' "expected_behavior": "应展开通知列表",'
+        ' "labels": ["前端", "Bug"]}'
+    )
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete", return_value=fake):
+        svc = AiWizardService()
+        result = svc.generate(
+            description="点击铃铛没反应",
+            classify={"category": "前端 UI"},
+            extract={"title": "x", "priority": "P2", "module": "通知中心"},
+            labels=["前端", "Bug", "后端"],
+        )
+
+    assert "1. 点击铃铛" in result["repro_steps"]
+    assert result["expected_behavior"] == "应展开通知列表"
+    assert result["labels"] == ["前端", "Bug"]

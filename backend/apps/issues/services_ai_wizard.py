@@ -79,3 +79,13 @@ class AiWizardService:
             classify_json=json.dumps(classify, ensure_ascii=False),
             modules_json=json.dumps(modules, ensure_ascii=False),
         )
+
+    def generate(self, description: str, classify: dict, extract: dict, labels: list) -> dict:
+        return self._run_prompt(
+            step=3,
+            slug="wizard_generate",
+            description=description,
+            classify_json=json.dumps(classify, ensure_ascii=False),
+            extract_json=json.dumps(extract, ensure_ascii=False),
+            labels_json=json.dumps(labels, ensure_ascii=False),
+        )
