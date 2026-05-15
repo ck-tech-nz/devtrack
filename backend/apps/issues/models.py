@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Priority(models.TextChoices):
@@ -89,6 +90,10 @@ class Issue(models.Model):
 
     objects = IssueManager()
     all_objects = models.Manager()
+    history = HistoricalRecords(
+        excluded_fields=["updated_at"],
+        m2m_fields=["github_issues", "attachments", "helpers"],
+    )
 
     class Meta:
         verbose_name = "问题"

@@ -389,6 +389,132 @@ class IssueAttachmentsView(APIView):
         return Response(status=204)
 
 
+FIELD_LABELS = {
+    "title": "标题",
+    "description": "描述",
+    "priority": "优先级",
+    "status": "状态",
+    "labels": "标签",
+    "assignee": "负责人",
+    "reporter": "提出人",
+    "remark": "备注",
+    "estimated_completion": "预计完成",
+    "estimated_hours": "预计工时",
+    "actual_hours": "实际工时",
+    "cause": "原因分析",
+    "solution": "解决办法",
+    "resolved_at": "解决时间",
+    "repo": "关联仓库",
+    "project": "项目",
+    "is_deleted": "已删除",
+    "deleted_at": "删除时间",
+    "source": "来源",
+    "source_meta": "来源元数据",
+    "settlement": "结算快照",
+    "updated_by": "更新人",
+    "helpers": "协助人",
+    "attachments": "附件",
+    "github_issues": "关联 GitHub Issues",
+}
+
+
+def _is_manager(user) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name="管理员").exists()
+
+
+def _format_value(field_name, value):
+    if value is None or value == "":
+        return None
+    if field_name in ("description", "remark", "cause", "solution"):
+        text = str(value)
+        return text if len(text) <= 80 else text[:77] + "…"
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, (list, dict)):
+        return value
+    return str(value)
+
+
+def _resolve_fk_display(field_name, value):
+    if value is None:
+        return None
+    if field_name in ("assignee", "updated_by", "created_by"):
+        u = User.objects.filter(pk=value).first()
+        return (u.name or u.username) if u else f"#{value}"
+    if field_name == "repo":
+        r = Repo.objects.filter(pk=value).first()
+        return r.full_name if r else f"#{value}"
+    if field_name == "project":
+        from apps.projects.models import Project
+        p = Project.objects.filter(pk=value).first()
+        return p.name if p else f"#{value}"
+    return value
+
+
+class IssueHistoryView(APIView):
+    """GET /api/issues/{id}/history/ — 字段更新历史 (仅管理员)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _is_manager(request.user):
+            return Response({"detail": "仅管理员可查看历史"}, status=status.HTTP_403_FORBIDDEN)
+
+        issue = Issue.all_objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        records = list(
+            issue.history.select_related("history_user").order_by("history_date")
+        )
+
+        result = []
+        prev = None
+        for rec in records:
+            user = rec.history_user
+            entry = {
+                "id": rec.history_id,
+                "type": rec.history_type,
+                "date": rec.history_date.isoformat(),
+                "user": (user.name or user.username) if user else None,
+                "changes": [],
+            }
+            if prev is None:
+                entry["changes"].append({
+                    "field": "_created",
+                    "label": "创建",
+                    "before": None,
+                    "after": None,
+                })
+            else:
+                try:
+                    delta = rec.diff_against(prev)
+                    for change in delta.changes:
+                        fname = change.field
+                        if fname in ("updated_at", "id"):
+                            continue
+                        old_v = _resolve_fk_display(fname, change.old)
+                        new_v = _resolve_fk_display(fname, change.new)
+                        entry["changes"].append({
+                            "field": fname,
+                            "label": FIELD_LABELS.get(fname, fname),
+                            "before": _format_value(fname, old_v),
+                            "after": _format_value(fname, new_v),
+                        })
+                except Exception:
+                    pass
+
+            if entry["changes"] or prev is None:
+                result.append(entry)
+            prev = rec
+
+        result.reverse()
+        return Response(result)
+
+
 class IssueCloseWithGitHubView(APIView):
     """关闭 DevTrack Issue，同时关闭关联的 GitHub Issues。"""
     permission_classes = [IsAuthenticated]
@@ -420,3 +546,31 @@ class IssueCloseWithGitHubView(APIView):
         if errors:
             result["github_errors"] = errors
         return Response(result)
+
+
+class IssueCheckDuplicateView(APIView):
+    """POST /api/issues/check-duplicate/ — AI-driven near-duplicate detection.
+
+    Used by the create-issue modal on title/description blur. Returns up to
+    five open issues in the same project that the LLM judged similar. Silent
+    on configuration or LLM failures: always returns 200 with possibly empty
+    candidates so the modal continues to function.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from .serializers import DuplicateCheckInputSerializer
+        from .services import check_duplicates
+
+        if not request.user.has_perm("issues.view_issue"):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        serializer = DuplicateCheckInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        candidates = check_duplicates(
+            project_id=data["project"],
+            title=data["title"],
+            description=data["description"],
+        )
+        return Response({"candidates": candidates})

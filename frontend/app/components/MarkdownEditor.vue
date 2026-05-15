@@ -51,6 +51,7 @@
         @input="onTextareaInput"
         @keydown="handleMentionKeydown"
         @paste="handlePaste"
+        @blur="emit('blur')"
       />
       <!-- Mention autocomplete -->
       <MentionDropdown
@@ -121,6 +122,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'upload-complete': [attachment: { url: string; filename: string; id: string }]
+  'blur': []
 }>()
 
 const { api } = useApi()

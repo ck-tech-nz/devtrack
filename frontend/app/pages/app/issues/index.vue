@@ -50,7 +50,7 @@
     </div>
 
     <!-- Create Issue Modal -->
-    <UModal v-model:open="showCreateModal" title="新建问题" :ui="{ content: 'sm:max-w-[960px]' }">
+    <UModal :open="showCreateModal" title="新建问题" :ui="{ content: 'sm:max-w-[960px]' }" @update:open="onCreateModalUpdate">
       <template #content>
         <div class="modal-form">
           <div class="modal-header">
@@ -68,11 +68,41 @@
             </div>
             <div class="form-row">
               <label>标题 <span class="text-red-400">*</span></label>
-              <UInput v-model="newIssue.title" placeholder="输入问题标题" />
+              <UInput v-model="newIssue.title" placeholder="输入问题标题" @blur="runDuplicateCheck" />
+              <div v-if="dupChecking || dupCandidates.length" class="dup-check-box">
+                <p v-if="dupChecking" class="text-xs text-gray-500 dark:text-gray-400">
+                  正在检查相似问题…
+                </p>
+                <div v-else>
+                  <p class="text-sm text-amber-700 dark:text-amber-300 font-medium">
+                    发现 {{ dupCandidates.length }} 条相似的未关闭问题，请确认是否重复：
+                  </p>
+                  <ul class="mt-1.5 space-y-1.5">
+                    <li v-for="c in dupCandidates" :key="c.id" class="text-sm">
+                      <div class="flex items-center gap-1.5">
+                        <NuxtLink
+                          :to="`/app/issues/${c.id}`"
+                          target="_blank"
+                          class="text-crystal-600 dark:text-crystal-400 hover:underline"
+                        >
+                          #{{ c.id }} {{ c.title }}
+                        </NuxtLink>
+                        <UBadge :color="statusColor(c.status)" variant="subtle" size="xs">{{ c.status }}</UBadge>
+                      </div>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ c.reason }}</p>
+                    </li>
+                  </ul>
+                </div>
+              </div>
             </div>
             <div class="form-row">
               <label>描述</label>
-              <MarkdownEditor v-model="newIssue.description" placeholder="详细描述问题" @upload-complete="handleCreateUploadComplete" />
+              <MarkdownEditor
+                v-model="newIssue.description"
+                placeholder="详细描述问题"
+                @upload-complete="handleCreateUploadComplete"
+                @blur="runDuplicateCheck"
+              />
             </div>
             <div class="form-grid-2">
               <div class="form-row">
@@ -335,7 +365,27 @@ const projects = ref<any[]>([])
 const repos = ref<any[]>([])
 
 // Create issue modal state
+const { confirm: showConfirm } = useDialog()
 const showCreateModal = ref(false)
+
+async function onCreateModalUpdate(v: boolean) {
+  if (v) {
+    showCreateModal.value = true
+    return
+  }
+  if (hasFormContent()) {
+    const ok = await showConfirm({
+      title: '放弃编辑？',
+      message: '表单中有未保存的内容，关闭后将丢失。确定要放弃吗？',
+      confirmText: '放弃',
+      cancelText: '继续编辑',
+      color: 'error',
+    })
+    if (!ok) return
+  }
+  resetCreateForm()
+  showCreateModal.value = false
+}
 const creating = ref(false)
 const createError = ref('')
 const defaultAssignee = computed(() => '_none')
@@ -350,6 +400,75 @@ const newIssue = ref({
   repo: null as string | null,
   reporter: user.value?.name || '',
 })
+
+// Duplicate-check state for the create-issue modal.
+const dupChecking = ref(false)
+const dupCandidates = ref<Array<{ id: number; title: string; status: string; reason: string }>>([])
+const dupCheckedKey = ref('')
+
+function dupCheckKey(): string {
+  const p = newIssue.value.project || ''
+  const t = newIssue.value.title.trim().toLowerCase()
+  const d = (newIssue.value.description || '').trim().toLowerCase()
+  return `${p}|${t}|${d}`
+}
+
+async function runDuplicateCheck() {
+  const projectId = newIssue.value.project
+  const title = newIssue.value.title.trim()
+  if (!projectId || title.length < 3) {
+    dupCandidates.value = []
+    return
+  }
+  const key = dupCheckKey()
+  if (key === dupCheckedKey.value) return
+  dupCheckedKey.value = key
+  dupChecking.value = true
+  try {
+    const res = await api<{ candidates: Array<{ id: number; title: string; status: string; reason: string }> }>(
+      '/api/issues/check-duplicate/',
+      {
+        method: 'POST',
+        body: {
+          project: projectId,
+          title,
+          description: newIssue.value.description || '',
+        },
+        format: 'json',
+      },
+    )
+    // Discard stale responses if the user edited the form mid-call.
+    if (dupCheckKey() === key) dupCandidates.value = res.candidates || []
+  } catch {
+    dupCandidates.value = []
+  } finally {
+    dupChecking.value = false
+  }
+}
+
+function hasFormContent(): boolean {
+  const n = newIssue.value
+  return !!(
+    n.title.trim()
+    || n.description.trim()
+    || n.project
+    || n.labels.length > 0
+    || attachmentIds.value.length > 0
+    || n.repo
+    || n.priority !== 'P2'
+    || n.status !== '待处理'
+    || n.assignee !== '_none'
+  )
+}
+
+function resetCreateForm() {
+  newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null, reporter: user.value?.name || '' }
+  attachmentIds.value = []
+  projectRepos.value = []
+  dupCandidates.value = []
+  dupCheckedKey.value = ''
+  dupChecking.value = false
+}
 
 const attachmentIds = ref<string[]>([])
 
@@ -371,6 +490,11 @@ watch(() => newIssue.value.project, (projectId) => {
   }
 })
 
+watch([() => newIssue.value.title, () => newIssue.value.description], () => {
+  dupCandidates.value = []
+  dupCheckedKey.value = ''
+})
+
 const projectRepoOptions = computed(() => projectRepos.value.map(r => ({ label: r.name, value: String(r.id) })))
 
 const projectOptions = computed(() => projects.value.map(p => ({ label: p.name, value: String(p.id) })))
@@ -383,10 +507,7 @@ const filterPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.
 const filterStatusOptions = [{ label: '未计划', value: '未计划' }, { label: '待处理', value: '待处理' }, { label: '进行中', value: '进行中' }, { label: '已解决', value: '已解决' }, { label: '已发布', value: '已发布' }, { label: '已关闭', value: '已关闭' }]
 
 function closeCreateModal() {
-  showCreateModal.value = false
-  newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null, reporter: user.value?.name || '' }
-  attachmentIds.value = []
-  projectRepos.value = []
+  onCreateModalUpdate(false)
 }
 
 function handleCreateUploadComplete(uploaded: { url: string; filename: string; id: string }) {
@@ -414,10 +535,8 @@ async function handleCreateIssue() {
     if (newIssue.value.repo) body.repo = newIssue.value.repo
     if (newIssue.value.reporter) body.reporter = newIssue.value.reporter
     await api('/api/issues/', { method: 'POST', body, format: 'json' })
+    resetCreateForm()
     showCreateModal.value = false
-    newIssue.value = { project: '', title: '', description: '', priority: 'P2', status: '待处理', labels: [], assignee: defaultAssignee.value, repo: null, reporter: user.value?.name || '' }
-    attachmentIds.value = []
-    projectRepos.value = []
     await fetchIssues()
   } catch (e: any) {
     createError.value = formatApiError(e, '创建失败，请重试')
@@ -821,6 +940,17 @@ async function checkAnalyzingIssues() {
 @keyframes pulse-bar {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
+}
+.dup-check-box {
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background-color: #fffbeb; /* amber-50 */
+  border: 1px solid #fde68a; /* amber-200 */
+}
+:root.dark .dup-check-box {
+  background-color: rgba(120, 53, 15, 0.25); /* amber-900/25 */
+  border-color: rgba(245, 158, 11, 0.4); /* amber-500/40 */
 }
 /*
  * Issues table: fixed layout so we control column widths.

@@ -10,7 +10,7 @@ class LLMClient:
             base_url=config.base_url or None,
         )
 
-    def complete(self, model: str, system_prompt: str, user_prompt: str, temperature: float) -> str:
+    def complete(self, model: str, system_prompt: str, user_prompt: str, temperature: float, timeout: float | None = None) -> str:
         kwargs = dict(
             model=model,
             messages=[
@@ -21,5 +21,7 @@ class LLMClient:
         )
         if self.config.supports_json_mode:
             kwargs["response_format"] = {"type": "json_object"}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
         response = self.client.chat.completions.create(**kwargs)
         return response.choices[0].message.content

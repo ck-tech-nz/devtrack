@@ -227,3 +227,9 @@ class BatchUpdateSerializer(serializers.Serializer):
     ids = serializers.ListField(child=serializers.IntegerField())
     action = serializers.ChoiceField(choices=["assign", "set_priority", "set_status", "delete"])
     value = serializers.CharField(required=False, default="")
+
+
+class DuplicateCheckInputSerializer(serializers.Serializer):
+    project = serializers.IntegerField()
+    title = serializers.CharField()
+    description = serializers.CharField(required=False, allow_blank=True, default="")
