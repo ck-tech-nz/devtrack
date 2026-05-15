@@ -99,6 +99,12 @@ export function useAiWizard() {
         errorMessage.value = e?.message || '流读取失败'
       }
     }
+
+    // 流意外结束但既无 draft 也无 error 事件，视为分析失败避免界面卡死
+    if (state.value === 'analyzing' && draft.value === null) {
+      state.value = 'error'
+      errorMessage.value = '分析中断，请重试'
+    }
   }
 
   function handleFrame(frame: string) {
