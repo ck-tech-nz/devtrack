@@ -253,3 +253,33 @@ def test_ai_draft_endpoint_streams_sse_events(api_client, site_settings):
     assert body.count("event: step") == 3
     assert "event: draft" in body
     assert "event: done" in body
+
+
+@pytest.mark.django_db
+def test_issue_create_accepts_source_and_source_meta(api_client):
+    """The wizard sets source='ai_wizard' and source_meta={module, environment, ...} on the new Issue."""
+    from tests.factories import ProjectFactory, UserFactory
+    user = UserFactory(is_superuser=True, is_staff=True)
+    project = ProjectFactory()
+    api_client.force_authenticate(user)
+
+    resp = api_client.post(
+        "/api/issues/",
+        {
+            "project": str(project.id),
+            "title": "通过向导创建",
+            "description": "AI-rephrased desc\n\n## 复现步骤\n1. x",
+            "priority": "P2",
+            "status": "待处理",
+            "labels": [],
+            "source": "ai_wizard",
+            "source_meta": {"module": "通知中心", "environment": "Chrome / Windows"},
+        },
+        format="json",
+    )
+
+    assert resp.status_code == 201, resp.data
+    from apps.issues.models import Issue
+    issue = Issue.objects.get(pk=resp.data["id"])
+    assert issue.source == "ai_wizard"
+    assert issue.source_meta == {"module": "通知中心", "environment": "Chrome / Windows"}

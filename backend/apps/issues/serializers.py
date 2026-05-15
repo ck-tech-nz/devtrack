@@ -118,6 +118,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
             "id", "project", "repo", "title", "description", "priority", "status",
             "labels", "assignee", "helpers", "reporter", "remark", "estimated_completion",
             "estimated_hours", "actual_hours", "cause", "solution", "attachment_ids",
+            "source", "source_meta",
         ]
         read_only_fields = ["id"]
 
