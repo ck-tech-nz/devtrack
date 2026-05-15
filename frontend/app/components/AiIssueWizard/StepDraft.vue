@@ -6,7 +6,9 @@
         <UIcon name="i-heroicons-check" class="w-8 h-8 text-emerald-500" />
       </div>
       <div class="success-title">Issue 已成功提交！</div>
-      <div class="success-iss">ISS-{{ String(successIssueId).padStart(3, '0') }}</div>
+      <NuxtLink :to="`/app/issues/${successIssueId}`" class="success-iss">
+        ISS-{{ String(successIssueId).padStart(3, '0') }}
+      </NuxtLink>
       <div class="success-sub">
         <template v-if="form.assignee">已自动分配给 <strong>{{ assigneeName }}</strong> · </template>
         优先级 <strong>{{ form.priority }}</strong>
@@ -300,7 +302,8 @@ function onSubmit() {
 :root.dark .success-icon { background-color: rgba(5, 150, 105, 0.18); }
 .success-title { font-size: 1.125rem; font-weight: 600; color: #111827; }
 :root.dark .success-title { color: #f3f4f6; }
-.success-iss { font-size: 1.5rem; font-weight: 700; color: #7c3aed; font-family: ui-monospace, monospace; }
+.success-iss { font-size: 1.5rem; font-weight: 700; color: #7c3aed; font-family: ui-monospace, monospace; text-decoration: none; transition: color 0.15s; }
+.success-iss:hover { color: #6d28d9; text-decoration: underline; }
 .success-sub { font-size: 0.8125rem; color: #6b7280; margin-bottom: 0.5rem; }
 :root.dark .success-sub { color: #9ca3af; }
 </style>
