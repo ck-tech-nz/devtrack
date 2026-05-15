@@ -153,6 +153,8 @@ const emit = defineEmits<{
   reset: []
 }>()
 
+const { user: authUser } = useAuth()
+
 const form = ref({
   title: props.draft.title,
   description: props.draft.description,
@@ -162,7 +164,7 @@ const form = ref({
   module: props.draft.module,
   environment: props.draft.environment ?? '',
   labels: props.draft.labels,
-  assignee: '',
+  assignee: String(authUser.value?.id ?? ''),
   project: props.initialProjectId,
 })
 
