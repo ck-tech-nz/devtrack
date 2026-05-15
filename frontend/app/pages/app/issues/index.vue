@@ -337,6 +337,7 @@ const { api } = useApi()
 const { user, can } = useAuth()
 const { isMobile } = useMobile()
 const { settings, update: updateSettings } = useUserSettings()
+const route = useRoute()
 
 const viewMode = computed({
   get: () => settings.value.issues_view_mode,
@@ -346,11 +347,11 @@ const showCompleted = ref(false)
 const page = ref(1)
 const pageSize = 15
 
-// Filters
-const filterAssignee = ref('')
-const filterPriority = ref('')
-const filterStatus = ref('')
-const searchQuery = ref('')
+// Filters：初始值从 URL query 读取，使外部链接（如首页统计卡片）可预填筛选条件
+const filterAssignee = ref<string>(typeof route.query.assignee === 'string' ? route.query.assignee : '')
+const filterPriority = ref<string>(typeof route.query.priority === 'string' ? route.query.priority : '')
+const filterStatus = ref<string>(typeof route.query.status === 'string' ? route.query.status : '')
+const searchQuery = ref<string>(typeof route.query.search === 'string' ? route.query.search : '')
 const rowSelection = ref<Record<string, boolean>>({})
 const showBatchDeleteConfirm = ref(false)
 const batchDeleting = ref(false)

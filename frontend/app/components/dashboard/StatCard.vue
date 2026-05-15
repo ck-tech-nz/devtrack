@@ -1,5 +1,16 @@
 <template>
-  <div class="stat-card">
+  <NuxtLink v-if="to" :to="to" class="stat-card stat-card--link">
+    <div class="stat-header">
+      <span class="stat-label">{{ label }}</span>
+      <UIcon :name="icon" class="stat-icon" :class="iconToneClass" />
+    </div>
+    <div class="stat-value">{{ value }}</div>
+    <div v-if="deltaText" class="stat-delta" :class="deltaToneClass">
+      <span class="stat-delta-arrow">{{ deltaArrow }}</span>
+      <span>{{ deltaText }}</span>
+    </div>
+  </NuxtLink>
+  <div v-else class="stat-card">
     <div class="stat-header">
       <span class="stat-label">{{ label }}</span>
       <UIcon :name="icon" class="stat-icon" :class="iconToneClass" />
@@ -27,6 +38,8 @@ const props = defineProps<{
   deltaUnit?: 'percent' | 'absolute'
   // 当 delta > 0 时是否视为正面：解决数上涨为正面（绿色），待处理上涨为负面（红色）
   positiveDirection?: 'up' | 'down'
+  // 点击跳转目标（如 "/app/issues?status=待处理"）；为空时不可点击
+  to?: string
 }>()
 
 const iconToneClass = computed(() => {
@@ -74,10 +87,24 @@ const deltaToneClass = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 :root.dark .stat-card {
   background-color: #1f2937;
   border-color: #374151;
+}
+/* 可点击卡片：保留原视觉、添加 hover 反馈 */
+.stat-card--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+.stat-card--link:hover {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+:root.dark .stat-card--link:hover {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
 }
 .stat-header {
   display: flex;

@@ -9,7 +9,7 @@
     </div>
 
     <template v-else>
-      <!-- 数据概览：四列卡片 -->
+      <!-- 数据概览：四列卡片（点击跳转到对应状态的 Issue 列表） -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatCard
           label="本周已解决"
@@ -20,6 +20,7 @@
           delta-label="较上周"
           delta-unit="percent"
           positive-direction="up"
+          to="/app/issues?status=已解决"
         />
         <DashboardStatCard
           label="待处理"
@@ -30,6 +31,7 @@
           delta-label="较昨日"
           delta-unit="absolute"
           positive-direction="down"
+          to="/app/issues?status=待处理"
         />
         <DashboardStatCard
           label="进行中"
@@ -37,6 +39,7 @@
           icon="i-heroicons-arrow-path"
           tone="info"
           :delta="null"
+          to="/app/issues?status=进行中"
         />
         <DashboardStatCard
           label="总 Issue 数"
@@ -47,6 +50,7 @@
           delta-label="本周新增"
           delta-unit="absolute"
           positive-direction="up"
+          to="/app/issues"
         />
       </div>
 
