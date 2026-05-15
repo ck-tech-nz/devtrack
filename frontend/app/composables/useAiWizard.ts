@@ -16,6 +16,7 @@ export type WizardDraft = {
   priority: 'P0' | 'P1' | 'P2' | 'P3'
   module: string
   labels: string[]
+  follow_up_questions: string[]
   environment: string | null
 }
 

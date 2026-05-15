@@ -15,64 +15,104 @@
     </div>
 
     <!-- Draft state -->
-    <div v-else class="draft">
+    <div v-else class="draft-wrap">
+      <!-- Header -->
       <div class="draft-header">
-        <UIcon name="i-heroicons-check" class="w-4 h-4 text-emerald-500" />
-        <span class="draft-title">Issue 草稿已生成 · 请确认并编辑后提交</span>
-        <span class="draft-sub">AI 自动填写 <span class="count">6</span> 个字段</span>
+        <div class="header-icon"><UIcon name="i-heroicons-check" class="w-4 h-4 text-white" /></div>
+        <div class="header-title">Issue 已生成 · 确认后一键提交</div>
+        <span class="header-sub">AI 自动分析完成</span>
       </div>
 
-      <div class="field">
-        <label class="field-label">Issue 标题 <AiBadge kind="generated" /></label>
-        <UInput v-model="form.title" />
+      <!-- Title (centered, large) -->
+      <div class="field-row">
+        <UInput v-model="form.title" :ui="{ base: 'text-center text-lg font-semibold' }" />
       </div>
 
-      <div class="field">
-        <label class="field-label">问题描述</label>
-        <UTextarea v-model="form.description" :rows="3" autoresize />
+      <!-- Description -->
+      <div class="field-row">
+        <UTextarea v-model="form.description" :rows="2" autoresize :ui="{ base: 'text-center text-sm text-gray-500' }" />
       </div>
 
-      <div class="field">
-        <label class="field-label">复现步骤 <AiBadge kind="generated" /></label>
-        <UTextarea v-model="form.repro_steps" :rows="4" autoresize />
+      <!-- Pills row: priority / module / assignee / environment -->
+      <div class="pills-row">
+        <USelect
+          v-model="form.priority"
+          :items="priorityOptions"
+          value-key="value"
+          size="xs"
+          icon="i-heroicons-flag"
+          class="pill-select"
+        />
+        <USelect
+          v-model="form.module"
+          :items="moduleOptions"
+          size="xs"
+          icon="i-heroicons-folder"
+          class="pill-select"
+        />
+        <USelect
+          v-model="form.assignee"
+          :items="assigneeOptions"
+          value-key="value"
+          size="xs"
+          icon="i-heroicons-user"
+          placeholder="（不指派）"
+          class="pill-select"
+        />
+        <USelect
+          v-model="form.environment"
+          :items="envOptions"
+          size="xs"
+          icon="i-heroicons-computer-desktop"
+          placeholder="（环境）"
+          class="pill-select"
+        />
       </div>
 
-      <div class="row-3">
-        <div class="field">
-          <label class="field-label">优先级 <AiBadge kind="inferred" /></label>
-          <USelect v-model="form.priority" :items="priorityOptions" value-key="value" />
+      <!-- Follow-up questions hint (if any) -->
+      <div v-if="draft.follow_up_questions && draft.follow_up_questions.length" class="hint-box">
+        <div class="hint-head">
+          <UIcon name="i-heroicons-chat-bubble-bottom-center-text" class="w-4 h-4" />
+          <span>AI 建议补充以下信息后再提交</span>
         </div>
-        <div class="field">
-          <label class="field-label">所属模块 <AiBadge kind="inferred" /></label>
-          <USelect v-model="form.module" :items="moduleOptions" />
-        </div>
-        <div class="field">
-          <label class="field-label">指派给</label>
-          <USelect v-model="form.assignee" :items="assigneeOptions" value-key="value" placeholder="（不指派）" />
-        </div>
+        <ul class="hint-list">
+          <li v-for="q in draft.follow_up_questions" :key="q">{{ q }}</li>
+        </ul>
       </div>
 
-      <div class="row-3">
-        <div class="field span-2">
-          <label class="field-label">预期行为 <AiBadge kind="generated" /></label>
-          <UInput v-model="form.expected_behavior" />
+      <!-- 复现步骤 sub-card -->
+      <div class="repro-card">
+        <div class="repro-head">
+          <span class="repro-label">复现步骤</span>
+          <AiBadge v-if="form.repro_steps.trim()" kind="generated" />
         </div>
-        <div class="field">
-          <label class="field-label">环境</label>
-          <USelect v-model="form.environment" :items="envOptions" placeholder="（可选）" />
-        </div>
+        <UTextarea
+          v-model="form.repro_steps"
+          :rows="4"
+          autoresize
+          placeholder="（请按 1. 2. 3. 列出具体步骤）"
+          :ui="{ base: 'text-center text-sm' }"
+        />
       </div>
 
-      <div class="field">
+      <!-- Expected behavior -->
+      <div class="field-row">
+        <label class="field-label">预期行为 <AiBadge v-if="form.expected_behavior.trim()" kind="generated" /></label>
+        <UInput v-model="form.expected_behavior" placeholder="（应该发生什么？）" />
+      </div>
+
+      <!-- Project (preserved for fix-on-final-step) -->
+      <div class="field-row">
         <label class="field-label">项目</label>
-        <USelect v-model="form.project" :items="projectOptions" value-key="value" />
+        <USelect v-model="form.project" :items="projectOptions" value-key="value" size="sm" />
       </div>
 
       <p v-if="submitError" class="submit-error">{{ submitError }}</p>
 
+      <!-- Footer -->
       <div class="footer">
-        <span class="footer-hint">✦ 所有字段均可编辑 · 提交后将自动创建 Issue 并通知相关成员</span>
-        <UButton variant="ghost" color="neutral" size="sm" @click="emit('back')">重新描述</UButton>
+        <span class="footer-hint">✦ AI 已自动判断优先级、模块与指派人 · 如有异议可点击修改</span>
+        <UButton variant="outline" color="neutral" size="sm" @click="emit('back')">重新描述</UButton>
         <UButton
           size="sm"
           icon="i-heroicons-check"
@@ -175,29 +215,77 @@ function onSubmit() {
 
 <style scoped>
 .step-draft { display: flex; flex-direction: column; gap: 1rem; }
+
+.draft-wrap {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+:root.dark .draft-wrap { background-color: #1f2937; border-color: #374151; }
+
 .draft-header {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding-bottom: 0.75rem;
+  display: flex; align-items: center; gap: 0.625rem;
+  padding-bottom: 0.875rem;
   border-bottom: 1px solid #f3f4f6;
 }
 :root.dark .draft-header { border-bottom-color: #374151; }
-.draft-title { font-size: 0.875rem; font-weight: 600; color: #111827; }
-:root.dark .draft-title { color: #f3f4f6; }
-.draft-sub { font-size: 0.75rem; color: #9ca3af; margin-left: auto; }
-.count { color: #7c3aed; font-weight: 600; }
+.header-icon {
+  width: 1.75rem; height: 1.75rem; border-radius: 0.5rem;
+  background-color: #7c3aed; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.header-title { font-size: 0.9375rem; font-weight: 600; color: #111827; }
+:root.dark .header-title { color: #f3f4f6; }
+.header-sub { font-size: 0.75rem; color: #9ca3af; margin-left: auto; }
 
-.field { display: flex; flex-direction: column; gap: 0.375rem; }
+.field-row { display: flex; flex-direction: column; gap: 0.375rem; }
 .field-label { font-size: 0.8125rem; font-weight: 500; color: #374151; display: flex; align-items: center; }
 :root.dark .field-label { color: #d1d5db; }
-.row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
-.span-2 { grid-column: span 2; }
-@media (max-width: 768px) { .row-3 { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } }
+
+.pills-row {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.25rem 0;
+}
+.pill-select :deep(button) { font-size: 0.75rem; min-width: auto; }
+
+.hint-box {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+}
+:root.dark .hint-box { background-color: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.3); }
+.hint-head {
+  display: flex; align-items: center; gap: 0.375rem;
+  color: #92400e; font-weight: 500; margin-bottom: 0.375rem;
+}
+:root.dark .hint-head { color: #fcd34d; }
+.hint-list { list-style: disc; padding-left: 1.5rem; color: #78350f; }
+:root.dark .hint-list { color: #fde68a; }
+.hint-list li { padding: 0.125rem 0; }
+
+.repro-card {
+  background-color: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 0.625rem;
+  padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.625rem;
+}
+:root.dark .repro-card { background-color: #111827; border-color: #1f2937; }
+.repro-head { display: flex; align-items: center; gap: 0.375rem; }
+.repro-label { font-size: 0.8125rem; font-weight: 500; color: #374151; }
+:root.dark .repro-label { color: #d1d5db; }
 
 .submit-error { font-size: 0.8125rem; color: #dc2626; }
 
 .footer {
   display: flex; align-items: center; gap: 0.5rem;
-  padding-top: 0.75rem; border-top: 1px solid #f3f4f6;
+  padding-top: 0.875rem; border-top: 1px solid #f3f4f6;
 }
 :root.dark .footer { border-top-color: #374151; }
 .footer-hint { font-size: 0.75rem; color: #9ca3af; flex: 1; }
