@@ -84,6 +84,38 @@ def test_me_patch_sets_user_default_project(api_client):
     assert resp.status_code == 200
     user.refresh_from_db()
     assert user.default_project_id == p.id
+    # Response also reflects the new effective default
+    assert resp.data["default_project"]["id"] == str(p.id)
+
+
+@pytest.mark.django_db
+def test_me_patch_with_invalid_project_id_returns_400(api_client):
+    """Non-numeric / nonexistent project IDs return 400, not 500 or silent success."""
+    user = UserFactory()
+    api_client.force_authenticate(user)
+
+    # Non-numeric string
+    resp = api_client.patch("/api/auth/me/", {"default_project": "abc"}, format="json")
+    assert resp.status_code == 400
+    assert "default_project" in resp.data
+
+    # Nonexistent numeric id
+    resp = api_client.patch("/api/auth/me/", {"default_project": "999999"}, format="json")
+    assert resp.status_code == 400
+    assert "default_project" in resp.data
+
+
+@pytest.mark.django_db
+def test_me_patch_with_null_clears_user_default(api_client):
+    """PATCH with default_project: null clears the user-level pref (falls back to site default)."""
+    p = ProjectFactory()
+    user = UserFactory(default_project=p)
+    api_client.force_authenticate(user)
+
+    resp = api_client.patch("/api/auth/me/", {"default_project": None}, format="json")
+    assert resp.status_code == 200
+    user.refresh_from_db()
+    assert user.default_project_id is None
 
 
 @pytest.mark.django_db

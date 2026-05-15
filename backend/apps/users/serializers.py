@@ -12,10 +12,21 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "name", "email", "github_id", "avatar"]
 
 
+class _ProjectPrimaryKeyField(serializers.PrimaryKeyRelatedField):
+    """PK field with lazy queryset to avoid import-at-class-load on apps.projects."""
+
+    def get_queryset(self):
+        from apps.projects.models import Project
+        return Project.objects.all()
+
+
 class MeSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
-    default_project = serializers.SerializerMethodField()
+    default_project = _ProjectPrimaryKeyField(
+        allow_null=True,
+        required=False,
+    )
 
     class Meta:
         model = User
@@ -31,22 +42,14 @@ class MeSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
 
-    def get_default_project(self, obj):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
         from apps.projects.utils import get_effective_default_project
-        project = get_effective_default_project(obj)
-        if project is None:
-            return None
-        return {"id": str(project.id), "name": project.name}
-
-    def update(self, instance, validated_data):
-        # default_project is exposed via SerializerMethodField (read), but writable
-        # via raw request data so PATCH can clear/set per-user override.
-        raw = self.context["request"].data
-        if "default_project" in raw:
-            from apps.projects.models import Project
-            val = raw["default_project"]
-            instance.default_project = Project.objects.filter(pk=val).first() if val else None
-        return super().update(instance, validated_data)
+        proj = get_effective_default_project(instance)
+        data["default_project"] = (
+            {"id": str(proj.id), "name": proj.name} if proj else None
+        )
+        return data
 
 
 class RegisterSerializer(serializers.Serializer):
