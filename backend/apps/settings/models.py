@@ -28,6 +28,10 @@ def default_issue_statuses():
     return ["未计划", "待处理", "进行中", "已解决", "已发布", "已关闭"]
 
 
+def default_modules():
+    return ["通知中心", "审批流程", "用户管理", "项目管理", "表单", "其他"]
+
+
 class SiteSettings(SingletonModel):
     labels = models.JSONField(
         default=default_labels,
@@ -40,6 +44,18 @@ class SiteSettings(SingletonModel):
     issue_statuses = models.JSONField(
         default=default_issue_statuses,
         verbose_name="Issue 状态选项",
+    )
+    modules = models.JSONField(
+        default=default_modules,
+        verbose_name="功能模块",
+    )
+    default_project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="默认项目",
     )
 
     class Meta:
