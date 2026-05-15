@@ -33,12 +33,6 @@
         />
       </div>
     </div>
-
-    <div class="chips">
-      <button v-for="chip in chips" :key="chip.label" class="chip" type="button" @click="fillChip(chip.value)">
-        {{ chip.label }}
-      </button>
-    </div>
   </div>
 </template>
 
@@ -61,19 +55,7 @@ const projectOptions = computed(() =>
   props.projects.map(p => ({ label: p.name, value: String(p.id) })),
 )
 
-const chips = [
-  { label: '🖱 按钮无响应', value: '点击提交按钮后页面没有任何反应，按钮无响应' },
-  { label: '⬜ 页面白屏', value: '页面加载后出现白屏，控制台报错 Cannot read properties of undefined' },
-  { label: '💾 数据未保存', value: '表单提交后数据没有保存，刷新后内容消失' },
-  { label: '🔗 跳转异常', value: '通知中心点击待审批事项后跳转到错误页面' },
-  { label: '🖼 上传异常', value: '上传图片后显示上传成功但图片列表中看不到' },
-]
-
 const canAnalyze = computed(() => description.value.trim().length >= 5 && !!projectId.value)
-
-function fillChip(text: string) {
-  description.value = text
-}
 
 function onAnalyze() {
   if (!canAnalyze.value) return
@@ -87,20 +69,6 @@ watch(() => props.defaultProjectId, (v) => {
 
 <style scoped>
 .step-describe { display: flex; flex-direction: column; gap: 1rem; }
-.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.chip {
-  padding: 0.375rem 0.875rem;
-  border-radius: 9999px;
-  background-color: #f3f4f6;
-  font-size: 0.8125rem;
-  color: #374151;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-.chip:hover { background-color: #e5e7eb; }
-:root.dark .chip { background-color: #1f2937; color: #d1d5db; }
-:root.dark .chip:hover { background-color: #374151; }
 
 .input-wrap {
   display: flex; flex-direction: column;
