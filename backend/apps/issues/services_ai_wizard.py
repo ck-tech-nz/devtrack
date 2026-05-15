@@ -70,3 +70,12 @@ class AiWizardService:
 
     def classify(self, description: str) -> dict:
         return self._run_prompt(step=1, slug="wizard_classify", description=description)
+
+    def extract(self, description: str, classify: dict, modules: list) -> dict:
+        return self._run_prompt(
+            step=2,
+            slug="wizard_extract",
+            description=description,
+            classify_json=json.dumps(classify, ensure_ascii=False),
+            modules_json=json.dumps(modules, ensure_ascii=False),
+        )

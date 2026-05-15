@@ -72,3 +72,43 @@ def test_classify_raises_on_missing_prompt():
     with pytest.raises(AiWizardError) as exc:
         svc.classify("点击铃铛没反应")
     assert exc.value.code == "missing_prompt"
+
+
+@pytest.mark.django_db
+def test_extract_returns_parsed_json():
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    fake = '{"title": "通知中心铃铛下拉无响应", "priority": "P2", "module": "通知中心"}'
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete", return_value=fake):
+        svc = AiWizardService()
+        result = svc.extract(
+            description="点击铃铛没反应",
+            classify={"category": "前端 UI", "scope": "通知中心"},
+            modules=["通知中心", "审批流程"],
+        )
+
+    assert result["title"] == "通知中心铃铛下拉无响应"
+    assert result["priority"] == "P2"
+    assert result["module"] == "通知中心"
+
+
+@pytest.mark.django_db
+def test_extract_passes_modules_into_template():
+    """Modules list must reach the LLM via the user_prompt_template."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    captured = {}
+    def fake_complete(self, model, system_prompt, user_prompt, temperature, timeout=None):
+        captured["user_prompt"] = user_prompt
+        return '{"title": "x", "priority": "P2", "module": "通知中心"}'
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete", new=fake_complete):
+        svc = AiWizardService()
+        svc.extract(description="d", classify={"category": "c"}, modules=["通知中心", "审批流程"])
+
+    assert "通知中心" in captured["user_prompt"]
+    assert "审批流程" in captured["user_prompt"]
