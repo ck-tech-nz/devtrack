@@ -385,3 +385,61 @@ def test_ai_draft_endpoint_throttles_excessive_requests(api_client, site_setting
         assert resp.status_code == 429, f"expected 429 throttled, got {resp.status_code}"
 
     cache.clear()
+
+
+@pytest.mark.django_db
+def test_issue_create_rejects_unknown_source(api_client):
+    """Source not in allow-list is 400."""
+    from tests.factories import ProjectFactory, UserFactory
+    from django.core.cache import cache
+    cache.clear()
+    user = UserFactory(is_superuser=True, is_staff=True)
+    project = ProjectFactory()
+    api_client.force_authenticate(user)
+
+    resp = api_client.post(
+        "/api/issues/",
+        {
+            "project": str(project.id),
+            "title": "fake provenance",
+            "description": "x",
+            "priority": "P2",
+            "status": "待处理",
+            "labels": [],
+            "source": "fake_source",
+        },
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "source" in resp.data
+    cache.clear()
+
+
+@pytest.mark.django_db
+def test_issue_create_rejects_oversized_source_meta(api_client):
+    """source_meta over 4KB is 400."""
+    from tests.factories import ProjectFactory, UserFactory
+    from django.core.cache import cache
+    cache.clear()
+    user = UserFactory(is_superuser=True, is_staff=True)
+    project = ProjectFactory()
+    api_client.force_authenticate(user)
+
+    huge = {"data": "x" * 5000}
+    resp = api_client.post(
+        "/api/issues/",
+        {
+            "project": str(project.id),
+            "title": "x",
+            "description": "x",
+            "priority": "P2",
+            "status": "待处理",
+            "labels": [],
+            "source": "ai_wizard",
+            "source_meta": huge,
+        },
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "source_meta" in resp.data
+    cache.clear()

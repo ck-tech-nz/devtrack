@@ -1,3 +1,4 @@
+import json
 import re
 from rest_framework import serializers
 from django.utils import timezone
@@ -12,6 +13,11 @@ from apps.notifications.services import create_mention_notifications
 from .models import Issue, IssueStatus, Activity
 
 User = get_user_model()
+
+# Issue 的 source 字段必须从此白名单中取值,防止前端伪造来源
+ALLOWED_ISSUE_SOURCES = ("ai_wizard", "github", "external_api")
+# source_meta 序列化后的 JSON 字节上限,防止滥用作为大容量存储
+SOURCE_META_MAX_BYTES = 4096
 
 
 def _sync_attachments(issue, user):
@@ -140,6 +146,27 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
     def validate_status(self, value):
         if value not in IssueStatus.values:
             raise serializers.ValidationError(f"无效的状态: {value}")
+        return value
+
+    def validate_source(self, value):
+        if not value:
+            return value
+        if value not in ALLOWED_ISSUE_SOURCES:
+            raise serializers.ValidationError(
+                f"无效的 source: {value}. 必须是 {ALLOWED_ISSUE_SOURCES} 之一"
+            )
+        return value
+
+    def validate_source_meta(self, value):
+        if not value:
+            return value
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("source_meta 必须是对象")
+        size = len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+        if size > SOURCE_META_MAX_BYTES:
+            raise serializers.ValidationError(
+                f"source_meta 过大（{size} 字节，上限 {SOURCE_META_MAX_BYTES}）"
+            )
         return value
 
     def _user_can_edit_estimated_hours(self) -> bool:
