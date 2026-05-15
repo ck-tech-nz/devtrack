@@ -1,6 +1,7 @@
 import json
 import re
 from rest_framework import serializers
+from django.db import transaction
 from django.utils import timezone
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
@@ -177,6 +178,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
             return True
         return user.groups.filter(name="管理员").exists()
 
+    @transaction.atomic
     def create(self, validated_data):
         helpers = validated_data.pop("helpers", [])
         attachment_ids = validated_data.pop("attachment_ids", [])
@@ -205,6 +207,7 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
         )
         return issue
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         old_description = instance.description
         helpers = validated_data.pop("helpers", None)
