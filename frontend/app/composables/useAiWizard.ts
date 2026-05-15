@@ -26,6 +26,49 @@ const INITIAL_STEPS: StepProgress[] = [
   { step: 3, label: '生成复现步骤与预期行为', status: 'pending' },
 ]
 
+async function refreshAccessToken(): Promise<string | null> {
+  if (typeof localStorage === 'undefined') return null
+  const refresh = localStorage.getItem('refresh_token')
+  if (!refresh) return null
+  try {
+    const resp = await fetch('/api/auth/refresh/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+    })
+    if (!resp.ok) return null
+    const data = await resp.json()
+    if (data?.access) {
+      localStorage.setItem('access_token', data.access)
+      return data.access
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+async function getValidAccessToken(): Promise<string | null> {
+  if (typeof localStorage === 'undefined') return null
+  const token = localStorage.getItem('access_token')
+  if (!token) return null
+  // 解析 JWT 的 exp 字段;若不足 60s 即将过期,主动刷新
+  // 注:无法解析时 (例如格式异常) 继续使用,让服务端 401 触发再刷新
+  try {
+    const segments = token.split('.')
+    if (segments.length >= 2 && segments[1]) {
+      const payload = JSON.parse(atob(segments[1]))
+      const expMs = payload.exp * 1000
+      if (expMs - Date.now() < 60_000) {
+        return await refreshAccessToken()
+      }
+    }
+  } catch {
+    // 令牌格式异常 — 继续使用,服务端会以 401 处理
+  }
+  return token
+}
+
 export function useAiWizard() {
   const state = ref<WizardState>('idle')
   const steps = ref<StepProgress[]>(structuredClone(INITIAL_STEPS))
@@ -43,28 +86,42 @@ export function useAiWizard() {
     abortController = null
   }
 
+  async function doFetch(
+    token: string | null,
+    params: { description: string; project: string; attachment_ids?: string[] },
+  ): Promise<Response> {
+    return fetch('/api/issues/ai-draft/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        description: params.description,
+        project: params.project,
+        attachment_ids: params.attachment_ids || [],
+      }),
+      signal: abortController!.signal,
+    })
+  }
+
   async function start(params: { description: string; project: string; attachment_ids?: string[] }) {
     reset()
     state.value = 'analyzing'
     abortController = new AbortController()
 
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null
+    let token = await getValidAccessToken()
     let resp: Response
     try {
-      resp = await fetch('/api/issues/ai-draft/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          description: params.description,
-          project: params.project,
-          attachment_ids: params.attachment_ids || [],
-        }),
-        signal: abortController.signal,
-      })
+      resp = await doFetch(token, params)
+      // 服务端返回 401 时尝试刷新令牌后重试一次 (SSE 无法中途切换 token,所以只能整体重发)
+      if (resp.status === 401) {
+        token = await refreshAccessToken()
+        if (token) {
+          resp = await doFetch(token, params)
+        }
+      }
     } catch (e: any) {
       state.value = 'error'
       errorMessage.value = e?.message || '网络错误，请重试'
