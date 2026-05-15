@@ -15,10 +15,14 @@ class UserSerializer(serializers.ModelSerializer):
 class MeSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    default_project = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "name", "email", "github_id", "avatar", "groups", "permissions", "settings", "is_superuser"]
+        fields = [
+            "id", "username", "name", "email", "github_id", "avatar",
+            "groups", "permissions", "settings", "is_superuser", "default_project",
+        ]
         read_only_fields = ["id", "username", "groups", "permissions", "is_superuser"]
 
     def get_groups(self, obj):
@@ -26,6 +30,23 @@ class MeSerializer(serializers.ModelSerializer):
 
     def get_permissions(self, obj):
         return list(obj.get_all_permissions())
+
+    def get_default_project(self, obj):
+        from apps.projects.utils import get_effective_default_project
+        project = get_effective_default_project(obj)
+        if project is None:
+            return None
+        return {"id": str(project.id), "name": project.name}
+
+    def update(self, instance, validated_data):
+        # default_project is exposed via SerializerMethodField (read), but writable
+        # via raw request data so PATCH can clear/set per-user override.
+        raw = self.context["request"].data
+        if "default_project" in raw:
+            from apps.projects.models import Project
+            val = raw["default_project"]
+            instance.default_project = Project.objects.filter(pk=val).first() if val else None
+        return super().update(instance, validated_data)
 
 
 class RegisterSerializer(serializers.Serializer):

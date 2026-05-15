@@ -40,3 +40,62 @@ def test_returns_none_for_anonymous_user():
     SiteSettings.objects.update(default_project=None)
 
     assert get_effective_default_project(AnonymousUser()) is None
+
+
+@pytest.mark.django_db
+def test_me_endpoint_returns_effective_default_project(api_client, site_settings):
+    """GET /api/auth/me/ returns user's effective default project."""
+    from apps.settings.models import SiteSettings
+    project = ProjectFactory(name="Default Site Project")
+    SiteSettings.objects.update(default_project=project)
+
+    user = UserFactory()
+    api_client.force_authenticate(user)
+
+    resp = api_client.get("/api/auth/me/")
+
+    assert resp.status_code == 200
+    assert resp.data["default_project"] == {"id": str(project.id), "name": "Default Site Project"}
+
+
+@pytest.mark.django_db
+def test_me_endpoint_user_default_overrides_site(api_client, site_settings):
+    from apps.settings.models import SiteSettings
+    site_p = ProjectFactory()
+    user_p = ProjectFactory(name="My Pick")
+    SiteSettings.objects.update(default_project=site_p)
+
+    user = UserFactory(default_project=user_p)
+    api_client.force_authenticate(user)
+
+    resp = api_client.get("/api/auth/me/")
+
+    assert resp.data["default_project"]["name"] == "My Pick"
+
+
+@pytest.mark.django_db
+def test_me_patch_sets_user_default_project(api_client):
+    p = ProjectFactory()
+    user = UserFactory()
+    api_client.force_authenticate(user)
+
+    resp = api_client.patch("/api/auth/me/", {"default_project": str(p.id)}, format="json")
+
+    assert resp.status_code == 200
+    user.refresh_from_db()
+    assert user.default_project_id == p.id
+
+
+@pytest.mark.django_db
+def test_settings_endpoint_returns_modules_and_default_project(api_client, site_settings):
+    from apps.settings.models import SiteSettings
+    SiteSettings.objects.update(default_project=None)
+    user = UserFactory()
+    api_client.force_authenticate(user)
+
+    resp = api_client.get("/api/settings/")
+
+    assert resp.status_code == 200
+    assert isinstance(resp.data["modules"], list)
+    assert "通知中心" in resp.data["modules"]
+    assert "default_project" in resp.data
