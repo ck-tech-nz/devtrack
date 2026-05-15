@@ -112,6 +112,11 @@ async function onSubmit(body: any) {
     submitting.value = false
   }
 }
+
+// 组件卸载时取消进行中的 SSE 请求,避免后端继续白费 LLM 调用
+onBeforeUnmount(() => {
+  wizard.abort()
+})
 </script>
 
 <style scoped>
