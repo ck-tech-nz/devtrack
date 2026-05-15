@@ -9,7 +9,12 @@
             </div>
             <div class="dialog-text">
               <h3 v-if="state.title" id="dialog-title" class="dialog-title">{{ state.title }}</h3>
-              <p class="dialog-message">{{ state.message }}</p>
+              <div
+                v-if="state.htmlBody"
+                class="dialog-markdown markdown-body"
+                v-html="state.htmlBody"
+              />
+              <p v-else-if="state.message" class="dialog-message">{{ state.message }}</p>
             </div>
           </div>
           <div class="dialog-footer">
@@ -33,12 +38,14 @@ const confirmBtnRef = ref<any>(null)
 function ok() { _respond(true) }
 function cancel() { _respond(false) }
 function onOverlayClick() {
+  if (state.value.persistent) return
   // Mirror native confirm: clicking outside is treated as cancel for confirm,
   // and as confirm for alert (since alert has only one action).
   if (state.value.mode === 'alert') ok()
   else cancel()
 }
 function onEsc() {
+  if (state.value.persistent) return
   if (state.value.mode === 'alert') ok()
   else cancel()
 }
@@ -84,7 +91,10 @@ watch(() => state.value.open, async (open) => {
 }
 .dialog-panel {
   width: 100%;
-  max-width: 440px;
+  max-width: 520px;
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
   background-color: #ffffff;
   border-radius: 0.875rem;
   box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.35), 0 8px 16px -8px rgba(15, 23, 42, 0.2);
@@ -99,6 +109,9 @@ watch(() => state.value.open, async (open) => {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 .dialog-icon {
   flex-shrink: 0;
@@ -125,6 +138,7 @@ watch(() => state.value.open, async (open) => {
   flex: 1;
   min-width: 0;
   padding-top: 0.125rem;
+  overflow-y: auto;
 }
 .dialog-title {
   font-size: 1rem;
@@ -167,5 +181,114 @@ watch(() => state.value.open, async (open) => {
 .dialog-leave-to .dialog-panel {
   opacity: 0;
   transform: translateY(8px) scale(0.97);
+}
+</style>
+
+<style>
+/* Unscoped: `v-html` content does not receive Vue's scope attribute,
+   so .dialog-markdown rules must live outside <style scoped>. */
+.dialog-markdown {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #1f2937;
+}
+:root.dark .dialog-markdown {
+  color: #e5e7eb;
+}
+.dialog-markdown h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0.5em 0 0.4em;
+}
+.dialog-markdown h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0.6em 0 0.4em;
+}
+.dialog-markdown h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+.dialog-markdown p {
+  margin: 0.4em 0;
+}
+.dialog-markdown ul,
+.dialog-markdown ol {
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+}
+.dialog-markdown ul {
+  list-style-type: disc;
+}
+.dialog-markdown ol {
+  list-style-type: decimal;
+}
+.dialog-markdown li {
+  margin: 0.2em 0;
+}
+.dialog-markdown strong {
+  font-weight: 600;
+}
+.dialog-markdown em {
+  font-style: italic;
+}
+.dialog-markdown code {
+  background-color: rgba(15, 23, 42, 0.06);
+  padding: 0.15em 0.35em;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+:root.dark .dialog-markdown code {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.dialog-markdown pre {
+  background-color: #f3f4f6;
+  padding: 0.75rem 0.875rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+:root.dark .dialog-markdown pre {
+  background-color: #1f2937;
+}
+.dialog-markdown pre code {
+  background: none;
+  padding: 0;
+}
+.dialog-markdown a {
+  color: #6366f1;
+  text-decoration: none;
+}
+.dialog-markdown a:hover {
+  text-decoration: underline;
+}
+:root.dark .dialog-markdown a {
+  color: #818cf8;
+}
+.dialog-markdown blockquote {
+  border-left: 3px solid #d1d5db;
+  padding-left: 0.875rem;
+  color: #6b7280;
+  margin: 0.5em 0;
+}
+:root.dark .dialog-markdown blockquote {
+  border-left-color: #4b5563;
+  color: #9ca3af;
+}
+.dialog-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.5em 0;
+  display: block;
+}
+.dialog-markdown hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 0.75em 0;
+}
+:root.dark .dialog-markdown hr {
+  border-top-color: #374151;
 }
 </style>

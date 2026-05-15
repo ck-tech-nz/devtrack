@@ -20,14 +20,26 @@ class NotificationListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = Notification.objects.filter(
-            recipients__user=self.request.user,
-            recipients__is_deleted=False,
-            is_draft=False,
-        ).select_related("source_user", "source_issue").distinct()
+        # All recipient-table conditions must be in a single filter() call so
+        # Django emits a single JOIN. Chained filter() calls on the same M2M
+        # generate separate JOINs, so e.g. `recipients__user=u` chained with
+        # `recipients__is_read=False` would match if ANY recipient row is
+        # unread, not necessarily the current user's row — visible for
+        # broadcasts where many users share one notification.
+        recipient_filters = {
+            "recipients__user": self.request.user,
+            "recipients__is_deleted": False,
+        }
         is_read = self.request.query_params.get("is_read")
         if is_read is not None:
-            qs = qs.filter(recipients__is_read=is_read.lower() == "true")
+            recipient_filters["recipients__is_read"] = is_read.lower() == "true"
+        qs = Notification.objects.filter(
+            is_draft=False,
+            **recipient_filters,
+        ).select_related("source_user", "source_issue").distinct()
+        notif_type = self.request.query_params.get("notification_type")
+        if notif_type:
+            qs = qs.filter(notification_type=notif_type)
         return qs.order_by("-created_at")
 
     def get_serializer(self, *args, **kwargs):

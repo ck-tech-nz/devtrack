@@ -11,7 +11,9 @@ export type ConfirmOptions = {
 
 export type AlertOptions = {
   title?: string
-  message: string
+  message?: string
+  htmlBody?: string
+  persistent?: boolean
   confirmText?: string
   color?: DialogColor
   icon?: string
@@ -22,6 +24,8 @@ type DialogState = {
   mode: 'confirm' | 'alert'
   title: string
   message: string
+  htmlBody: string
+  persistent: boolean
   confirmText: string
   cancelText: string
   color: DialogColor
@@ -34,6 +38,8 @@ const defaultState = (): DialogState => ({
   mode: 'confirm',
   title: '',
   message: '',
+  htmlBody: '',
+  persistent: false,
   confirmText: '确认',
   cancelText: '取消',
   color: 'primary',
@@ -58,6 +64,8 @@ export const useDialog = () => {
         mode: 'confirm',
         title: o.title || '请确认',
         message: o.message,
+        htmlBody: '',
+        persistent: false,
         confirmText: o.confirmText || '确认',
         cancelText: o.cancelText || '取消',
         color: o.color || 'primary',
@@ -75,7 +83,9 @@ export const useDialog = () => {
         open: true,
         mode: 'alert',
         title: o.title || '提示',
-        message: o.message,
+        message: o.message || '',
+        htmlBody: o.htmlBody || '',
+        persistent: o.persistent === true,
         confirmText: o.confirmText || '知道了',
         cancelText: '',
         color: o.color || 'primary',

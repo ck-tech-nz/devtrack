@@ -36,6 +36,43 @@ class TestNotificationList:
         response = api_client.get("/api/notifications/")
         assert response.status_code == 401
 
+    def test_filter_by_notification_type(self, auth_client, auth_user):
+        from tests.factories import NotificationFactory, NotificationRecipientFactory
+
+        bc = NotificationFactory(notification_type="broadcast", title="release notes")
+        NotificationRecipientFactory(notification=bc, user=auth_user)
+        sys = NotificationFactory(notification_type="system", title="system thing")
+        NotificationRecipientFactory(notification=sys, user=auth_user)
+        mention = NotificationFactory(notification_type="mention", title="someone @ed you")
+        NotificationRecipientFactory(notification=mention, user=auth_user)
+
+        response = auth_client.get("/api/notifications/?notification_type=broadcast")
+        assert response.status_code == 200
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["title"] == "release notes"
+
+    def test_is_read_filter_uses_current_user_recipient_only(self, auth_client, auth_user):
+        """A broadcast notification has one recipient row per user. Filtering
+        `?is_read=false` must look only at the current user's recipient, not
+        match the notification because some OTHER user hasn't read it yet."""
+        from tests.factories import (
+            NotificationFactory, NotificationRecipientFactory, UserFactory,
+        )
+
+        other = UserFactory()
+        bc = NotificationFactory(notification_type="broadcast", title="broadcast read by me")
+        # auth_user has read it; other user has not.
+        NotificationRecipientFactory(notification=bc, user=auth_user, is_read=True)
+        NotificationRecipientFactory(notification=bc, user=other, is_read=False)
+
+        response = auth_client.get("/api/notifications/?is_read=false")
+        assert response.status_code == 200
+        # The broadcast must NOT appear — auth_user has read it.
+        titles = [r["title"] for r in response.data["results"]]
+        assert "broadcast read by me" not in titles, (
+            f"is_read=false leaked another user's unread state; got {titles}"
+        )
+
 
 class TestUnreadCount:
     def test_count(self, auth_client, auth_user):

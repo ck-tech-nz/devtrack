@@ -16,4 +16,8 @@ onErrorCaptured((err) => {
   console.error('[PAGE ERROR]', err)
   return false
 })
+
+onMounted(() => {
+  useBroadcastPopup().start()
+})
 </script>
