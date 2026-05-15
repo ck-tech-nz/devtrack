@@ -369,8 +369,8 @@ const { confirm: showConfirm } = useDialog()
 const showCreateModal = ref(false)
 
 function openCreateModal() {
-  if (!newIssue.value.project && (user.value as any)?.default_project) {
-    newIssue.value.project = String((user.value as any).default_project.id)
+  if (!newIssue.value.project && user.value?.default_project) {
+    newIssue.value.project = String(user.value.default_project.id)
   }
   showCreateModal.value = true
 }
@@ -470,7 +470,7 @@ function hasFormContent(): boolean {
 
 function resetCreateForm() {
   newIssue.value = {
-    project: String((user.value as any)?.default_project?.id || ''),
+    project: String(user.value?.default_project?.id || ''),
     title: '',
     description: '',
     priority: 'P2',

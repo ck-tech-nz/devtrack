@@ -75,7 +75,7 @@ const { api } = useApi()
 const { user } = useAuth()
 
 const userName = computed(() => user.value?.name || user.value?.email || '')
-const defaultProjectId = computed(() => (user.value as any)?.default_project?.id || null)
+const defaultProjectId = computed(() => user.value?.default_project?.id || null)
 
 const projects = ref<{ id: string; name: string }[]>([])
 const modules = ref<string[]>([])
