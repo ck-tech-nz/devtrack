@@ -1,10 +1,10 @@
 import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 from apps.ai.models import Prompt
+from tests.factories import IssueFactory, ProjectFactory, LLMConfigFactory
 
 
 @pytest.mark.django_db
@@ -16,7 +16,7 @@ def test_duplicate_check_prompt_is_seeded():
     assert "{candidates_json}" in prompt.user_prompt_template
     assert "{new_title}" in prompt.user_prompt_template
     assert "{new_description}" in prompt.user_prompt_template
-    assert prompt.llm_model == "gpt-4o-mini"
+    assert prompt.llm_model == "deepseek-v4-flash"
     assert prompt.temperature == 0.2
 
 
@@ -38,9 +38,6 @@ def test_input_serializer_defaults_description_to_empty():
     s = DuplicateCheckInputSerializer(data={"project": 1, "title": "abc"})
     assert s.is_valid(), s.errors
     assert s.validated_data["description"] == ""
-
-
-from tests.factories import IssueFactory, ProjectFactory, LLMConfigFactory
 
 
 @pytest.mark.django_db
