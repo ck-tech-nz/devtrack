@@ -4,11 +4,13 @@ from .views import (
     IssueGitHubCreateView, IssueGitHubLinkView, IssueCloseWithGitHubView,
     IssueAIAnalyzeView, IssueAIStatusView, IssueAnalysesView,
     IssueAttachmentsView, IssueCheckDuplicateView, IssueHistoryView,
+    IssueAiDraftView,
 )
 
 urlpatterns = [
     path("", IssueListCreateView.as_view(), name="issue-list"),
     path("check-duplicate/", IssueCheckDuplicateView.as_view(), name="issue-check-duplicate"),
+    path("ai-draft/", IssueAiDraftView.as_view(), name="issue-ai-draft"),
     path("batch-update/", BatchUpdateView.as_view(), name="issue-batch-update"),
     path("<int:pk>/", IssueDetailView.as_view(), name="issue-detail"),
     path("<int:pk>/attachments/", IssueAttachmentsView.as_view(), name="issue-attachments"),

@@ -201,3 +201,55 @@ def test_stream_draft_yields_error_when_step_fails(site_settings):
     err = events[-1][1]
     assert err["step"] == 1
     assert err["code"] == "llm_bad_json"
+
+
+@pytest.mark.django_db
+def test_ai_draft_endpoint_requires_authentication(api_client):
+    resp = api_client.post("/api/issues/ai-draft/", {"description": "x", "project": 1}, format="json")
+    assert resp.status_code == 401
+
+
+@pytest.mark.django_db
+def test_ai_draft_endpoint_validates_description(api_client):
+    from tests.factories import UserFactory
+    user = UserFactory()
+    api_client.force_authenticate(user)
+
+    resp = api_client.post("/api/issues/ai-draft/", {"project": 1}, format="json")
+    assert resp.status_code == 400
+    assert "description" in resp.data
+
+
+@pytest.mark.django_db
+def test_ai_draft_endpoint_streams_sse_events(api_client, site_settings):
+    """Smoke test: SSE response with correct content type and 3 step events + draft + done."""
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory, ProjectFactory, UserFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["通知中心"])
+    project = ProjectFactory()
+    user = UserFactory()
+    api_client.force_authenticate(user)
+
+    responses = iter([
+        '{"category": "前端", "scope": "通知中心"}',
+        '{"title": "T", "priority": "P2", "module": "通知中心"}',
+        '{"repro_steps": "1. x", "expected_behavior": "y", "labels": []}',
+    ])
+    def fake_complete(self, **kwargs):
+        return next(responses)
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete", new=fake_complete):
+        resp = api_client.post(
+            "/api/issues/ai-draft/",
+            {"description": "点击铃铛没反应", "project": str(project.id)},
+            format="json",
+        )
+        body = b"".join(resp.streaming_content).decode()
+
+    assert resp.status_code == 200
+    assert resp["Content-Type"].startswith("text/event-stream")
+    assert resp.get("X-Accel-Buffering") == "no"
+    assert body.count("event: step") == 3
+    assert "event: draft" in body
+    assert "event: done" in body

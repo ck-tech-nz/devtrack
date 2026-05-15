@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from apps.settings.models import SiteSettings
+from apps.projects.models import Project
 from apps.repos.serializers import GitHubIssueBriefSerializer
 from apps.tools.models import Attachment
 from apps.tools.serializers import AttachmentSerializer
@@ -233,3 +234,11 @@ class DuplicateCheckInputSerializer(serializers.Serializer):
     project = serializers.IntegerField()
     title = serializers.CharField()
     description = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class AiDraftInputSerializer(serializers.Serializer):
+    description = serializers.CharField(min_length=5, max_length=4000)
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
+    attachment_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list,
+    )

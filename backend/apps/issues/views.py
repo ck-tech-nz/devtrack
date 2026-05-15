@@ -548,6 +548,33 @@ class IssueCloseWithGitHubView(APIView):
         return Response(result)
 
 
+class IssueAiDraftView(APIView):
+    """POST /api/issues/ai-draft/ — SSE stream that drafts an Issue from
+    a free-form bug description via the 3-stage AI wizard pipeline.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.http import StreamingHttpResponse
+        import json as _json
+        from .serializers import AiDraftInputSerializer
+        from .services_ai_wizard import AiWizardService
+
+        serializer = AiDraftInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        def event_stream():
+            svc = AiWizardService()
+            for event_name, payload in svc.stream_draft(description=data["description"]):
+                yield f"event: {event_name}\ndata: {_json.dumps(payload, ensure_ascii=False)}\n\n"
+
+        resp = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+        resp["X-Accel-Buffering"] = "no"
+        resp["Cache-Control"] = "no-cache"
+        return resp
+
+
 class IssueCheckDuplicateView(APIView):
     """POST /api/issues/check-duplicate/ — AI-driven near-duplicate detection.
 
