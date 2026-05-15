@@ -1,23 +1,7 @@
 <template>
   <div class="space-y-6">
-    <!-- Quick Actions Bar -->
-    <div class="flex flex-wrap items-center gap-3">
-      <UButton to="/app/issues" icon="i-heroicons-plus" color="primary" size="sm">
-        新建 Issue
-      </UButton>
-      <UInput
-        v-model="searchQuery"
-        placeholder="搜索 Issue 或项目..."
-        icon="i-heroicons-magnifying-glass"
-        size="sm"
-        class="w-64"
-        @keydown.enter="handleSearch"
-      />
-      <div class="flex gap-2 ml-auto">
-        <UButton to="/app/projects" variant="ghost" color="neutral" size="sm" icon="i-heroicons-folder">项目</UButton>
-        <UButton to="/app/issues" variant="ghost" color="neutral" size="sm" icon="i-heroicons-bug-ant">Issues</UButton>
-      </div>
-    </div>
+    <!-- AI Issue Wizard -->
+    <AiIssueWizard @created="onIssueCreated" />
 
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-20">
@@ -178,7 +162,6 @@ const { api } = useApi()
 const { user, hasGroup } = useAuth()
 
 const loading = ref(true)
-const searchQuery = ref('')
 const myIssues = ref<any[]>([])
 const mentions = ref<any[]>([])
 const stats = ref({ total: 0, pending: 0, in_progress: 0, resolved_this_week: 0 })
@@ -186,9 +169,12 @@ const recentActivity = ref<any[]>([])
 const planData = ref<any>(null)
 const isTester = computed(() => hasGroup('测试'))
 
-function handleSearch() {
-  if (searchQuery.value.trim()) {
-    navigateTo(`/app/issues?search=${encodeURIComponent(searchQuery.value.trim())}`)
+async function onIssueCreated(_issueId: number) {
+  // Re-fetch My Todos so the new issue appears if assigned to current user
+  if (isTester.value) {
+    myIssues.value = await fetchTesterTodos()
+  } else {
+    myIssues.value = await fetchDefaultTodos()
   }
 }
 
