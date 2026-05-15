@@ -445,3 +445,46 @@ def test_issue_create_rejects_oversized_source_meta(api_client):
     assert resp.status_code == 400
     assert "source_meta" in resp.data
     cache.clear()
+
+
+@pytest.mark.django_db
+def test_classify_raises_on_missing_field():
+    """LLM response missing required fields raises llm_bad_shape."""
+    from apps.issues.services_ai_wizard import AiWizardService, AiWizardError
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    fake = '{"category": "x"}'  # 缺少 scope
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete", return_value=fake):
+        svc = AiWizardService()
+        with pytest.raises(AiWizardError) as exc:
+            svc.classify("test")
+        assert exc.value.code == "llm_bad_shape"
+
+
+@pytest.mark.django_db
+def test_extract_bounds_invalid_priority_to_p2():
+    """LLM returning 'HIGH' as priority is normalized to P2."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    fake = '{"title": "x", "priority": "HIGH", "module": "x"}'
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete", return_value=fake):
+        svc = AiWizardService()
+        result = svc.extract("d", {"category": "c"}, ["x"])
+    assert result["priority"] == "P2"
+
+
+@pytest.mark.django_db
+def test_generate_filters_unknown_labels():
+    """LLM returning labels outside the allowed list are filtered out."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    fake = '{"repro_steps": "x", "expected_behavior": "y", "labels": ["前端", "bogus", "Bug"], "follow_up_questions": []}'
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete", return_value=fake):
+        svc = AiWizardService()
+        result = svc.generate("d", {}, {}, ["前端", "Bug", "性能"])
+    assert result["labels"] == ["前端", "Bug"]

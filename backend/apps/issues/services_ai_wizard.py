@@ -24,6 +24,38 @@ class AiWizardError(Exception):
         return f"[step {self.step}] {self.code}: {self.message}"
 
 
+# 每个阶段的预期字段;格式为 (key, type, optional)。
+# 在下游代码信任 LLM 输出之前先校验形状,防止幻觉字段污染入库数据
+SCHEMA_CLASSIFY = [("category", str, False), ("scope", str, False)]
+SCHEMA_EXTRACT = [("title", str, False), ("priority", str, False), ("module", str, False)]
+SCHEMA_GENERATE = [
+    ("repro_steps", str, True),
+    ("expected_behavior", str, True),
+    ("labels", list, True),
+    ("follow_up_questions", list, True),
+]
+
+ALLOWED_PRIORITIES = {"P0", "P1", "P2", "P3"}
+
+
+def _validate_shape(step: int, slug: str, data, schema):
+    """Validate parsed LLM output against expected shape; raise AiWizardError on mismatch."""
+    if not isinstance(data, dict):
+        raise AiWizardError(step=step, code="llm_bad_shape", message=f"{slug} 返回非对象")
+    for key, expected_type, optional in schema:
+        if key not in data:
+            if optional:
+                data[key] = "" if expected_type is str else (expected_type())
+                continue
+            raise AiWizardError(step=step, code="llm_bad_shape", message=f"{slug} 缺少字段 {key}")
+        if not isinstance(data[key], expected_type):
+            raise AiWizardError(
+                step=step, code="llm_bad_shape",
+                message=f"{slug} 字段 {key} 类型错误（期望 {expected_type.__name__}）",
+            )
+    return data
+
+
 class AiWizardService:
     """Three-stage LLM pipeline for the issue creation wizard.
 
@@ -69,19 +101,32 @@ class AiWizardService:
             raise AiWizardError(step=step, code="llm_bad_json", message="AI 返回格式异常，请重试")
 
     def classify(self, description: str) -> dict:
-        return self._run_prompt(step=1, slug="wizard_classify", description=description)
+        result = self._run_prompt(step=1, slug="wizard_classify", description=description)
+        return _validate_shape(1, "wizard_classify", result, SCHEMA_CLASSIFY)
 
     def extract(self, description: str, classify: dict, modules: list) -> dict:
-        return self._run_prompt(
+        result = self._run_prompt(
             step=2,
             slug="wizard_extract",
             description=description,
             classify_json=json.dumps(classify, ensure_ascii=False),
             modules_json=json.dumps(modules, ensure_ascii=False),
         )
+        result = _validate_shape(2, "wizard_extract", result, SCHEMA_EXTRACT)
+        # 将 priority 限定在合法集合,默认 P2
+        if result.get("priority") not in ALLOWED_PRIORITIES:
+            result["priority"] = "P2"
+        # 截断 title 以避免幻觉超长字符串
+        result["title"] = (result.get("title") or "")[:200]
+        # module 必须是字符串,且限定在已知模块列表 (或退回到"其他")
+        mod = result.get("module") or ""
+        if modules and mod not in modules:
+            mod = "其他" if "其他" in modules else (modules[0] if modules else "")
+        result["module"] = mod
+        return result
 
     def generate(self, description: str, classify: dict, extract: dict, labels: list) -> dict:
-        return self._run_prompt(
+        result = self._run_prompt(
             step=3,
             slug="wizard_generate",
             description=description,
@@ -89,6 +134,22 @@ class AiWizardService:
             extract_json=json.dumps(extract, ensure_ascii=False),
             labels_json=json.dumps(labels, ensure_ascii=False),
         )
+        result = _validate_shape(3, "wizard_generate", result, SCHEMA_GENERATE)
+        # 过滤 labels 到已知集合,最多 3 个
+        raw_labels = result.get("labels") or []
+        if not isinstance(raw_labels, list):
+            raw_labels = []
+        valid_set = set(labels)
+        result["labels"] = [l for l in raw_labels if isinstance(l, str) and l in valid_set][:3]
+        # 限制追问数量与单条长度
+        raw_q = result.get("follow_up_questions") or []
+        if not isinstance(raw_q, list):
+            raw_q = []
+        result["follow_up_questions"] = [str(q)[:100] for q in raw_q if q][:3]
+        # 截断长字符串
+        result["repro_steps"] = (result.get("repro_steps") or "")[:2000]
+        result["expected_behavior"] = (result.get("expected_behavior") or "")[:500]
+        return result
 
     def stream_draft(self, description: str):
         """Generator yielding (event_name, data_dict) tuples for the SSE layer.
