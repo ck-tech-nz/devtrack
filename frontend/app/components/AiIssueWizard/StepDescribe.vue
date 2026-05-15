@@ -221,5 +221,3 @@ watch(() => props.defaultProjectId, (v) => {
 .attach-remove:hover { background-color: #e5e7eb; color: #374151; }
 :root.dark .attach-remove:hover { background-color: #374151; color: #d1d5db; }
 </style>
-</content>
-</invoke>
