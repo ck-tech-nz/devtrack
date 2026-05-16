@@ -508,3 +508,184 @@ def test_wizard_oneshot_is_seeded_and_v1_is_deactivated():
         p = Prompt.objects.filter(slug=v1_slug).first()
         assert p is not None, f"v1 prompt {v1_slug} must be preserved for rollback"
         assert not p.is_active, f"v1 prompt {v1_slug} must be deactivated"
+
+
+@pytest.mark.django_db
+def test_oneshot_draft_happy_path(site_settings):
+    """oneshot_draft returns a validated structured dict from a clean LLM JSON."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(
+        modules=["费用中心", "其他"],
+        labels={
+            "Bug": {"foreground": "#fff", "background": "#d00", "description": ""},
+            "前端": {"foreground": "#fff", "background": "#000", "description": ""},
+        },
+    )
+
+    fake = (
+        '{"title": "费用中心提交充值后不显示", '
+        '"priority": "P1", "module": "费用中心", '
+        '"repro_steps": "1. 登录\\n2. 提交充值\\n3. 查看列表 (推断)", '
+        '"expected_behavior": "应显示充值申请 (推断)", '
+        '"labels": ["Bug", "前端"], '
+        '"follow_up_questions": ["复现频率？"], '
+        '"inferred_env": "dev1 | 超管 | /finance"}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_draft(description="充值不显示", images=[])
+
+    assert result["title"] == "费用中心提交充值后不显示"
+    assert result["priority"] == "P1"
+    assert result["module"] == "费用中心"
+    assert "1. 登录" in result["repro_steps"]
+    assert result["labels"] == ["Bug", "前端"]
+    assert result["follow_up_questions"] == ["复现频率？"]
+    assert result["inferred_env"] == "dev1 | 超管 | /finance"
+
+
+@pytest.mark.django_db
+def test_oneshot_draft_sanitises_bad_priority_and_module(site_settings):
+    """LLM-returned junk values are sanitised; never leak to caller."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(
+        modules=["费用中心", "其他"],
+        labels={"Bug": {"foreground": "#fff", "background": "#d00", "description": ""}},
+    )
+
+    fake = (
+        '{"title": "x", "priority": "HIGH", "module": "未知模块", '
+        '"repro_steps": "", "expected_behavior": "", '
+        '"labels": ["Bug", "bogus"], "follow_up_questions": [], "inferred_env": ""}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_draft("d", [])
+
+    assert result["priority"] == "P2"            # HIGH → default P2
+    assert result["module"] == "其他"             # unknown → 其他 (in modules list)
+    assert result["labels"] == ["Bug"]           # bogus filtered out
+
+
+@pytest.mark.django_db
+def test_oneshot_draft_strips_json_markdown_fence(site_settings):
+    """When the LLM wraps output in ```json fences (qwen-vl-plus/flash habit),
+    parse_json_response strips them."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+
+    fake = (
+        '```json\n{"title": "T", "priority": "P2", "module": "其他", '
+        '"repro_steps": "1. x", "expected_behavior": "y", '
+        '"labels": [], "follow_up_questions": [], "inferred_env": ""}\n```'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_draft("d", [])
+
+    assert result["title"] == "T"
+
+
+@pytest.mark.django_db
+def test_oneshot_draft_retries_once_on_bad_json(site_settings):
+    """First call returns garbage; second call returns valid JSON; succeeds."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+
+    responses = iter([
+        "not json at all",
+        '{"title": "T", "priority": "P2", "module": "其他", '
+        '"repro_steps": "", "expected_behavior": "", '
+        '"labels": [], "follow_up_questions": [], "inferred_env": ""}',
+    ])
+
+    def fake_mm(self, **kwargs):
+        return next(responses)
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        new=fake_mm,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_draft("d", [])
+
+    assert result["title"] == "T"
+
+
+@pytest.mark.django_db
+def test_oneshot_draft_raises_after_two_bad_json_attempts(site_settings):
+    """Both attempts return non-JSON → raises AiWizardError(code=llm_bad_json)."""
+    from apps.issues.services_ai_wizard import AiWizardService, AiWizardError
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value="still not json",
+    ):
+        svc = AiWizardService()
+        with pytest.raises(AiWizardError) as exc:
+            svc.oneshot_draft("d", [])
+    assert exc.value.code == "llm_bad_json"
+
+
+@pytest.mark.django_db
+def test_oneshot_draft_falls_back_to_text_when_vision_fails(site_settings):
+    """If complete_multimodal raises for the image call, retry text-only and
+    prepend a follow_up_question warning."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+
+    call_log = []
+
+    def fake_mm(self, **kwargs):
+        call_log.append(kwargs.get("images"))
+        if kwargs.get("images"):
+            raise RuntimeError("vision model unavailable")
+        return (
+            '{"title": "T", "priority": "P2", "module": "其他", '
+            '"repro_steps": "", "expected_behavior": "", '
+            '"labels": [], "follow_up_questions": [], "inferred_env": ""}'
+        )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        new=fake_mm,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_draft("d", images=[("image/png", b"x")])
+
+    # First call had images; second was text-only fallback
+    assert call_log[0] == [("image/png", b"x")]
+    assert call_log[1] == []
+    # The warning is prepended to follow_up_questions
+    assert result["follow_up_questions"][0].startswith("AI 未能读取截图")

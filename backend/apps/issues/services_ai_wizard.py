@@ -35,6 +35,20 @@ SCHEMA_GENERATE = [
     ("follow_up_questions", list, True),
 ]
 
+SCHEMA_ONESHOT = [
+    ("title", str, False),
+    ("priority", str, False),
+    ("module", str, False),
+    ("repro_steps", str, True),
+    ("expected_behavior", str, True),
+    ("labels", list, True),
+    ("follow_up_questions", list, True),
+    ("inferred_env", str, True),
+]
+
+ONESHOT_TIMEOUT_SECONDS = 25
+ONESHOT_RETRY_COUNT = 1   # one retry on bad JSON (total 2 attempts)
+
 ALLOWED_PRIORITIES = {"P0", "P1", "P2", "P3"}
 
 
@@ -150,6 +164,113 @@ class AiWizardService:
         result["repro_steps"] = (result.get("repro_steps") or "")[:2000]
         result["expected_behavior"] = (result.get("expected_behavior") or "")[:500]
         return result
+
+    def oneshot_draft(self, description: str, images: list[tuple[str, bytes]]) -> dict:
+        """Single multimodal LLM call that produces a complete draft.
+
+        Returns the merged shape (title/priority/module/repro_steps/
+        expected_behavior/labels/follow_up_questions/inferred_env). On vision
+        failure, retries text-only and prepends a follow_up_question warning.
+        On bad JSON, retries once.
+        """
+        from apps.ai.services import parse_json_response
+        from apps.settings.models import SiteSettings
+
+        prompt = Prompt.objects.filter(slug="wizard_oneshot", is_active=True).first()
+        if prompt is None:
+            raise AiWizardError(step=1, code="missing_prompt", message="未配置 Prompt: wizard_oneshot")
+
+        config = prompt.llm_config or LLMConfig.objects.filter(is_default=True, is_active=True).first()
+        if config is None:
+            raise AiWizardError(step=1, code="missing_llm_config", message="未配置可用的 LLM")
+
+        site = SiteSettings.get_solo()
+        modules = list(site.modules or [])
+        labels_dict = site.labels or {}
+        labels_list = list(labels_dict.keys()) if isinstance(labels_dict, dict) else list(labels_dict)
+
+        try:
+            user_prompt = prompt.user_prompt_template.format(
+                description=description,
+                modules_json=json.dumps(modules, ensure_ascii=False),
+                labels_json=json.dumps(labels_list, ensure_ascii=False),
+            )
+        except KeyError as e:
+            raise AiWizardError(step=1, code="prompt_format_error", message=f"模板缺失变量 {e}")
+
+        client = LLMClient(config)
+        vision_warning = None
+        attempts_left = ONESHOT_RETRY_COUNT + 1
+        current_images = list(images)
+        parsed = None
+
+        while attempts_left > 0:
+            attempts_left -= 1
+            try:
+                raw = client.complete_multimodal(
+                    model=prompt.llm_model,
+                    system_prompt=prompt.system_prompt,
+                    user_prompt=user_prompt,
+                    images=current_images,
+                    temperature=prompt.temperature,
+                    timeout=ONESHOT_TIMEOUT_SECONDS,
+                )
+            except Exception as e:
+                if current_images:
+                    logger.warning("wizard_oneshot vision call failed, falling back to text-only: %s", e)
+                    vision_warning = "AI 未能读取截图，已基于文字生成"
+                    current_images = []
+                    # 视觉失败不消耗 JSON 重试预算
+                    attempts_left += 1
+                    continue
+                logger.warning("wizard_oneshot LLM call failed: %s", e, exc_info=True)
+                raise AiWizardError(step=1, code="llm_call_failed", message="AI 调用失败，请重试")
+
+            try:
+                parsed = parse_json_response(raw)
+                break
+            except (json.JSONDecodeError, ValueError):
+                if attempts_left == 0:
+                    logger.warning("wizard_oneshot bad JSON after retries: %r", raw)
+                    raise AiWizardError(step=1, code="llm_bad_json", message="AI 返回格式异常，请重试")
+
+        parsed = _validate_shape(1, "wizard_oneshot", parsed, SCHEMA_ONESHOT)
+        self._sanitize_oneshot(parsed, modules, labels_list)
+        if vision_warning:
+            parsed["follow_up_questions"] = [vision_warning] + list(parsed.get("follow_up_questions") or [])
+            parsed["follow_up_questions"] = parsed["follow_up_questions"][:3]
+        return parsed
+
+    @staticmethod
+    def _sanitize_oneshot(data: dict, modules: list, labels_list: list) -> None:
+        """In-place validation per spec §5.4."""
+        title = (data.get("title") or "").strip()[:200]
+        if not title:
+            raise AiWizardError(step=1, code="llm_bad_shape", message="title 为空")
+        data["title"] = title
+
+        if data.get("priority") not in ALLOWED_PRIORITIES:
+            data["priority"] = "P2"
+
+        mod = (data.get("module") or "").strip()
+        if modules and mod not in modules:
+            mod = "其他" if "其他" in modules else modules[0]
+        data["module"] = mod
+
+        data["repro_steps"] = (data.get("repro_steps") or "")[:2000]
+        data["expected_behavior"] = (data.get("expected_behavior") or "")[:500]
+        data["inferred_env"] = (data.get("inferred_env") or "")[:200]
+
+        raw_labels = data.get("labels") or []
+        if not isinstance(raw_labels, list):
+            raw_labels = []
+        valid = set(labels_list)
+        data["labels"] = [l for l in raw_labels if isinstance(l, str) and l in valid][:3]
+
+        raw_q = data.get("follow_up_questions") or []
+        if not isinstance(raw_q, list):
+            raw_q = []
+        data["follow_up_questions"] = [str(q)[:100] for q in raw_q if q][:3]
 
     def stream_draft(self, description: str):
         """Generator yielding (event_name, data_dict) tuples for the SSE layer.
