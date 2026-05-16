@@ -746,3 +746,224 @@ def test_load_image_attachments_filters_to_images_and_caps_at_three(tmp_path):
     assert any(b"k1" in b for b in keys_seen)
     assert any(b"k3" in b for b in keys_seen)
     assert any(b"k4" in b for b in keys_seen)
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_stream_draft_v2_emits_step_duplicates_draft_done(site_settings):
+    """The v2 stream emits exactly: step(running), duplicates, step(done), draft, done.
+
+    Order of the duplicates event vs the step(done)/draft pair is not
+    asserted — they are emitted as each thread finishes.
+    transaction=True so the worker threads can see the LLMConfig/Prompt
+    rows created in the test setup (default django_db transactional rollback
+    isolates per-connection).
+    """
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    from unittest.mock import patch
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+    project = ProjectFactory()
+
+    valid_json = (
+        '{"title": "T", "priority": "P2", "module": "其他", '
+        '"repro_steps": "", "expected_behavior": "", '
+        '"labels": [], "follow_up_questions": [], "inferred_env": ""}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=valid_json,
+    ), patch(
+        "apps.issues.services_ai_wizard.check_duplicates",
+        return_value=[{"id": 7, "title": "old", "status": "待处理", "reason": "same"}],
+    ):
+        svc = AiWizardService()
+        events = list(svc.stream_draft(
+            description="some bug here please help",
+            project_id=project.id,
+            attachment_ids=[],
+        ))
+
+    names = [e[0] for e in events]
+    # First event is always step running
+    assert names[0] == "step"
+    assert events[0][1]["status"] == "running"
+    # Last event is always done
+    assert names[-1] == "done"
+    # Set of events between contains step-done, draft, duplicates
+    middle_names = set(names[1:-1])
+    assert "step" in middle_names    # the "done" status step
+    assert "draft" in middle_names
+    assert "duplicates" in middle_names
+    # The draft payload has the inferred_env stitched into description
+    draft_event = next(e for e in events if e[0] == "draft")
+    assert draft_event[1]["title"] == "T"
+    # Duplicates payload shape
+    dup_event = next(e for e in events if e[0] == "duplicates")
+    assert dup_event[1]["items"] == [{"id": 7, "title": "old", "status": "待处理", "reason": "same"}]
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_stream_draft_v2_assembles_description_with_inferred_env(site_settings):
+    """When the LLM returns a non-empty inferred_env the draft's description
+    field has the env blockquote appended."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    from unittest.mock import patch
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+    project = ProjectFactory()
+
+    valid_json = (
+        '{"title": "T", "priority": "P2", "module": "其他", '
+        '"repro_steps": "", "expected_behavior": "", '
+        '"labels": [], "follow_up_questions": [], '
+        '"inferred_env": "dev1 | 超管 | /a/b"}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=valid_json,
+    ), patch(
+        "apps.issues.services_ai_wizard.check_duplicates",
+        return_value=[],
+    ):
+        svc = AiWizardService()
+        events = list(svc.stream_draft(
+            description="raw user input",
+            project_id=project.id,
+            attachment_ids=[],
+        ))
+
+    draft = next(e for e in events if e[0] == "draft")[1]
+    assert draft["description"].startswith("raw user input")
+    assert "AI 推断环境" in draft["description"]
+    assert "dev1 | 超管 | /a/b" in draft["description"]
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_stream_draft_v2_emits_error_when_oneshot_fails(site_settings):
+    """oneshot_draft raising AiWizardError → SSE error event; duplicates still emitted."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    from unittest.mock import patch
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+    project = ProjectFactory()
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value="not json",
+    ), patch(
+        "apps.issues.services_ai_wizard.check_duplicates",
+        return_value=[],
+    ):
+        svc = AiWizardService()
+        events = list(svc.stream_draft(
+            description="some bug here",
+            project_id=project.id,
+            attachment_ids=[],
+        ))
+
+    names = [e[0] for e in events]
+    assert "error" in names
+    err = next(e for e in events if e[0] == "error")[1]
+    assert err["code"] == "llm_bad_json"
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_stream_draft_v2_silently_swallows_check_duplicates_failure(site_settings):
+    """A failure inside check_duplicates must NOT abort the draft path."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    from unittest.mock import patch
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+    project = ProjectFactory()
+
+    valid_json = (
+        '{"title": "T", "priority": "P2", "module": "其他", '
+        '"repro_steps": "", "expected_behavior": "", '
+        '"labels": [], "follow_up_questions": [], "inferred_env": ""}'
+    )
+
+    def boom(*a, **k):
+        raise RuntimeError("dedup service down")
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=valid_json,
+    ), patch(
+        "apps.issues.services_ai_wizard.check_duplicates",
+        side_effect=boom,
+    ):
+        svc = AiWizardService()
+        events = list(svc.stream_draft(
+            description="ok",
+            project_id=project.id,
+            attachment_ids=[],
+        ))
+
+    names = [e[0] for e in events]
+    assert "draft" in names
+    assert "done" in names
+    dup_event = next(e for e in events if e[0] == "duplicates")
+    assert dup_event[1]["items"] == []
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_stream_draft_v2_appends_image_markdown_to_description(site_settings):
+    """Image attachments are auto-embedded as ![name](file_url) in the draft
+    description so the issue body previews inline (fixes Bug 1: wizard
+    submitted issues had related attachments but no inline image preview)."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from apps.tools.models import Attachment
+    from tests.factories import LLMConfigFactory, ProjectFactory, UserFactory
+    from unittest.mock import patch
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+    project = ProjectFactory()
+    user = UserFactory()
+    att = Attachment.objects.create(
+        uploaded_by=user, file_name="shot.png", file_key="k1",
+        file_url="/uploads/2026/05/shot.png", file_size=1000, mime_type="image/png",
+    )
+    # Non-image attachment must NOT be embedded
+    Attachment.objects.create(
+        uploaded_by=user, file_name="notes.pdf", file_key="k2",
+        file_url="/uploads/2026/05/notes.pdf", file_size=2000, mime_type="application/pdf",
+    )
+
+    valid_json = (
+        '{"title": "T", "priority": "P2", "module": "其他", '
+        '"repro_steps": "", "expected_behavior": "", '
+        '"labels": [], "follow_up_questions": [], "inferred_env": "dev | qa | /x"}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=valid_json,
+    ), patch(
+        "apps.issues.services_ai_wizard.check_duplicates",
+        return_value=[],
+    ):
+        svc = AiWizardService()
+        events = list(svc.stream_draft(
+            description="user typed text",
+            project_id=project.id,
+            attachment_ids=[str(att.id)],
+        ))
+
+    draft = next(e for e in events if e[0] == "draft")[1]
+    # Order: raw → inferred_env blockquote → image markdown
+    assert draft["description"].startswith("user typed text")
+    assert "AI 推断环境" in draft["description"]
+    assert "![shot.png](/uploads/2026/05/shot.png)" in draft["description"]
+    # PDF must NOT appear as markdown image
+    assert "notes.pdf" not in draft["description"]

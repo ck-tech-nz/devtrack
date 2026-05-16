@@ -3,10 +3,13 @@ free-form bug description. Used by the SSE endpoint POST /api/issues/ai-draft/.
 """
 import json
 import logging
+import queue
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from apps.ai.client import LLMClient
 from apps.ai.models import LLMConfig, Prompt
+from apps.issues.services import check_duplicates
 
 
 logger = logging.getLogger(__name__)
@@ -315,7 +318,123 @@ class AiWizardService:
                 break
         return out
 
-    def stream_draft(self, description: str):
+    def stream_draft(self, description: str, project_id=None, attachment_ids=None):
+        """v2 entry. Task 6 will add AI_WIZARD_LEGACY flag dispatch."""
+        yield from self._stream_draft_v2(
+            description=description,
+            project_id=project_id,
+            attachment_ids=attachment_ids or [],
+        )
+
+    def _stream_draft_v2(self, description: str, project_id, attachment_ids: list | None = None):
+        """v2 generator yielding (event_name, payload) for the SSE layer.
+
+        Runs the multimodal oneshot LLM call and check_duplicates in parallel
+        via a two-thread executor. Events are emitted in arrival order:
+          ("step", {step:1, status:"running"})  — emitted up-front
+          then, as each thread finishes:
+            ("duplicates", {"items":[...]})    when check_duplicates returns
+            ("step", {step:1, status:"done"}) + ("draft", {...}) when oneshot returns
+            ("error", {...}) instead of step+draft on oneshot failure
+          ("done", {})
+        """
+        images = self._load_image_attachments(attachment_ids or [])
+
+        q: queue.Queue = queue.Queue()
+        STEP_LABEL = "理解描述与截图"
+
+        def run_oneshot():
+            try:
+                draft = self.oneshot_draft(description, images)
+                # Look up image attachment metadata (name + url) so the assembled
+                # description can embed them as inline markdown previews.
+                image_meta = self._load_image_metadata(attachment_ids or [])
+                draft["description"] = self._assemble_description(
+                    description, draft.get("inferred_env", ""), image_meta,
+                )
+                q.put(("draft", draft, None))
+            except AiWizardError as e:
+                q.put(("draft", None, e))
+            except Exception:
+                logger.exception("wizard oneshot unexpected failure")
+                q.put(("draft", None, AiWizardError(
+                    step=1, code="llm_call_failed", message="AI 调用失败，请重试")))
+            finally:
+                # Close thread-local DB connections so Django can tear down test
+                # DBs and prod pools don't leak per-request connections.
+                from django.db import connections
+                connections.close_all()
+
+        def run_dupcheck():
+            try:
+                items = check_duplicates(project_id, description[:50], description) or []
+            except Exception:
+                logger.warning("wizard check_duplicates failed; returning empty", exc_info=True)
+                items = []
+            q.put(("duplicates", items, None))
+            from django.db import connections
+            connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            ex.submit(run_oneshot)
+            ex.submit(run_dupcheck)
+
+            yield ("step", {"step": 1, "label": STEP_LABEL, "status": "running"})
+
+            results_pending = 2
+            while results_pending > 0:
+                kind, payload, error = q.get()
+                results_pending -= 1
+                if kind == "duplicates":
+                    yield ("duplicates", {"items": payload})
+                elif kind == "draft":
+                    if error:
+                        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
+                        yield ("error", {"code": error.code, "message": error.message})
+                    else:
+                        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "done"})
+                        yield ("draft", payload)
+        yield ("done", {})
+
+    @staticmethod
+    def _assemble_description(user_description: str, inferred_env: str, image_meta: list | None = None) -> str:
+        """Server-side description assembly per spec §4.3.
+
+        Order: raw user description → inferred_env blockquote → image markdown.
+        Each block separated by a blank line. Image attachments are embedded as
+        ![name](file_url) so the issue body previews inline (fixes Bug 1).
+        """
+        raw = (user_description or "").rstrip()
+        env = (inferred_env or "").strip()
+        parts: list[str] = []
+        if raw:
+            parts.append(raw)
+        if env:
+            parts.append(f"> 🤖 *AI 推断环境*: {env}")
+        for att in image_meta or []:
+            name = att.get("file_name") or "image"
+            url = att.get("file_url") or ""
+            if url:
+                parts.append(f"![{name}]({url})")
+        return "\n\n".join(parts)
+
+    def _load_image_metadata(self, attachment_ids: list) -> list[dict]:
+        """Return image attachment metadata (file_name, file_url) for inline markdown.
+
+        Separate from _load_image_attachments which reads raw bytes for the
+        vision LLM call — this one only needs the URL for the markdown.
+        """
+        if not attachment_ids:
+            return []
+        from apps.tools.models import Attachment
+        return list(
+            Attachment.objects
+            .filter(id__in=attachment_ids, mime_type__startswith="image/")
+            .order_by("created_at")
+            .values("file_name", "file_url")
+        )
+
+    def _stream_draft_legacy(self, description: str):
         """Generator yielding (event_name, data_dict) tuples for the SSE layer.
 
         Yields ('_heartbeat', None) between stages so the view layer can detect
