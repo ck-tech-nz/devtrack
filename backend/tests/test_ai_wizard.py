@@ -4,11 +4,12 @@ from apps.ai.models import Prompt
 
 
 @pytest.mark.django_db
-def test_wizard_prompts_are_seeded():
+def test_wizard_v1_prompts_still_exist_for_rollback():
+    """v1 prompts are kept (deactivated) for the 7-day rollback window."""
     for slug in ("wizard_classify", "wizard_extract", "wizard_generate"):
         p = Prompt.objects.filter(slug=slug).first()
-        assert p is not None, f"Prompt '{slug}' not seeded"
-        assert p.is_active, f"Prompt '{slug}' should be active"
+        assert p is not None, f"v1 Prompt '{slug}' must be preserved for rollback"
+        assert not p.is_active, f"v1 Prompt '{slug}' must be deactivated by migration 0007"
         assert p.system_prompt.strip(), f"Prompt '{slug}' has empty system_prompt"
         assert p.user_prompt_template.strip(), f"Prompt '{slug}' has empty user_prompt_template"
 
@@ -488,3 +489,22 @@ def test_generate_filters_unknown_labels():
         svc = AiWizardService()
         result = svc.generate("d", {}, {}, ["前端", "Bug", "性能"])
     assert result["labels"] == ["前端", "Bug"]
+
+
+@pytest.mark.django_db
+def test_wizard_oneshot_is_seeded_and_v1_is_deactivated():
+    """After migration 0007 the v2 prompt is active and v1 prompts are inactive."""
+    oneshot = Prompt.objects.filter(slug="wizard_oneshot").first()
+    assert oneshot is not None, "wizard_oneshot not seeded"
+    assert oneshot.is_active
+    assert oneshot.llm_model == "qwen-vl-max-latest"
+    assert "复现步骤" in oneshot.system_prompt
+    assert "{description}" in oneshot.user_prompt_template
+    assert "{modules_json}" in oneshot.user_prompt_template
+    assert "{labels_json}" in oneshot.user_prompt_template
+
+    # v1 prompts must still exist (kept for 7-day rollback) but inactive
+    for v1_slug in ("wizard_classify", "wizard_extract", "wizard_generate"):
+        p = Prompt.objects.filter(slug=v1_slug).first()
+        assert p is not None, f"v1 prompt {v1_slug} must be preserved for rollback"
+        assert not p.is_active, f"v1 prompt {v1_slug} must be deactivated"
