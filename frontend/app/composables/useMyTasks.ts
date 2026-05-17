@@ -17,7 +17,7 @@ export function useMyTasks() {
   const isTester = computed(() => hasGroup('测试'))
 
   async function load() {
-    if (!user.value) return
+    if (!user.value || loading.value) return
     loading.value = true
     try {
       const uid = user.value.id
