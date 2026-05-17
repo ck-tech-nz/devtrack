@@ -90,17 +90,41 @@
       <MyTasksSidebar :expanded="expanded" />
     </nav>
 
-    <div v-if="expanded" class="border-t border-gray-50 dark:border-gray-800 py-3 px-3 space-y-1">
-      <p class="text-[10px] uppercase tracking-wider text-gray-300 dark:text-gray-600 mb-1">服务状态 (Demo)</p>
-      <button
-        v-for="key in ['github', 'ai']"
-        :key="key"
-        class="flex items-center justify-between w-full text-xs text-gray-400 hover:text-gray-600 py-1"
-        @click="toggle(key)"
+    <div
+      class="border-t border-gray-50 dark:border-gray-800 py-3 px-3"
+      :class="expanded ? 'flex items-center justify-between gap-2' : 'flex flex-col items-center gap-2'"
+    >
+      <div :class="expanded ? 'flex items-center gap-2' : 'flex flex-col items-center gap-2'">
+        <UTooltip
+          v-for="key in ['github', 'ai']"
+          :key="key"
+          :text="getLabel(key) + (isOnline(key) ? ' · 在线' : ' · 离线')"
+        >
+          <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800" @click="toggle(key)">
+            <ServiceStatusDot :online="isOnline(key)" />
+          </button>
+        </UTooltip>
+      </div>
+      <a
+        href="https://matrixai.xin/"
+        target="_blank"
+        rel="noopener"
+        class="flex items-center hover:opacity-80 transition-opacity"
+        title="MATRIX AI"
       >
-        <span>{{ getLabel(key) }}</span>
-        <ServiceStatusDot :online="isOnline(key)" />
-      </button>
+        <img
+          v-if="expanded"
+          src="~/assets/images/matrix-ai-logo.svg"
+          alt="MATRIX AI"
+          class="h-5 w-auto"
+        />
+        <img
+          v-else
+          src="~/assets/images/matrix-ai-mark.svg"
+          alt="MATRIX AI"
+          class="h-5 w-auto"
+        />
+      </a>
     </div>
 
   </aside>
