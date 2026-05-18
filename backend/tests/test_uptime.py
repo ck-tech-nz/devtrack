@@ -336,3 +336,40 @@ class TestCheckMonitorTask:
         assert monitor.consecutive_failures == 1
         assert monitor.last_status == "up"
         assert monitor.active_incident_issue is None
+
+
+from apps.uptime.tasks import tick_uptime_monitors, prune_old_checks
+
+
+class TestTickTask:
+    def test_dispatches_due_monitors(self, site_settings):
+        now = timezone.now()
+        due_no_schedule = UptimeMonitorFactory(next_check_at=None)
+        due_overdue = UptimeMonitorFactory(next_check_at=now - timedelta(minutes=1))
+        not_due = UptimeMonitorFactory(next_check_at=now + timedelta(minutes=5))
+        disabled = UptimeMonitorFactory(is_enabled=False, next_check_at=None)
+
+        with patch("apps.uptime.tasks.check_monitor.delay") as mocked:
+            tick_uptime_monitors()
+
+        called_ids = sorted([c.args[0] for c in mocked.call_args_list])
+        assert called_ids == sorted([due_no_schedule.pk, due_overdue.pk])
+
+    def test_no_due_monitors_dispatches_nothing(self, site_settings):
+        UptimeMonitorFactory(next_check_at=timezone.now() + timedelta(minutes=10))
+        with patch("apps.uptime.tasks.check_monitor.delay") as mocked:
+            tick_uptime_monitors()
+        mocked.assert_not_called()
+
+
+class TestPruneTask:
+    def test_deletes_old_checks(self, site_settings):
+        monitor = UptimeMonitorFactory()
+        cutoff = timezone.now() - timedelta(days=30)
+        old = UptimeCheckFactory(monitor=monitor, checked_at=cutoff - timedelta(hours=1))
+        recent = UptimeCheckFactory(monitor=monitor, checked_at=cutoff + timedelta(hours=1))
+
+        prune_old_checks()
+
+        assert not UptimeCheck.objects.filter(pk=old.pk).exists()
+        assert UptimeCheck.objects.filter(pk=recent.pk).exists()

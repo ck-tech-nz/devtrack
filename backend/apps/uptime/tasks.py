@@ -2,7 +2,9 @@ import logging
 from datetime import timedelta
 
 from celery import shared_task
+from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.uptime.http_check import perform_check
@@ -56,3 +58,26 @@ def check_monitor(monitor_id: int):
         fire_recovery(monitor)
     else:
         logger.debug("Monitor %s check: is_up=%s, no action", monitor.pk, result.is_up)
+
+
+@shared_task
+def tick_uptime_monitors():
+    """Find all monitors due for a check and dispatch per-monitor check tasks."""
+    now = timezone.now()
+    due_ids = list(
+        UptimeMonitor.objects
+        .filter(is_enabled=True)
+        .filter(Q(next_check_at__isnull=True) | Q(next_check_at__lte=now))
+        .values_list("pk", flat=True)
+    )
+    for monitor_id in due_ids:
+        check_monitor.delay(monitor_id)
+    logger.info("Uptime tick dispatched %d checks", len(due_ids))
+
+
+@shared_task
+def prune_old_checks():
+    """Hard-delete UptimeCheck rows older than UPTIME_CHECK_RETENTION_DAYS."""
+    cutoff = timezone.now() - timedelta(days=settings.UPTIME_CHECK_RETENTION_DAYS)
+    deleted, _ = UptimeCheck.objects.filter(checked_at__lt=cutoff).delete()
+    logger.info("Pruned %d old uptime checks (cutoff=%s)", deleted, cutoff)
