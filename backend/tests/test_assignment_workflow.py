@@ -10,8 +10,8 @@ class TestEnums:
         assert IssueStatus.UNASSIGNED.value == "待分配"
         assert IssueStatus.PENDING_CONFIRMATION.value == "待确认"
         assert IssueStatus.IN_PROGRESS.value == "进行中"
-        # Verify "待分配" is GONE
-        assert "待分配" not in IssueStatus.values
+        # Verify "待处理" is GONE
+        assert "待处理" not in IssueStatus.values
 
     def test_assignment_action_choices(self):
         assert AssignmentAction.CLAIM.value == "claim"
