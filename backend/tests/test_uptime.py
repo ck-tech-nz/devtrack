@@ -178,3 +178,79 @@ class TestFireRecovery:
         assert monitor.last_status == "up"
         assert monitor.last_up_at is not None
         assert monitor.outage_started_at is None
+
+
+from unittest.mock import patch, MagicMock
+import requests as req_lib
+from apps.uptime.http_check import perform_check
+
+
+def _mock_response(status_code: int, text: str = "OK"):
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.text = text
+    return resp
+
+
+class TestPerformCheck:
+    def test_200_with_default_expected(self):
+        monitor = UptimeMonitorFactory(expected_status="200")
+        with patch("apps.uptime.http_check.requests.get", return_value=_mock_response(200)):
+            result = perform_check(monitor)
+        assert result.is_up is True
+        assert result.status_code == 200
+        assert result.error == ""
+
+    def test_204_when_expected_200(self):
+        monitor = UptimeMonitorFactory(expected_status="200")
+        with patch("apps.uptime.http_check.requests.get", return_value=_mock_response(204)):
+            result = perform_check(monitor)
+        assert result.is_up is False
+        assert result.status_code == 204
+        assert "status 204" in result.error
+
+    def test_204_when_expected_200_or_204(self):
+        monitor = UptimeMonitorFactory(expected_status="200,204")
+        with patch("apps.uptime.http_check.requests.get", return_value=_mock_response(204)):
+            result = perform_check(monitor)
+        assert result.is_up is True
+
+    def test_body_match_passes(self):
+        monitor = UptimeMonitorFactory(expected_status="200", expected_body="healthy")
+        with patch("apps.uptime.http_check.requests.get",
+                   return_value=_mock_response(200, '{"status":"healthy"}')):
+            result = perform_check(monitor)
+        assert result.is_up is True
+
+    def test_body_match_fails(self):
+        monitor = UptimeMonitorFactory(expected_status="200", expected_body="healthy")
+        with patch("apps.uptime.http_check.requests.get",
+                   return_value=_mock_response(200, '{"status":"degraded"}')):
+            result = perform_check(monitor)
+        assert result.is_up is False
+        assert "body mismatch" in result.error
+
+    def test_timeout(self):
+        monitor = UptimeMonitorFactory()
+        with patch("apps.uptime.http_check.requests.get",
+                   side_effect=req_lib.exceptions.Timeout()):
+            result = perform_check(monitor)
+        assert result.is_up is False
+        assert result.status_code is None
+        assert result.error == "timeout"
+
+    def test_connection_error(self):
+        monitor = UptimeMonitorFactory()
+        with patch("apps.uptime.http_check.requests.get",
+                   side_effect=req_lib.exceptions.ConnectionError()):
+            result = perform_check(monitor)
+        assert result.is_up is False
+        assert result.status_code is None
+        assert "connection" in result.error.lower()
+
+    def test_response_time_captured(self):
+        monitor = UptimeMonitorFactory()
+        with patch("apps.uptime.http_check.requests.get", return_value=_mock_response(200)):
+            result = perform_check(monitor)
+        assert result.response_ms is not None
+        assert result.response_ms >= 0
