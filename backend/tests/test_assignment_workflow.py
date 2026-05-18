@@ -204,3 +204,99 @@ class TestConfirmIssue:
         issue = IssueFactory(status="进行中", assignee=u)
         with pytest.raises(InvalidTransition):
             confirm_issue(issue, actor=u)
+
+
+from apps.issues.services import transfer_issue, assign_issue
+
+
+@pytest.mark.django_db
+class TestTransferIssue:
+    def test_transfer_from_in_progress_to_pending_confirmation(self):
+        owner = UserFactory()
+        new_user = UserFactory()
+        issue = IssueFactory(status="进行中", assignee=owner)
+        IssueAssignment.objects.create(issue=issue, action="claim", to_user=owner)
+
+        ev = transfer_issue(issue, actor=owner, to_user=new_user, reason="不熟悉该模块")
+
+        issue.refresh_from_db()
+        assert issue.assignee == new_user
+        assert issue.status == "待确认"
+        assert ev.action == "transfer"
+        assert ev.from_user == owner
+        assert ev.to_user == new_user
+        assert ev.actor == owner
+        assert ev.reason == "不熟悉该模块"
+
+    def test_transfer_from_pending_confirmation(self):
+        a = UserFactory()
+        b = UserFactory()
+        issue = IssueFactory(status="待确认", assignee=a)
+        IssueAssignment.objects.create(issue=issue, action="assign", to_user=a)
+
+        ev = transfer_issue(issue, actor=a, to_user=b, reason="转给后端")
+        issue.refresh_from_db()
+        assert issue.assignee == b
+        assert issue.status == "待确认"
+        assert ev.from_user == a
+        assert ev.to_user == b
+
+    def test_manager_can_transfer_someone_elses_issue(self):
+        mgr = UserFactory()
+        owner = UserFactory()
+        new_user = UserFactory()
+        issue = IssueFactory(status="进行中", assignee=owner, manager=mgr)
+
+        ev = transfer_issue(issue, actor=mgr, to_user=new_user, reason="重新调配")
+        assert ev.actor == mgr
+        assert ev.from_user == owner  # the displaced owner
+        assert ev.to_user == new_user
+
+    def test_non_assignee_non_manager_cannot_transfer(self):
+        owner = UserFactory()
+        intruder = UserFactory()
+        issue = IssueFactory(status="进行中", assignee=owner, manager=UserFactory())
+        with pytest.raises(PermissionDenied):
+            transfer_issue(issue, actor=intruder, to_user=UserFactory(), reason="x")
+
+    def test_transfer_rejected_when_unassigned(self):
+        issue = IssueFactory(status="待分配", assignee=None)
+        with pytest.raises(InvalidTransition):
+            transfer_issue(issue, actor=UserFactory(), to_user=UserFactory(), reason="x")
+
+    def test_transfer_requires_reason(self):
+        owner = UserFactory()
+        issue = IssueFactory(status="进行中", assignee=owner)
+        with pytest.raises(ValueError):
+            transfer_issue(issue, actor=owner, to_user=UserFactory(), reason="")
+
+
+@pytest.mark.django_db
+class TestInvariant:
+    def test_assignee_equals_latest_assignment_to_user(self):
+        mgr = UserFactory()
+        project = ProjectFactory()
+        ProjectMember.objects.create(project=project, user=mgr, is_manager=True)
+        a = UserFactory()
+        b = UserFactory()
+        c = UserFactory()
+        for u in (a, b, c):
+            ProjectMember.objects.create(project=project, user=u)
+        issue = IssueFactory(project=project, status="待分配", assignee=None, manager=mgr)
+
+        assign_issue(issue, actor=mgr, to_user=a)
+        issue.refresh_from_db(); assert issue.assignee == issue.assignments.last().to_user
+
+        confirm_issue(issue, actor=a)
+        issue.refresh_from_db(); assert issue.assignee == issue.assignments.last().to_user
+
+        transfer_issue(issue, actor=a, to_user=b, reason="x")
+        issue.refresh_from_db(); assert issue.assignee == issue.assignments.last().to_user
+
+        transfer_issue(issue, actor=b, to_user=c, reason="y")
+        issue.refresh_from_db(); assert issue.assignee == issue.assignments.last().to_user
+
+        # Full chain in order
+        chain = [(a.id, "assign"), (a.id, "confirm"), (b.id, "transfer"), (c.id, "transfer")]
+        actual = [(ev.to_user_id, ev.action) for ev in issue.assignments.all()]
+        assert actual == chain

@@ -228,3 +228,42 @@ def confirm_issue(issue, actor):
         detail="确认接单",
     )
     return event
+
+
+@transaction.atomic
+def transfer_issue(issue, actor, to_user, reason: str):
+    """负责人或项目经理将「待确认/进行中」的工单转给新负责人,新负责人落入「待确认」。"""
+    TRANSFERABLE = (IssueStatus.PENDING_CONFIRMATION.value, IssueStatus.IN_PROGRESS.value)
+    if issue.status not in TRANSFERABLE:
+        raise InvalidTransition(
+            f"只有「待确认/进行中」可转单,当前 {issue.status}",
+            current_status=issue.status,
+        )
+    if not reason or not reason.strip():
+        raise ValueError("转单原因必填")
+
+    actor_id = getattr(actor, "id", None)
+    is_assignee = issue.assignee_id == actor_id
+    is_manager = issue.manager_id == actor_id and actor_id is not None
+    if not (is_assignee or is_manager):
+        raise PermissionDenied("仅当前负责人或项目经理可转单")
+
+    from_user = issue.assignee  # capture the displaced owner BEFORE updating
+
+    event = IssueAssignment.objects.create(
+        issue=issue,
+        action=AssignmentAction.TRANSFER,
+        from_user=from_user,
+        to_user=to_user,
+        actor=actor,
+        reason=reason[:500],
+    )
+    issue.assignee = to_user
+    issue.status = IssueStatus.PENDING_CONFIRMATION.value
+    issue.save(update_fields=["assignee", "status", "updated_at"])
+
+    Activity.objects.create(
+        user=actor, issue=issue, action="transferred",
+        detail=f"转给 {to_user.name or to_user.username}: {reason[:80]}",
+    )
+    return event
