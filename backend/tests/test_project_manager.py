@@ -66,3 +66,29 @@ class TestProjectMemberAPI:
             {"user_id": u2.id, "is_manager": True}, format="json",
         )
         assert resp.status_code == 409, resp.data
+
+
+@pytest.mark.django_db
+class TestManagerSnapshot:
+    def test_issue_manager_snapshot_unchanged_when_project_manager_changes(self):
+        """Issue.manager must be a snapshot — unaffected by subsequent project manager changes."""
+        from apps.issues.services import create_issue
+
+        project = ProjectFactory()
+        mgr1 = UserFactory(name="经理一号")
+        mgr2 = UserFactory(name="经理二号")
+        member1 = ProjectMember.objects.create(project=project, user=mgr1, is_manager=True)
+
+        issue = create_issue(
+            project=project, actor=UserFactory(),
+            title="t", description="d", priority="P2", assignee=None,
+        )
+        assert issue.manager == mgr1
+
+        # Swap project manager: demote mgr1, promote mgr2
+        member1.is_manager = False
+        member1.save()
+        ProjectMember.objects.create(project=project, user=mgr2, is_manager=True)
+
+        issue.refresh_from_db()
+        assert issue.manager == mgr1, "Issue.manager snapshot must NOT change when project's manager changes"

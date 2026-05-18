@@ -345,14 +345,6 @@ class TestCreateIssue:
 
 
 @pytest.mark.django_db
-class TestAutoAssignStub:
-    def test_phase1_stub_returns_none(self):
-        # Phase 1 stub: until Phase 2 is implemented, returns None always
-        issue = IssueFactory(status="待分配", assignee=None)
-        assert auto_assign_issue(issue) is None
-
-
-@pytest.mark.django_db
 class TestSerializerFields:
     def test_list_serializer_includes_can_actions_and_manager_name(self, rf):
         from django.contrib.auth.models import AnonymousUser

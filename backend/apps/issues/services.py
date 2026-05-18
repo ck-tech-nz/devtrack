@@ -140,6 +140,7 @@ def _is_project_member(user, project) -> bool:
     return ProjectMember.objects.filter(project=project, user=user).exists()
 
 
+@transaction.atomic
 def _do_assign(issue, *, actor, to_user, action, reason):
     """Internal helper: write the assignment event + flip assignee/status.
 
@@ -357,7 +358,6 @@ def auto_assign_issue(issue):
     )
 
 
-@transaction.atomic
 def create_issue(*, project, actor, title, description, priority,
                  assignee=None, **extra_fields):
     """Unified entry point for creating an Issue. Both the manual create
