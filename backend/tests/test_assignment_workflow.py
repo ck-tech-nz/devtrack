@@ -3,6 +3,7 @@ from django.db import IntegrityError
 from django.contrib.auth import get_user_model
 from apps.issues.models import Issue, IssueAssignment, IssueStatus, AssignmentAction
 from apps.projects.models import ProjectMember
+from rest_framework.exceptions import PermissionDenied
 from tests.factories import IssueFactory, UserFactory, ProjectFactory
 
 
@@ -136,3 +137,70 @@ class TestAssignIssue:
         from apps.issues.services import assign_issue, InvalidTransition
         with pytest.raises(InvalidTransition):
             assign_issue(issue, actor=mgr, to_user=UserFactory())
+
+
+from apps.issues.services import claim_issue, confirm_issue, InvalidTransition
+
+
+@pytest.mark.django_db
+class TestClaimIssue:
+    def test_claim_unassigned_by_member_goes_to_in_progress(self):
+        project = ProjectFactory()
+        member = UserFactory()
+        ProjectMember.objects.create(project=project, user=member)
+        issue = IssueFactory(project=project, status="待分配", assignee=None)
+
+        ev = claim_issue(issue, actor=member)
+
+        issue.refresh_from_db()
+        assert issue.assignee == member
+        assert issue.status == "进行中"
+        assert ev.action == "claim"
+        assert ev.to_user == member
+        assert ev.from_user is None
+        assert ev.actor == member
+
+    def test_claim_rejected_for_non_member(self):
+        project = ProjectFactory()
+        outsider = UserFactory()
+        issue = IssueFactory(project=project, status="待分配", assignee=None)
+        with pytest.raises(PermissionDenied):
+            claim_issue(issue, actor=outsider)
+
+    def test_claim_rejected_if_not_unassigned(self):
+        project = ProjectFactory()
+        member = UserFactory()
+        ProjectMember.objects.create(project=project, user=member)
+        issue = IssueFactory(project=project, status="进行中", assignee=UserFactory())
+        with pytest.raises(InvalidTransition):
+            claim_issue(issue, actor=member)
+
+
+@pytest.mark.django_db
+class TestConfirmIssue:
+    def test_confirm_by_assignee_moves_to_in_progress(self):
+        u = UserFactory()
+        issue = IssueFactory(status="待确认", assignee=u)
+        # Seed an assignment to maintain invariant
+        IssueAssignment.objects.create(issue=issue, action="assign", to_user=u)
+
+        ev = confirm_issue(issue, actor=u)
+
+        issue.refresh_from_db()
+        assert issue.status == "进行中"
+        assert issue.assignee == u  # unchanged
+        assert ev.action == "confirm"
+        assert ev.from_user == u
+        assert ev.to_user == u
+
+    def test_confirm_rejected_for_non_assignee(self):
+        u, other = UserFactory(), UserFactory()
+        issue = IssueFactory(status="待确认", assignee=u)
+        with pytest.raises(PermissionDenied):
+            confirm_issue(issue, actor=other)
+
+    def test_confirm_rejected_when_not_pending_confirmation(self):
+        u = UserFactory()
+        issue = IssueFactory(status="进行中", assignee=u)
+        with pytest.raises(InvalidTransition):
+            confirm_issue(issue, actor=u)

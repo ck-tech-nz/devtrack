@@ -171,3 +171,60 @@ def assign_issue(issue, actor, to_user, *, action=AssignmentAction.ASSIGN, reaso
         detail=f"指派给 {to_user.name or to_user.username}",
     )
     return event
+
+
+@transaction.atomic
+def claim_issue(issue, actor):
+    """任何项目成员可接单「待分配」→「进行中」,自动成为负责人。"""
+    if issue.status != IssueStatus.UNASSIGNED.value:
+        raise InvalidTransition(
+            f"只有「待分配」可被接单,当前 {issue.status}", current_status=issue.status,
+        )
+    if not _is_project_member(actor, issue.project):
+        raise PermissionDenied("仅项目成员可接单")
+
+    event = IssueAssignment.objects.create(
+        issue=issue,
+        action=AssignmentAction.CLAIM,
+        from_user=None,
+        to_user=actor,
+        actor=actor,
+        reason="",
+    )
+    issue.assignee = actor
+    issue.status = IssueStatus.IN_PROGRESS.value
+    issue.save(update_fields=["assignee", "status", "updated_at"])
+
+    Activity.objects.create(
+        user=actor, issue=issue, action="claimed",
+        detail=f"{actor.name or actor.username} 接单",
+    )
+    return event
+
+
+@transaction.atomic
+def confirm_issue(issue, actor):
+    """当前负责人确认「待确认」→「进行中」。"""
+    if issue.status != IssueStatus.PENDING_CONFIRMATION.value:
+        raise InvalidTransition(
+            f"只有「待确认」可被接受,当前 {issue.status}", current_status=issue.status,
+        )
+    if issue.assignee_id != getattr(actor, "id", None):
+        raise PermissionDenied("仅当前负责人可确认接单")
+
+    event = IssueAssignment.objects.create(
+        issue=issue,
+        action=AssignmentAction.CONFIRM,
+        from_user=actor,
+        to_user=actor,
+        actor=actor,
+        reason="",
+    )
+    issue.status = IssueStatus.IN_PROGRESS.value
+    issue.save(update_fields=["status", "updated_at"])
+
+    Activity.objects.create(
+        user=actor, issue=issue, action="confirmed",
+        detail="确认接单",
+    )
+    return event
