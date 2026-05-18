@@ -331,3 +331,12 @@ class AiDraftInputSerializer(serializers.Serializer):
     attachment_ids = serializers.ListField(
         child=serializers.UUIDField(), required=False, default=list,
     )
+
+
+class IssueTransferInputSerializer(serializers.Serializer):
+    to_user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    reason = serializers.CharField(max_length=500)
+
+
+class IssueAssignInputSerializer(serializers.Serializer):
+    to_user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())

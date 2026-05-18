@@ -23,6 +23,7 @@ from .serializers import (
     IssueCreateUpdateSerializer, BatchUpdateSerializer,
     ActivitySerializer,
 )
+from .services import claim_issue, confirm_issue, transfer_issue, assign_issue, InvalidTransition
 
 User = get_user_model()
 
@@ -628,6 +629,85 @@ class IssueAiDraftView(APIView):
         resp["X-Accel-Buffering"] = "no"
         resp["Cache-Control"] = "no-cache"
         return resp
+
+
+def _get_issue_or_404(pk):
+    return Issue.objects.filter(pk=pk).first()
+
+
+def _serialize_issue(issue, request):
+    return IssueListSerializer(issue, context={"request": request}).data
+
+
+class IssueClaimView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        issue = _get_issue_or_404(pk)
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            claim_issue(issue, actor=request.user)
+        except InvalidTransition as e:
+            return Response({"detail": e.message}, status=status.HTTP_409_CONFLICT)
+        return Response(_serialize_issue(issue, request))
+
+
+class IssueConfirmView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        issue = _get_issue_or_404(pk)
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            confirm_issue(issue, actor=request.user)
+        except InvalidTransition as e:
+            return Response({"detail": e.message}, status=status.HTTP_409_CONFLICT)
+        return Response(_serialize_issue(issue, request))
+
+
+class IssueTransferView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import IssueTransferInputSerializer
+        issue = _get_issue_or_404(pk)
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        ser = IssueTransferInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        try:
+            transfer_issue(
+                issue, actor=request.user,
+                to_user=ser.validated_data["to_user"],
+                reason=ser.validated_data["reason"],
+            )
+        except InvalidTransition as e:
+            return Response({"detail": e.message}, status=status.HTTP_409_CONFLICT)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_serialize_issue(issue, request))
+
+
+class IssueAssignView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import IssueAssignInputSerializer
+        issue = _get_issue_or_404(pk)
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        ser = IssueAssignInputSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        try:
+            assign_issue(
+                issue, actor=request.user,
+                to_user=ser.validated_data["to_user"],
+            )
+        except InvalidTransition as e:
+            return Response({"detail": e.message}, status=status.HTTP_409_CONFLICT)
+        return Response(_serialize_issue(issue, request))
 
 
 class IssueCheckDuplicateView(APIView):

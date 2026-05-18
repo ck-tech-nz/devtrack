@@ -5,6 +5,7 @@ from .views import (
     IssueAIAnalyzeView, IssueAIStatusView, IssueAnalysesView,
     IssueAttachmentsView, IssueCheckDuplicateView, IssueHistoryView,
     IssueAiDraftView,
+    IssueClaimView, IssueConfirmView, IssueTransferView, IssueAssignView,
 )
 
 urlpatterns = [
@@ -21,4 +22,8 @@ urlpatterns = [
     path("<int:pk>/ai-status/", IssueAIStatusView.as_view(), name="issue-ai-status"),
     path("<int:pk>/analyses/", IssueAnalysesView.as_view(), name="issue-analyses"),
     path("<int:pk>/history/", IssueHistoryView.as_view(), name="issue-history"),
+    path("<int:pk>/claim/", IssueClaimView.as_view(), name="issue-claim"),
+    path("<int:pk>/confirm/", IssueConfirmView.as_view(), name="issue-confirm"),
+    path("<int:pk>/transfer/", IssueTransferView.as_view(), name="issue-transfer"),
+    path("<int:pk>/assign/", IssueAssignView.as_view(), name="issue-assign"),
 ]
