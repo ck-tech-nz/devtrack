@@ -354,3 +354,28 @@ class TestAutoAssignStub:
         # Phase 1 stub: until Phase 2 is implemented, returns None always
         issue = IssueFactory(status="待分配", assignee=None)
         assert auto_assign_issue(issue) is None
+
+
+from apps.issues.serializers import IssueListSerializer
+
+
+@pytest.mark.django_db
+class TestSerializerFields:
+    def test_list_serializer_includes_can_actions_and_manager_name(self, rf):
+        from django.contrib.auth.models import AnonymousUser
+        mgr = UserFactory(name="赵经理")
+        member = UserFactory()
+        project = ProjectFactory()
+        ProjectMember.objects.create(project=project, user=mgr, is_manager=True)
+        ProjectMember.objects.create(project=project, user=member)
+        issue = IssueFactory(project=project, status="待分配", assignee=None, manager=mgr)
+
+        req = rf.get("/api/issues/")
+        req.user = member
+        data = IssueListSerializer(issue, context={"request": req}).data
+
+        assert data["can_claim"] is True
+        assert data["can_confirm"] is False
+        assert data["can_transfer"] is False
+        assert data["can_assign"] is False
+        assert data["manager_name"] == "赵经理"

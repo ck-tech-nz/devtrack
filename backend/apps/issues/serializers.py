@@ -59,12 +59,17 @@ class IssueListSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     updated_by_name = serializers.SerializerMethodField()
     assignee_name = serializers.CharField(source="assignee.name", read_only=True, default=None)
+    manager_name = serializers.SerializerMethodField()
     helpers = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     helpers_names = serializers.SerializerMethodField()
     resolution_hours = serializers.SerializerMethodField()
     github_issues = GitHubIssueLinkSerializer(many=True, read_only=True)
     ai_cause = serializers.CharField(read_only=True, default='')
     ai_solution = serializers.CharField(read_only=True, default='')
+    can_claim = serializers.SerializerMethodField()
+    can_confirm = serializers.SerializerMethodField()
+    can_transfer = serializers.SerializerMethodField()
+    can_assign = serializers.SerializerMethodField()
 
     class Meta:
         model = Issue
@@ -73,10 +78,12 @@ class IssueListSerializer(serializers.ModelSerializer):
             "status", "labels", "reporter",
             "created_by", "created_by_name",
             "updated_by", "updated_by_name",
-            "assignee", "assignee_name", "helpers", "helpers_names", "remark", "cause", "solution",
+            "assignee", "assignee_name", "manager", "manager_name",
+            "helpers", "helpers_names", "remark", "cause", "solution",
             "ai_cause", "ai_solution",
             "resolution_hours", "created_at", "updated_at", "github_issues",
             "estimated_completion", "estimated_hours", "source",
+            "can_claim", "can_confirm", "can_transfer", "can_assign",
         ]
 
     def get_created_by_name(self, obj):
@@ -97,6 +104,48 @@ class IssueListSerializer(serializers.ModelSerializer):
             delta = obj.resolved_at - obj.created_at
             return round(delta.total_seconds() / 3600, 1)
         return None
+
+    def get_manager_name(self, obj):
+        if obj.manager:
+            return obj.manager.name or obj.manager.username
+        return None
+
+    def _request_user(self):
+        request = self.context.get("request")
+        return getattr(request, "user", None) if request else None
+
+    def get_can_claim(self, obj):
+        from apps.projects.models import ProjectMember
+        user = self._request_user()
+        if not user or not user.is_authenticated:
+            return False
+        if obj.status != "待分配":
+            return False
+        return ProjectMember.objects.filter(project=obj.project, user=user).exists()
+
+    def get_can_confirm(self, obj):
+        user = self._request_user()
+        if not user or not user.is_authenticated:
+            return False
+        if obj.status != "待确认":
+            return False
+        return obj.assignee_id == user.id
+
+    def get_can_transfer(self, obj):
+        user = self._request_user()
+        if not user or not user.is_authenticated:
+            return False
+        if obj.status not in ("待确认", "进行中"):
+            return False
+        return obj.assignee_id == user.id or obj.manager_id == user.id
+
+    def get_can_assign(self, obj):
+        user = self._request_user()
+        if not user or not user.is_authenticated:
+            return False
+        if obj.status != "待分配":
+            return False
+        return obj.manager_id == user.id
 
 
 class IssueDetailSerializer(IssueListSerializer):
@@ -180,30 +229,39 @@ class IssueCreateUpdateSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        from .services import create_issue
         helpers = validated_data.pop("helpers", [])
         attachment_ids = validated_data.pop("attachment_ids", [])
         # 非管理员创建时忽略客户端传入的 estimated_hours,使用模型默认值 (4h)
         if "estimated_hours" in validated_data and not self._user_can_edit_estimated_hours():
             validated_data.pop("estimated_hours")
-        validated_data["created_by"] = self.context["request"].user
-        issue = super().create(validated_data)
+
+        actor = self.context["request"].user
+        assignee = validated_data.pop("assignee", None)
+        # 客户端传入的 status 由工作流决定,忽略
+        validated_data.pop("status", None)
+        project = validated_data.pop("project")
+        title = validated_data.pop("title")
+        description = validated_data.pop("description", "")
+        priority = validated_data.pop("priority")
+
+        issue = create_issue(
+            project=project, actor=actor,
+            title=title, description=description, priority=priority,
+            assignee=assignee,
+            **validated_data,
+        )
         if helpers:
             issue.helpers.set(helpers)
-        Activity.objects.create(
-            user=self.context["request"].user,
-            issue=issue,
-            action="created",
-        )
+        Activity.objects.create(user=actor, issue=issue, action="created")
         if attachment_ids:
-            atts = Attachment.objects.filter(
-                id__in=attachment_ids, uploaded_by=self.context["request"].user,
-            )
+            atts = Attachment.objects.filter(id__in=attachment_ids, uploaded_by=actor)
             issue.attachments.add(*atts)
         create_mention_notifications(
             issue=issue,
             old_description="",
             new_description=issue.description,
-            actor=self.context["request"].user,
+            actor=actor,
         )
         return issue
 
