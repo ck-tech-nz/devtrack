@@ -154,6 +154,8 @@ const props = defineProps<{
   users: UserChoice[]
   validLabels: string[]
   attachmentIds: string[]
+  // 用户最初输入的原文（未经 AI 拼装）。写入 source_meta.original_input。
+  originalInput: string
   duplicates: DuplicateItem[]
   submitting: boolean
   submitError: string
@@ -220,7 +222,8 @@ function onSubmit() {
     source_meta: {
       module: form.value.module || null,
       inferred_env: props.draft.inferred_env || null,
-      original_input: props.draft.description,
+      // 用户最初输入的原文 — 不是 AI 拼装后的 description，避免触发 source_meta 4096B 上限
+      original_input: props.originalInput,
     },
     attachment_ids: props.attachmentIds,
   }

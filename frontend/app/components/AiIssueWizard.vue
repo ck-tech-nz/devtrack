@@ -25,6 +25,7 @@
       :users="users"
       :valid-labels="validLabels"
       :attachment-ids="lastAttachmentIds"
+      :original-input="lastOriginalInput"
       :submitting="submitting"
       :submit-error="submitError"
       :success-issue-id="successIssueId"
@@ -53,6 +54,9 @@ const users = ref<{ id: string; name: string }[]>([])
 const validLabels = ref<string[]>([])
 const lastAnalyzedProject = ref<string>('')
 const lastAttachmentIds = ref<string[]>([])
+// 用户最初输入的原文 (未经 AI 拼装)，用于写入 source_meta.original_input
+// 避免把 AI 拼装后的 description 写进 source_meta 触发 4096 字节上限
+const lastOriginalInput = ref<string>('')
 
 const wizard = useAiWizard()
 const submitting = ref(false)
@@ -82,6 +86,7 @@ onMounted(async () => {
 function onAnalyze(payload: { description: string; project: string; attachment_ids: string[] }) {
   lastAnalyzedProject.value = payload.project
   lastAttachmentIds.value = payload.attachment_ids
+  lastOriginalInput.value = payload.description
   wizard.start(payload)
 }
 

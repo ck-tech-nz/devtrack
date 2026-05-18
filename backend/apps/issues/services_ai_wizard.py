@@ -284,22 +284,24 @@ class AiWizardService:
             raw_q = []
         data["follow_up_questions"] = [str(q)[:100] for q in raw_q if q][:3]
 
-    def _load_image_attachments(self, attachment_ids: list) -> list[tuple[str, bytes]]:
+    def _load_image_attachments(self, attachment_ids: list, owner) -> list[tuple[str, bytes]]:
         """Resolve attachment_ids → up to MAX_IMAGES (mime, bytes) pairs.
 
         - Filters to image MIME types only
+        - 仅允许调用者本人上传的附件 (uploaded_by=owner),防止跨用户 IDOR
+          泄露图片内容 (LLM 会 OCR 图片返回到 SSE 响应中)
         - Skips files larger than MAX_IMAGE_BYTES
         - Silently skips read failures (logs warning) so one bad attachment
           doesn't abort the whole wizard call
         """
-        if not attachment_ids:
+        if not attachment_ids or owner is None:
             return []
 
         from apps.tools.models import Attachment
 
         rows = list(
             Attachment.objects
-            .filter(id__in=attachment_ids, mime_type__startswith="image/")
+            .filter(id__in=attachment_ids, mime_type__startswith="image/", uploaded_by=owner)
             .order_by("created_at")
         )
 
@@ -318,20 +320,26 @@ class AiWizardService:
                 break
         return out
 
-    def stream_draft(self, description: str, project_id=None, attachment_ids=None):
-        """Dispatch on AI_WIZARD_LEGACY: True → v1 3-stage, False → v2 oneshot."""
+    def stream_draft(self, description: str, project_id=None, attachment_ids=None, user=None):
+        """Dispatch on AI_WIZARD_LEGACY: True → v1 3-stage, False → v2 oneshot.
+
+        `user` is the authenticated requester. Required for v2 to scope
+        attachment resolution to attachments the user actually owns.
+        """
         from django.conf import settings
         if getattr(settings, "AI_WIZARD_LEGACY", False):
-            # Legacy path keeps its original signature (description only)
+            # Legacy path keeps its original signature (description only) —
+            # v1 does not accept attachments so no per-user filter is needed.
             yield from self._stream_draft_legacy(description)
         else:
             yield from self._stream_draft_v2(
                 description=description,
                 project_id=project_id,
                 attachment_ids=attachment_ids or [],
+                user=user,
             )
 
-    def _stream_draft_v2(self, description: str, project_id, attachment_ids: list | None = None):
+    def _stream_draft_v2(self, description: str, project_id, attachment_ids: list | None = None, user=None):
         """v2 generator yielding (event_name, payload) for the SSE layer.
 
         Runs the multimodal oneshot LLM call and check_duplicates in parallel
@@ -343,24 +351,30 @@ class AiWizardService:
             ("error", {...}) instead of step+draft on oneshot failure
           ("done", {})
         """
-        images = self._load_image_attachments(attachment_ids or [])
+        images = self._load_image_attachments(attachment_ids or [], user)
 
         q: queue.Queue = queue.Queue()
         STEP_LABEL = "理解描述与截图"
+        # Hard upper bound on each worker thread; q.get below adds a small safety
+        # margin so the generator can surface a typed error instead of hanging
+        # if a thread crashes with BaseException (e.g. SIGTERM/worker reload).
+        WORKER_DEADLINE_S = ONESHOT_TIMEOUT_SECONDS + 10
 
         def run_oneshot():
             try:
                 draft = self.oneshot_draft(description, images)
                 # Look up image attachment metadata (name + url) so the assembled
                 # description can embed them as inline markdown previews.
-                image_meta = self._load_image_metadata(attachment_ids or [])
+                image_meta = self._load_image_metadata(attachment_ids or [], user)
                 draft["description"] = self._assemble_description(
                     description, draft.get("inferred_env", ""), image_meta,
                 )
                 q.put(("draft", draft, None))
             except AiWizardError as e:
                 q.put(("draft", None, e))
-            except Exception:
+            except BaseException:
+                # 包括 SystemExit/KeyboardInterrupt — worker reload (SIGTERM)
+                # 期间不能让 SSE 生成器 q.get 永久阻塞
                 logger.exception("wizard oneshot unexpected failure")
                 q.put(("draft", None, AiWizardError(
                     step=1, code="llm_call_failed", message="AI 调用失败，请重试")))
@@ -373,12 +387,13 @@ class AiWizardService:
         def run_dupcheck():
             try:
                 items = check_duplicates(project_id, description[:50], description) or []
-            except Exception:
+                q.put(("duplicates", items, None))
+            except BaseException:
                 logger.warning("wizard check_duplicates failed; returning empty", exc_info=True)
-                items = []
-            q.put(("duplicates", items, None))
-            from django.db import connections
-            connections.close_all()
+                q.put(("duplicates", [], None))
+            finally:
+                from django.db import connections
+                connections.close_all()
 
         with ThreadPoolExecutor(max_workers=2) as ex:
             ex.submit(run_oneshot)
@@ -388,7 +403,17 @@ class AiWizardService:
 
             results_pending = 2
             while results_pending > 0:
-                kind, payload, error = q.get()
+                try:
+                    kind, payload, error = q.get(timeout=WORKER_DEADLINE_S)
+                except queue.Empty:
+                    # 兜底:工作线程异常终止且未入队哨兵,避免 SSE 永久挂起
+                    logger.error(
+                        "wizard worker did not enqueue result within %ss; aborting",
+                        WORKER_DEADLINE_S,
+                    )
+                    yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
+                    yield ("error", {"code": "worker_timeout", "message": "AI 分析超时，请重试"})
+                    break
                 results_pending -= 1
                 if kind == "duplicates":
                     yield ("duplicates", {"items": payload})
@@ -423,18 +448,22 @@ class AiWizardService:
                 parts.append(f"![{name}]({url})")
         return "\n\n".join(parts)
 
-    def _load_image_metadata(self, attachment_ids: list) -> list[dict]:
+    def _load_image_metadata(self, attachment_ids: list, owner) -> list[dict]:
         """Return image attachment metadata (file_name, file_url) for inline markdown.
 
         Separate from _load_image_attachments which reads raw bytes for the
         vision LLM call — this one only needs the URL for the markdown.
+
+        Also scoped to owner=uploaded_by, mirroring _load_image_attachments;
+        otherwise an attacker could inline another user's image URL into the
+        new Issue's description.
         """
-        if not attachment_ids:
+        if not attachment_ids or owner is None:
             return []
         from apps.tools.models import Attachment
         return list(
             Attachment.objects
-            .filter(id__in=attachment_ids, mime_type__startswith="image/")
+            .filter(id__in=attachment_ids, mime_type__startswith="image/", uploaded_by=owner)
             .order_by("created_at")
             .values("file_name", "file_url")
         )

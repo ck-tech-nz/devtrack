@@ -4,12 +4,19 @@ from apps.ai.models import Prompt
 
 
 @pytest.mark.django_db
-def test_wizard_v1_prompts_still_exist_for_rollback():
-    """v1 prompts are kept (deactivated) for the 7-day rollback window."""
+def test_wizard_v1_prompts_active_for_rollback():
+    """v1 prompts must stay ACTIVE so the AI_WIZARD_LEGACY rollback flag works.
+
+    Migration 0007 originally deactivated v1 prompts but the legacy code path
+    queries Prompt by slug + is_active=True — flipping the env flag in prod
+    would have raised missing_prompt on every request. The migration was
+    corrected to leave v1 active; the dispatcher in AiWizardService picks
+    v2 by default.
+    """
     for slug in ("wizard_classify", "wizard_extract", "wizard_generate"):
         p = Prompt.objects.filter(slug=slug).first()
         assert p is not None, f"v1 Prompt '{slug}' must be preserved for rollback"
-        assert not p.is_active, f"v1 Prompt '{slug}' must be deactivated by migration 0007"
+        assert p.is_active, f"v1 Prompt '{slug}' must remain active for rollback to work"
         assert p.system_prompt.strip(), f"Prompt '{slug}' has empty system_prompt"
         assert p.user_prompt_template.strip(), f"Prompt '{slug}' has empty user_prompt_template"
 
@@ -507,8 +514,11 @@ def test_generate_filters_unknown_labels():
 
 
 @pytest.mark.django_db
-def test_wizard_oneshot_is_seeded_and_v1_is_deactivated():
-    """After migration 0007 the v2 prompt is active and v1 prompts are inactive."""
+def test_wizard_oneshot_seeded_and_v1_remains_active():
+    """After migration 0007 the v2 prompt is seeded; v1 prompts stay ACTIVE so
+    AI_WIZARD_LEGACY rollback actually works (the legacy code path queries
+    Prompt by slug + is_active=True). The dispatcher in AiWizardService
+    chooses v2 by default; activation alone does not switch behavior."""
     oneshot = Prompt.objects.filter(slug="wizard_oneshot").first()
     assert oneshot is not None, "wizard_oneshot not seeded"
     assert oneshot.is_active
@@ -518,11 +528,11 @@ def test_wizard_oneshot_is_seeded_and_v1_is_deactivated():
     assert "{modules_json}" in oneshot.user_prompt_template
     assert "{labels_json}" in oneshot.user_prompt_template
 
-    # v1 prompts must still exist (kept for 7-day rollback) but inactive
+    # v1 prompts must remain active so AI_WIZARD_LEGACY=True works in prod
     for v1_slug in ("wizard_classify", "wizard_extract", "wizard_generate"):
         p = Prompt.objects.filter(slug=v1_slug).first()
         assert p is not None, f"v1 prompt {v1_slug} must be preserved for rollback"
-        assert not p.is_active, f"v1 prompt {v1_slug} must be deactivated"
+        assert p.is_active, f"v1 prompt {v1_slug} must remain active for rollback to work"
 
 
 @pytest.mark.django_db
@@ -749,7 +759,7 @@ def test_load_image_attachments_filters_to_images_and_caps_at_three(tmp_path):
 
     with patch("apps.issues.services_ai_wizard._read_attachment_bytes", side_effect=fake_read):
         svc = AiWizardService()
-        images = svc._load_image_attachments(ids)
+        images = svc._load_image_attachments(ids, owner=user)
 
     # Only ok1/ok2/ok3 — the first 3 image-MIME attachments under 2MB (ordered by created_at)
     assert len(images) == 3
@@ -761,6 +771,74 @@ def test_load_image_attachments_filters_to_images_and_caps_at_three(tmp_path):
     assert any(b"k1" in b for b in keys_seen)
     assert any(b"k3" in b for b in keys_seen)
     assert any(b"k4" in b for b in keys_seen)
+
+
+@pytest.mark.django_db
+def test_load_image_attachments_rejects_other_users_attachments():
+    """IDOR regression: _load_image_attachments must scope by uploaded_by.
+
+    Without owner scoping a user could pass another user's attachment UUID
+    and have its bytes shipped to the vision LLM (OCR exfiltration).
+    """
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.tools.models import Attachment
+    from tests.factories import UserFactory
+    from unittest.mock import patch
+
+    alice = UserFactory()
+    bob = UserFactory()
+    alice_att = Attachment.objects.create(
+        uploaded_by=alice, file_name="alice.png", file_key="kA",
+        file_url="/u/A", file_size=500, mime_type="image/png",
+    )
+    bob_att = Attachment.objects.create(
+        uploaded_by=bob, file_name="bob.png", file_key="kB",
+        file_url="/u/B", file_size=500, mime_type="image/png",
+    )
+
+    def fake_read(file_key):
+        return b"bytes-" + file_key.encode()
+
+    with patch("apps.issues.services_ai_wizard._read_attachment_bytes", side_effect=fake_read):
+        svc = AiWizardService()
+        images = svc._load_image_attachments(
+            [str(alice_att.id), str(bob_att.id)], owner=alice,
+        )
+
+    assert len(images) == 1, "only Alice's attachment should be loaded for Alice"
+    assert images[0][1] == b"bytes-kA"
+
+
+@pytest.mark.django_db
+def test_load_image_metadata_rejects_other_users_attachments():
+    """IDOR regression: _load_image_metadata must scope by uploaded_by.
+
+    Without owner scoping the wizard would embed another user's image URL
+    into the new Issue.description as ![name](url) markdown.
+    """
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.tools.models import Attachment
+    from tests.factories import UserFactory
+
+    alice = UserFactory()
+    bob = UserFactory()
+    alice_att = Attachment.objects.create(
+        uploaded_by=alice, file_name="alice.png", file_key="kA",
+        file_url="/u/A", file_size=500, mime_type="image/png",
+    )
+    bob_att = Attachment.objects.create(
+        uploaded_by=bob, file_name="bob.png", file_key="kB",
+        file_url="/u/B", file_size=500, mime_type="image/png",
+    )
+
+    svc = AiWizardService()
+    meta = svc._load_image_metadata(
+        [str(alice_att.id), str(bob_att.id)], owner=alice,
+    )
+
+    assert len(meta) == 1
+    assert meta[0]["file_name"] == "alice.png"
+    assert meta[0]["file_url"] == "/u/A"
 
 
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)
@@ -973,6 +1051,7 @@ def test_stream_draft_v2_appends_image_markdown_to_description(site_settings):
             description="user typed text",
             project_id=project.id,
             attachment_ids=[str(att.id)],
+            user=user,
         ))
 
     draft = next(e for e in events if e[0] == "draft")[1]
@@ -993,9 +1072,7 @@ def test_stream_draft_routes_to_v1_when_legacy_flag_set(site_settings, settings)
     from tests.factories import LLMConfigFactory, ProjectFactory
     from unittest.mock import patch
     LLMConfigFactory(is_default=True, is_active=True)
-    # Re-activate v1 prompts since the rollback path queries them
-    from apps.ai.models import Prompt
-    Prompt.objects.filter(slug__in=("wizard_classify", "wizard_extract", "wizard_generate")).update(is_active=True)
+    # Migration 0007 now leaves v1 prompts active, so no manual re-activation needed.
     SiteSettings.objects.update(modules=["其他"], labels={})
     project = ProjectFactory()
 
@@ -1036,10 +1113,11 @@ def test_ai_draft_endpoint_passes_project_and_attachments_to_service(api_client,
 
     captured = {}
 
-    def fake_stream(self, description, project_id=None, attachment_ids=None):
+    def fake_stream(self, description, project_id=None, attachment_ids=None, user=None):
         captured["description"] = description
         captured["project_id"] = project_id
         captured["attachment_ids"] = attachment_ids
+        captured["user"] = user
         yield ("step", {"step": 1, "label": "x", "status": "running"})
         yield ("draft", {
             "title": "T", "description": description,

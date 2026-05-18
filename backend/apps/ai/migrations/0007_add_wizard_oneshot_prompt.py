@@ -9,7 +9,12 @@ V1_SLUGS = ("wizard_classify", "wizard_extract", "wizard_generate")
 V2_SLUG = "wizard_oneshot"
 
 
-def seed_oneshot_and_deactivate_v1(apps, schema_editor):
+def seed_oneshot(apps, schema_editor):
+    """Seed the v2 multimodal prompt. v1 rows are left ACTIVE so that the
+    AI_WIZARD_LEGACY rollback flag actually works — the legacy code path
+    queries Prompt by slug + is_active=True. The dispatcher in
+    AiWizardService.stream_draft selects v2 by default.
+    """
     Prompt = apps.get_model("ai", "Prompt")
     data = json.loads((SEED_DIR / f"{V2_SLUG}.json").read_text(encoding="utf-8"))
     Prompt.objects.update_or_create(
@@ -23,14 +28,15 @@ def seed_oneshot_and_deactivate_v1(apps, schema_editor):
             "is_active": data["is_active"],
         },
     )
-    # v1 rows preserved for 7-day rollback window; only flip is_active off.
-    Prompt.objects.filter(slug__in=V1_SLUGS).update(is_active=False)
+    # If a previous run of this migration already deactivated v1 prompts (the
+    # state this PR shipped originally), re-activate them now so the rollback
+    # flag works on already-migrated databases.
+    Prompt.objects.filter(slug__in=V1_SLUGS).update(is_active=True)
 
 
-def reverse_oneshot_and_reactivate_v1(apps, schema_editor):
+def reverse_seed_oneshot(apps, schema_editor):
     Prompt = apps.get_model("ai", "Prompt")
     Prompt.objects.filter(slug=V2_SLUG).delete()
-    Prompt.objects.filter(slug__in=V1_SLUGS).update(is_active=True)
 
 
 class Migration(migrations.Migration):
@@ -40,7 +46,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(
-            seed_oneshot_and_deactivate_v1,
-            reverse_code=reverse_oneshot_and_reactivate_v1,
+            seed_oneshot,
+            reverse_code=reverse_seed_oneshot,
         ),
     ]

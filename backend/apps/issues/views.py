@@ -601,6 +601,7 @@ class IssueAiDraftView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        request_user = request.user
         def event_stream():
             svc = AiWizardService()
             try:
@@ -608,6 +609,7 @@ class IssueAiDraftView(APIView):
                     description=data["description"],
                     project_id=data["project"].id,
                     attachment_ids=[str(x) for x in (data.get("attachment_ids") or [])],
+                    user=request_user,
                 ):
                     if event_name == "_heartbeat":
                         # SSE 注释行;客户端会忽略,但 yield 在客户端断开后
