@@ -78,12 +78,13 @@ class IssueListCreateView(generics.ListCreateAPIView):
         qs = _with_ai_fields(super().get_queryset()).annotate(
             status_order=Case(
                 When(status="未计划", then=Value(0)),
-                When(status="待处理", then=Value(1)),
-                When(status="进行中", then=Value(2)),
-                When(status="已解决", then=Value(3)),
-                When(status="已发布", then=Value(4)),
-                When(status="已关闭", then=Value(5)),
-                default=Value(6),
+                When(status="待分配", then=Value(1)),
+                When(status="待确认", then=Value(2)),
+                When(status="进行中", then=Value(3)),
+                When(status="已解决", then=Value(4)),
+                When(status="已发布", then=Value(5)),
+                When(status="已关闭", then=Value(6)),
+                default=Value(7),
                 output_field=IntegerField(),
             ),
         )
@@ -151,10 +152,10 @@ class DashboardStatsView(APIView):
             "total": Issue.objects.count(),
             # 本周新增数量（用于"总数"卡片的对比文案）
             "total_added_this_week": Issue.objects.filter(created_at__gte=week_start).count(),
-            "pending": Issue.objects.filter(status="待处理").count(),
-            # 昨日及以前创建、仍然待处理的数量（用于和今天的对比）
+            # 待分配 + 待确认 视作"待处理"统计口径
+            "pending": Issue.objects.filter(status__in=["待分配", "待确认"]).count(),
             "pending_yesterday": Issue.objects.filter(
-                status="待处理", created_at__lt=today_start
+                status__in=["待分配", "待确认"], created_at__lt=today_start
             ).count(),
             "in_progress": Issue.objects.filter(status="进行中").count(),
             "resolved_this_week": Issue.objects.filter(resolved_at__gte=week_start).count(),
