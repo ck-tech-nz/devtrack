@@ -42,28 +42,49 @@
 
     <!-- Members -->
     <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">项目成员</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">项目成员</h3>
+        <UButton
+          v-if="canManageMembers"
+          icon="i-heroicons-plus"
+          size="xs"
+          variant="outline"
+          color="neutral"
+          @click="openAddMember"
+        >
+          添加成员
+        </UButton>
+      </div>
       <div v-if="projectMembers.length" class="flex flex-wrap gap-3">
         <div
           v-for="m in projectMembers"
           :key="m.user_id"
-          class="flex flex-col bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 max-w-xs"
+          class="flex flex-col bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 w-72"
         >
           <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center shrink-0">
-              <span class="text-crystal-600 dark:text-crystal-400 text-xs font-medium">{{ (m.user_name || '?').slice(0, 1) }}</span>
+            <div class="w-7 h-7 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center shrink-0 overflow-hidden">
+              <img v-if="m.avatar" :src="m.avatar" class="w-full h-full object-cover" :alt="m.user_name">
+              <span v-else class="text-crystal-600 dark:text-crystal-400 text-xs font-medium">{{ (m.user_name || '?').slice(0, 1) }}</span>
             </div>
             <span class="text-sm text-gray-700 dark:text-gray-300 truncate">{{ m.user_name || '未知' }}</span>
             <UBadge v-if="m.role" color="neutral" variant="subtle" size="xs">{{ m.role }}</UBadge>
-            <UBadge v-else color="neutral" variant="soft" size="xs">未分配角色</UBadge>
-            <button
-              v-if="canManageMembers"
-              class="ml-auto text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              title="编辑"
-              @click="openEditMember(m)"
-            >
-              <UIcon name="i-heroicons-pencil-square" class="w-3.5 h-3.5" />
-            </button>
+            <UBadge v-else color="neutral" variant="soft" size="xs">未分配</UBadge>
+            <div v-if="canManageMembers" class="ml-auto flex items-center gap-1">
+              <button
+                class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-0.5"
+                title="编辑"
+                @click="openEditMember(m)"
+              >
+                <UIcon name="i-heroicons-pencil-square" class="w-3.5 h-3.5" />
+              </button>
+              <button
+                class="text-gray-400 hover:text-red-500 p-0.5"
+                title="移除"
+                @click="confirmRemoveMember(m)"
+              >
+                <UIcon name="i-heroicons-trash" class="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           <p
             v-if="m.personal_description"
@@ -121,7 +142,28 @@
           </div>
         </div>
 
-        <ProjectsKanbanBoard v-if="viewMode === 'kanban'" :issues="filteredIssues" @update:status="onStatusChange" />
+        <SharedKanbanBoard
+          v-if="viewMode === 'kanban'"
+          :columns="kanbanColumns"
+          :item-key="(item: any) => item.id"
+          @drop="onKanbanDrop"
+        >
+          <template #card="{ item }">
+            <NuxtLink :to="`/app/issues/${item.id}`" class="block">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs text-gray-400 dark:text-gray-500">#{{ item.id }}</span>
+                <UBadge :color="item.priority === 'P0' ? 'error' : item.priority === 'P1' ? 'warning' : item.priority === 'P2' ? 'warning' : 'neutral'" variant="subtle" size="xs">{{ item.priority }}</UBadge>
+              </div>
+              <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2">{{ item.title }}</p>
+              <div class="mt-2 flex items-center">
+                <div class="w-5 h-5 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center">
+                  <span class="text-crystal-600 dark:text-crystal-400 text-[10px] font-medium">{{ (item.assignee_name || '?').slice(0, 1) }}</span>
+                </div>
+                <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500">{{ item.assignee_name || '-' }}</span>
+              </div>
+            </NuxtLink>
+          </template>
+        </SharedKanbanBoard>
 
         <div v-else class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
           <UTable
@@ -152,15 +194,24 @@
       </div>
     </div>
 
-    <!-- Edit Member Modal -->
-    <UModal v-model:open="showMemberModal" title="编辑成员" :ui="{ width: 'sm:max-w-md' }">
+    <!-- Add / Edit Member Modal -->
+    <UModal v-model:open="showMemberModal" :title="memberModalTitle" :ui="{ width: 'sm:max-w-md' }">
       <template #content>
         <div class="modal-form">
           <div class="modal-header">
-            <h3>编辑成员 - {{ editingMember?.user_name }}</h3>
+            <h3>{{ memberModalTitle }}</h3>
             <UButton icon="i-heroicons-x-mark" variant="ghost" color="neutral" size="sm" @click="showMemberModal = false" />
           </div>
           <div class="modal-body">
+            <div v-if="memberMode === 'add'" class="form-row">
+              <label>用户 <span class="text-red-400">*</span></label>
+              <USelect
+                v-model="memberForm.user_id"
+                :items="availableUserOptions"
+                placeholder="选择用户"
+                value-key="value"
+              />
+            </div>
             <div class="form-row">
               <label>角色</label>
               <USelect
@@ -183,7 +234,7 @@
           </div>
           <div class="modal-footer">
             <UButton variant="outline" color="neutral" @click="showMemberModal = false">取消</UButton>
-            <UButton :loading="savingMember" @click="saveMember">保存</UButton>
+            <UButton :loading="savingMember" @click="saveMember">{{ memberMode === 'add' ? '添加' : '保存' }}</UButton>
           </div>
         </div>
       </template>
@@ -198,6 +249,7 @@ definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
 const { can } = useAuth()
+const { confirm: dialogConfirm, alert: dialogAlert } = useDialog()
 const route = useRoute()
 const { settings, update: updateSettings } = useUserSettings()
 
@@ -268,20 +320,56 @@ async function onStatusChange({ issueId, newStatus }: { issueId: number, newStat
   }
 }
 
-// ---- Member edit ----
+const kanbanColumns = computed(() => [
+  { key: '未计划', label: '未计划', color: '#8b5cf6', items: filteredIssues.value.filter(i => i.status === '未计划') },
+  { key: '待处理', label: '待处理', color: '#f59e0b', items: filteredIssues.value.filter(i => i.status === '待处理') },
+  { key: '进行中', label: '进行中', color: '#3b82f6', items: filteredIssues.value.filter(i => i.status === '进行中') },
+  { key: '已解决', label: '已解决', color: '#10b981', items: filteredIssues.value.filter(i => i.status === '已解决') },
+  { key: '已发布', label: '已发布', color: '#14b8a6', items: filteredIssues.value.filter(i => i.status === '已发布') },
+  { key: '已关闭', label: '已关闭', color: '#6b7280', items: filteredIssues.value.filter(i => i.status === '已关闭') },
+])
+
+function onKanbanDrop({ itemId, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
+  onStatusChange({ issueId: itemId as number, newStatus: toColumn })
+}
+
+// ---- Member add / edit / remove ----
 const showMemberModal = ref(false)
+const memberMode = ref<'add' | 'edit'>('edit')
 const editingMember = ref<any>(null)
 const savingMember = ref(false)
 const memberFormError = ref('')
-const memberForm = ref<{ role_id: number | null, personal_description: string }>({
+const memberForm = ref<{ user_id: number | null, role_id: number | null, personal_description: string }>({
+  user_id: null,
   role_id: null,
   personal_description: '',
 })
 
+const memberModalTitle = computed(() =>
+  memberMode.value === 'add' ? '添加成员' : `编辑成员 - ${editingMember.value?.user_name ?? ''}`,
+)
+
+const availableUserOptions = computed(() => {
+  const memberIds = new Set(projectMembers.value.map((m: any) => m.user_id))
+  return users.value
+    .filter(u => !memberIds.has(u.id))
+    .map(u => ({ label: u.name || u.username, value: u.id }))
+})
+
+function openAddMember() {
+  memberMode.value = 'add'
+  editingMember.value = null
+  memberForm.value = { user_id: null, role_id: null, personal_description: '' }
+  memberFormError.value = ''
+  showMemberModal.value = true
+}
+
 function openEditMember(member: any) {
+  memberMode.value = 'edit'
   editingMember.value = member
   const matching = roleChoices.value.find(g => g.name === member.role)
   memberForm.value = {
+    user_id: member.user_id,
     role_id: matching ? matching.id : null,
     personal_description: member.personal_description || '',
   }
@@ -289,31 +377,78 @@ function openEditMember(member: any) {
   showMemberModal.value = true
 }
 
+function extractError(e: any, fallback: string): string {
+  const data = e?.data || e?.response?._data
+  if (data && typeof data === 'object') {
+    const msgs = Object.values(data).flat().filter(Boolean).join('; ')
+    if (msgs) return msgs
+  }
+  return e?.message || fallback
+}
+
 async function saveMember() {
-  if (!editingMember.value) return
   savingMember.value = true
   memberFormError.value = ''
   try {
-    const updated = await api<any>(
-      `/api/projects/${route.params.id}/members/${editingMember.value.user_id}/`,
-      {
-        method: 'PATCH',
-        body: {
-          role_id: memberForm.value.role_id,
-          personal_description: memberForm.value.personal_description,
+    if (memberMode.value === 'add') {
+      if (!memberForm.value.user_id) {
+        memberFormError.value = '请选择用户'
+        return
+      }
+      const created = await api<any>(
+        `/api/projects/${route.params.id}/members/`,
+        {
+          method: 'POST',
+          body: {
+            user_id: memberForm.value.user_id,
+            role_id: memberForm.value.role_id,
+            personal_description: memberForm.value.personal_description,
+          },
         },
-      },
-    )
-    const idx = projectMembers.value.findIndex((m: any) => m.user_id === editingMember.value.user_id)
-    if (idx !== -1) {
-      project.value.members[idx] = updated
+      )
+      if (project.value) {
+        project.value.members = [...(project.value.members || []), created]
+      }
+    } else {
+      const updated = await api<any>(
+        `/api/projects/${route.params.id}/members/${editingMember.value.user_id}/`,
+        {
+          method: 'PATCH',
+          body: {
+            role_id: memberForm.value.role_id,
+            personal_description: memberForm.value.personal_description,
+          },
+        },
+      )
+      const idx = projectMembers.value.findIndex((m: any) => m.user_id === editingMember.value.user_id)
+      if (idx !== -1) {
+        project.value.members[idx] = updated
+      }
     }
     showMemberModal.value = false
   } catch (e: any) {
-    const data = e?.data || e?.response?._data
-    memberFormError.value = (data && typeof data === 'object' && Object.values(data).flat().join('; ')) || e?.message || '保存失败'
+    memberFormError.value = extractError(e, '保存失败')
   } finally {
     savingMember.value = false
+  }
+}
+
+async function confirmRemoveMember(member: any) {
+  const ok = await dialogConfirm({
+    title: '移除成员',
+    message: `确定要将「${member.user_name || '该成员'}」从项目中移除吗？`,
+    color: 'error',
+    confirmText: '移除',
+  })
+  if (!ok) return
+  try {
+    await api(
+      `/api/projects/${route.params.id}/members/${member.user_id}/`,
+      { method: 'DELETE' },
+    )
+    project.value.members = projectMembers.value.filter((m: any) => m.user_id !== member.user_id)
+  } catch (e: any) {
+    await dialogAlert({ title: '移除失败', message: extractError(e, '请稍后重试'), color: 'error' })
   }
 }
 
