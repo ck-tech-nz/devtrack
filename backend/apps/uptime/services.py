@@ -1,5 +1,11 @@
+import logging
 from enum import Enum
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 class TransitionAction(Enum):
@@ -28,3 +34,58 @@ def decide_transition(monitor, *, is_up: bool) -> TransitionAction:
     if monitor.consecutive_failures + 1 >= threshold:
         return TransitionAction.FIRE_FAILURE
     return TransitionAction.NONE
+
+
+def _get_bot_user():
+    return User.objects.get(username=settings.UPTIME_SYSTEM_BOT_USERNAME)
+
+
+def _build_failure_description(monitor, latest_error: str) -> str:
+    return (
+        f"**监控**: {monitor.name}\n\n"
+        f"**URL**: {monitor.url}\n\n"
+        f"**首次失败时间**: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"**连续失败次数**: {settings.UPTIME_FAILURE_THRESHOLD}\n\n"
+        f"**最近一次错误**: {latest_error}\n"
+    )
+
+
+def fire_failure(monitor, *, latest_error: str):
+    """Create an Issue for this monitor going down, link it, and notify project members."""
+    from apps.issues.models import Issue
+    from apps.notifications.models import Notification, NotificationRecipient
+    from apps.projects.models import ProjectMember
+
+    bot = _get_bot_user()
+    now = timezone.now()
+
+    issue = Issue.objects.create(
+        project=monitor.project,
+        title=f"[监控告警] {monitor.name} 不可达",
+        description=_build_failure_description(monitor, latest_error),
+        priority="P1",
+        status="待处理",
+        created_by=bot,
+        reporter="",
+    )
+
+    monitor.active_incident_issue = issue
+    monitor.last_status = "down"
+    monitor.outage_started_at = now
+    monitor.save(update_fields=["active_incident_issue", "last_status", "outage_started_at", "updated_at"])
+
+    notification = Notification.objects.create(
+        notification_type=Notification.Type.SYSTEM,
+        title=f"监控 {monitor.name} 不可达",
+        content=f"已创建 Issue #{issue.pk}",
+        source_user=bot,
+        source_issue=issue,
+        target_type=Notification.TargetType.USER,
+    )
+    member_ids = list(
+        ProjectMember.objects.filter(project=monitor.project).values_list("user_id", flat=True)
+    )
+    for user_id in member_ids:
+        NotificationRecipient.objects.create(notification=notification, user_id=user_id)
+
+    logger.info("Uptime monitor %s went down. Issue #%s created.", monitor.pk, issue.pk)
