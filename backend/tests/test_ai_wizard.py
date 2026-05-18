@@ -356,7 +356,7 @@ def test_issue_create_accepts_source_and_source_meta(api_client):
             "title": "通过向导创建",
             "description": "AI-rephrased desc\n\n## 复现步骤\n1. x",
             "priority": "P2",
-            "status": "待处理",
+            "status": "待分配",
             "labels": [],
             "source": "ai_wizard",
             "source_meta": {"module": "通知中心", "environment": "Chrome / Windows"},
@@ -426,7 +426,7 @@ def test_issue_create_rejects_unknown_source(api_client):
             "title": "fake provenance",
             "description": "x",
             "priority": "P2",
-            "status": "待处理",
+            "status": "待分配",
             "labels": [],
             "source": "fake_source",
         },
@@ -455,7 +455,7 @@ def test_issue_create_rejects_oversized_source_meta(api_client):
             "title": "x",
             "description": "x",
             "priority": "P2",
-            "status": "待处理",
+            "status": "待分配",
             "labels": [],
             "source": "ai_wizard",
             "source_meta": huge,
@@ -870,7 +870,7 @@ def test_stream_draft_v2_emits_step_duplicates_draft_done(site_settings):
         return_value=valid_json,
     ), patch(
         "apps.issues.services_ai_wizard.check_duplicates",
-        return_value=[{"id": 7, "title": "old", "status": "待处理", "reason": "same"}],
+        return_value=[{"id": 7, "title": "old", "status": "待分配", "reason": "same"}],
     ):
         svc = AiWizardService()
         events = list(svc.stream_draft(
@@ -895,7 +895,7 @@ def test_stream_draft_v2_emits_step_duplicates_draft_done(site_settings):
     assert draft_event[1]["title"] == "T"
     # Duplicates payload shape
     dup_event = next(e for e in events if e[0] == "duplicates")
-    assert dup_event[1]["items"] == [{"id": 7, "title": "old", "status": "待处理", "reason": "same"}]
+    assert dup_event[1]["items"] == [{"id": 7, "title": "old", "status": "待分配", "reason": "same"}]
 
 
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)

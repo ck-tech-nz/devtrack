@@ -10,8 +10,8 @@ class TestEnums:
         assert IssueStatus.UNASSIGNED.value == "待分配"
         assert IssueStatus.PENDING_CONFIRMATION.value == "待确认"
         assert IssueStatus.IN_PROGRESS.value == "进行中"
-        # Verify "待处理" is GONE
-        assert "待处理" not in IssueStatus.values
+        # Verify "待分配" is GONE
+        assert "待分配" not in IssueStatus.values
 
     def test_assignment_action_choices(self):
         assert AssignmentAction.CLAIM.value == "claim"
@@ -55,13 +55,13 @@ class TestSeedMigration:
     def test_status_rename_and_seed(self):
         u = UserFactory()
         issue = IssueFactory(status="进行中", assignee=u)
-        # Pretend this issue was in the old 待处理 state
-        Issue.objects.filter(pk=issue.pk).update(status="待处理")
+        # Pretend this issue was in the old 待分配 state
+        Issue.objects.filter(pk=issue.pk).update(status="待分配")
         IssueAssignment.objects.filter(issue=issue).delete()
 
         # Replay the migration's semantic effect inline (the real migration
         # uses apps.get_model under RunPython; this test asserts the outcome).
-        Issue.objects.filter(status="待处理").update(status="待分配")
+        Issue.objects.filter(status="待分配").update(status="待分配")
         if not IssueAssignment.objects.filter(issue=issue).exists():
             IssueAssignment.objects.create(
                 issue=issue, action="assign",
