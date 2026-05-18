@@ -25,7 +25,7 @@ def default_priorities():
 
 
 def default_issue_statuses():
-    return ["未计划", "待处理", "进行中", "已解决", "已发布", "已关闭"]
+    return ["未计划", "待分配", "待确认", "进行中", "已解决", "已发布", "已关闭"]
 
 
 def default_modules():

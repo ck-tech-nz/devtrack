@@ -43,7 +43,7 @@ class SiteSettingsFactory(factory.django.DjangoModelFactory):
         "UI/UX": {"foreground": "#ffffff", "background": "#bfd4f2", "description": ""},
     }
     priorities = ["P0", "P1", "P2", "P3"]
-    issue_statuses = ["未计划", "待处理", "进行中", "已解决", "已发布", "已关闭"]
+    issue_statuses = ["未计划", "待分配", "待确认", "进行中", "已解决", "已发布", "已关闭"]
 
 
 class ProjectFactory(factory.django.DjangoModelFactory):
@@ -70,6 +70,7 @@ class ProjectMemberFactory(factory.django.DjangoModelFactory):
     project = factory.SubFactory(ProjectFactory)
     user = factory.SubFactory(UserFactory)
     role = None
+    is_manager = False
 
 
 class IssueFactory(factory.django.DjangoModelFactory):
@@ -81,7 +82,7 @@ class IssueFactory(factory.django.DjangoModelFactory):
     title = factory.LazyFunction(lambda: fake.sentence())
     description = factory.LazyFunction(lambda: fake.paragraph())
     priority = factory.Iterator(["P0", "P1", "P2", "P3"])
-    status = "待处理"
+    status = "待分配"
     labels = factory.LazyFunction(lambda: [fake.random_element(["前端", "后端", "Bug"])])
     created_by = factory.SubFactory(UserFactory)
 
