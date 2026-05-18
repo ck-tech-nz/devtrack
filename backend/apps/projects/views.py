@@ -54,13 +54,21 @@ class ProjectMemberListCreateView(generics.ListCreateAPIView):
         serializer = ProjectMemberCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         project = get_object_or_404(Project, pk=project_pk)
-        member = ProjectMember.objects.create(
-            project=project,
-            user_id=serializer.validated_data["user_id"],
-            role=serializer.validated_data.get("role_id"),
-            personal_description=serializer.validated_data.get("personal_description", ""),
-            is_manager=serializer.validated_data.get("is_manager", False),
-        )
+        try:
+            member = ProjectMember.objects.create(
+                project=project,
+                user_id=serializer.validated_data["user_id"],
+                role=serializer.validated_data.get("role_id"),
+                personal_description=serializer.validated_data.get("personal_description", ""),
+                is_manager=serializer.validated_data.get("is_manager", False),
+            )
+        except IntegrityError as e:
+            if "one_manager_per_project" in str(e):
+                return Response(
+                    {"detail": "该项目已有项目经理"},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            raise
         return Response(
             ProjectMemberSerializer(member).data,
             status=status.HTTP_201_CREATED,
@@ -84,11 +92,13 @@ class ProjectMemberDetailView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         try:
             serializer.save()
-        except IntegrityError:
-            return Response(
-                {"detail": "该项目已有项目经理"},
-                status=status.HTTP_409_CONFLICT,
-            )
+        except IntegrityError as e:
+            if "one_manager_per_project" in str(e):
+                return Response(
+                    {"detail": "该项目已有项目经理"},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            raise
         return Response(ProjectMemberSerializer(member).data)
 
     def delete(self, request, *args, **kwargs):

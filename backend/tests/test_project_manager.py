@@ -46,7 +46,7 @@ class TestProjectMemberAPI:
         member.refresh_from_db()
         assert member.is_manager is True
 
-    def test_setting_second_manager_returns_400(self, auth_client):
+    def test_setting_second_manager_returns_409(self, auth_client):
         project = ProjectFactory()
         u1, u2 = UserFactory(), UserFactory()
         ProjectMember.objects.create(project=project, user=u1, is_manager=True)
@@ -55,6 +55,14 @@ class TestProjectMemberAPI:
             f"/api/projects/{project.id}/members/{u2.id}/",
             {"is_manager": True}, format="json",
         )
-        # IntegrityError → DRF 500 normally; either 400 or 500 indicates the
-        # constraint is enforced. Acceptable for Phase 1.
-        assert resp.status_code in (400, 409, 500)
+        assert resp.status_code == 409
+
+    def test_creating_second_manager_via_post_returns_409(self, auth_client):
+        project = ProjectFactory()
+        u1, u2 = UserFactory(), UserFactory()
+        ProjectMember.objects.create(project=project, user=u1, is_manager=True)
+        resp = auth_client.post(
+            f"/api/projects/{project.id}/members/",
+            {"user_id": u2.id, "is_manager": True}, format="json",
+        )
+        assert resp.status_code == 409, resp.data
