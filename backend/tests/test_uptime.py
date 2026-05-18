@@ -338,6 +338,75 @@ class TestCheckMonitorTask:
         assert monitor.active_incident_issue is None
 
 
+from apps.uptime.serializers import UptimeMonitorSerializer
+
+
+class TestUptimeMonitorSerializer:
+    def _factory_data(self, **overrides):
+        data = {
+            "name": "test-monitor",
+            "url": "https://example.com/health",
+            "method": "GET",
+            "expected_status": "200",
+            "expected_body": "",
+            "interval_minutes": 5,
+            "timeout_secs": 20,
+            "is_enabled": True,
+        }
+        data.update(overrides)
+        return data
+
+    def test_valid_data(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data())
+        assert serializer.is_valid(), serializer.errors
+
+    def test_url_must_have_protocol(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(url="example.com"))
+        assert not serializer.is_valid()
+        assert "url" in serializer.errors
+
+    def test_method_post_rejected_in_v1(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(method="POST"))
+        assert not serializer.is_valid()
+        assert "method" in serializer.errors
+
+    def test_expected_status_must_be_digits(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(expected_status="2xx"))
+        assert not serializer.is_valid()
+        assert "expected_status" in serializer.errors
+
+    def test_expected_status_comma_separated_ok(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(expected_status="200,204"))
+        assert serializer.is_valid(), serializer.errors
+
+    def test_interval_min_1(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(interval_minutes=0))
+        assert not serializer.is_valid()
+
+    def test_interval_max_1440(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(interval_minutes=1441))
+        assert not serializer.is_valid()
+
+    def test_timeout_min_1(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(timeout_secs=0))
+        assert not serializer.is_valid()
+
+    def test_timeout_max_60(self):
+        serializer = UptimeMonitorSerializer(data=self._factory_data(timeout_secs=61))
+        assert not serializer.is_valid()
+
+    def test_serialized_fields_include_read_only(self):
+        monitor = UptimeMonitorFactory(
+            last_status="up", last_check_at=timezone.now(), last_up_at=timezone.now(),
+        )
+        data = UptimeMonitorSerializer(monitor).data
+        assert "last_status" in data
+        assert "last_check_at" in data
+        assert "last_up_at" in data
+        assert "outage_started_at" in data
+        assert "active_incident_issue_id" in data
+
+
 from apps.uptime.tasks import tick_uptime_monitors, prune_old_checks
 
 
