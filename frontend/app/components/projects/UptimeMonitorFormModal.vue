@@ -8,6 +8,9 @@
         <UFormField label="URL" required>
           <UInput v-model="form.url" placeholder="https://example.com/health" />
         </UFormField>
+        <UFormField label="环境">
+          <USelect v-model="form.environment" :items="environmentOptions" value-key="value" />
+        </UFormField>
         <UFormField label="期望状态码" hint="单个或逗号分隔,例如 200 或 200,204">
           <UInput v-model="form.expected_status" placeholder="200" />
         </UFormField>
@@ -36,6 +39,7 @@
 interface MonitorPayload {
   id?: number
   name: string
+  environment: string
   url: string
   method: string
   expected_status: string
@@ -74,8 +78,15 @@ const intervalOptions = [
   { label: '每 60 分钟', value: 60 },
 ]
 
+const environmentOptions = [
+  { label: '生产 (production)', value: 'production' },
+  { label: '预发 (staging)', value: 'staging' },
+  { label: '测试 (test)', value: 'test' },
+]
+
 const form = reactive<MonitorPayload>({
   name: '',
+  environment: 'production',
   url: '',
   method: 'GET',
   expected_status: '200',
@@ -95,8 +106,9 @@ watch(() => props.open, (open) => {
       Object.assign(form, props.initial)
     } else {
       Object.assign(form, {
-        name: '', url: '', method: 'GET', expected_status: '200',
-        expected_body: '', interval_minutes: 1, timeout_secs: 20, is_enabled: true,
+        name: '', environment: 'production', url: '', method: 'GET',
+        expected_status: '200', expected_body: '',
+        interval_minutes: 1, timeout_secs: 20, is_enabled: true,
       })
     }
   }

@@ -5,7 +5,13 @@
       :class="statusDotClass"
     />
     <div class="min-w-0 flex-shrink-0 w-56">
-      <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ monitor.name }}</div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ monitor.name }}</span>
+        <span
+          class="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
+          :class="envBadgeClass"
+        >{{ envLabel }}</span>
+      </div>
       <a
         :href="monitor.url" target="_blank" rel="noopener"
         class="text-xs text-gray-500 dark:text-gray-400 hover:text-crystal-500 truncate block"
@@ -30,6 +36,7 @@ import { formatUptime } from '~/utils/formatUptime'
 interface Monitor {
   id: number
   name: string
+  environment: string
   url: string
   last_status: string
   last_up_at: string | null
@@ -69,6 +76,24 @@ const statusTextClass = computed(() => {
     case 'up': return 'text-green-600 dark:text-green-400'
     case 'down': return 'text-red-600 dark:text-red-400'
     default: return 'text-gray-400 dark:text-gray-500'
+  }
+})
+
+const envLabel = computed(() => {
+  switch (props.monitor.environment) {
+    case 'production': return '生产'
+    case 'staging': return '预发'
+    case 'test': return '测试'
+    default: return props.monitor.environment || '-'
+  }
+})
+
+const envBadgeClass = computed(() => {
+  switch (props.monitor.environment) {
+    case 'production': return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+    case 'staging': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+    case 'test': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+    default: return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
   }
 })
 </script>

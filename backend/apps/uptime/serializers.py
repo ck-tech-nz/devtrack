@@ -13,16 +13,19 @@ class UptimeMonitorSerializer(serializers.ModelSerializer):
     class Meta:
         model = UptimeMonitor
         fields = [
-            "id",
-            "name", "url", "method", "expected_status", "expected_body",
+            "id", "project", "project_name",
+            "name", "environment", "url", "method", "expected_status", "expected_body",
             "interval_minutes", "timeout_secs", "is_enabled",
             "last_status", "last_check_at", "last_up_at",
             "outage_started_at", "active_incident_issue_id",
         ]
         read_only_fields = [
-            "id", "last_status", "last_check_at", "last_up_at",
+            "id", "project", "project_name",
+            "last_status", "last_check_at", "last_up_at",
             "outage_started_at", "active_incident_issue_id",
         ]
+
+    project_name = serializers.CharField(source="project.name", read_only=True)
 
     def validate_method(self, value):
         if value != "GET":

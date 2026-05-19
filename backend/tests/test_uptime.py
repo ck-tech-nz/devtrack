@@ -8,10 +8,15 @@ from apps.uptime.services import fire_failure
 from apps.issues.models import Issue
 from apps.notifications.models import Notification, NotificationRecipient
 from apps.projects.models import ProjectMember
+from django.contrib.auth.models import Group
 from tests.factories import ProjectFactory, UserFactory
 from apps.uptime.models import UptimeMonitor
 
 pytestmark = pytest.mark.django_db
+
+
+def _dev_role():
+    return Group.objects.get_or_create(name="开发者")[0]
 
 
 class TestDecideTransition:
@@ -56,7 +61,7 @@ class TestFireFailure:
         bot = UserFactory(username="bot")
         project = ProjectFactory()
         member = UserFactory()
-        ProjectMember.objects.create(project=project, user=member, role="开发者")
+        ProjectMember.objects.create(project=project, user=member, role=_dev_role())
         monitor = UptimeMonitorFactory(
             project=project, name="api-prod",
             url="https://api.example.com/health",
@@ -109,7 +114,7 @@ class TestFireRecovery:
         bot = UserFactory(username="bot")
         project = ProjectFactory()
         member = UserFactory()
-        ProjectMember.objects.create(project=project, user=member, role="开发者")
+        ProjectMember.objects.create(project=project, user=member, role=_dev_role())
         existing_issue = Issue.objects.create(
             project=project, title="[监控告警] api-prod 不可达",
             description="...", priority="P1", status="待处理",

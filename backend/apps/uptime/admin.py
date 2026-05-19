@@ -5,8 +5,8 @@ from .models import UptimeMonitor, UptimeCheck
 
 @admin.register(UptimeMonitor)
 class UptimeMonitorAdmin(ModelAdmin):
-    list_display = ("id", "name", "project", "url", "last_status", "is_enabled", "last_check_at")
-    list_filter = ("last_status", "is_enabled", "project")
+    list_display = ("id", "name", "environment", "project", "url", "last_status", "is_enabled", "last_check_at")
+    list_filter = ("environment", "last_status", "is_enabled", "project")
     search_fields = ("name", "url")
     readonly_fields = (
         "next_check_at", "last_check_at", "last_status", "last_up_at",
