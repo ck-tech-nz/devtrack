@@ -1,6 +1,7 @@
 import re
 from rest_framework import serializers
 from apps.uptime.models import UptimeMonitor, UptimeCheck
+from apps.uptime.url_safety import check_url_safety
 
 EXPECTED_STATUS_RE = re.compile(r"^\d{3}(,\d{3})*$")
 
@@ -40,6 +41,9 @@ class UptimeMonitorSerializer(serializers.ModelSerializer):
     def validate_url(self, value):
         if not (value.startswith("http://") or value.startswith("https://")):
             raise serializers.ValidationError("URL 必须以 http:// 或 https:// 开头")
+        safe, reason = check_url_safety(value)
+        if not safe:
+            raise serializers.ValidationError(reason)
         return value
 
 

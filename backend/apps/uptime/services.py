@@ -38,7 +38,17 @@ def decide_transition(monitor, *, is_up: bool) -> TransitionAction:
 
 
 def _get_bot_user():
-    return User.objects.get(username=settings.UPTIME_SYSTEM_BOT_USERNAME)
+    """Resolve the system bot user. Returns None and logs if the user is missing,
+    so callers can degrade gracefully rather than retry-looping on DoesNotExist."""
+    try:
+        return User.objects.get(username=settings.UPTIME_SYSTEM_BOT_USERNAME)
+    except User.DoesNotExist:
+        logger.error(
+            "UPTIME_SYSTEM_BOT_USERNAME=%r does not exist. "
+            "Cannot create monitoring Issue/Notification — create the user or update settings.",
+            settings.UPTIME_SYSTEM_BOT_USERNAME,
+        )
+        return None
 
 
 def _build_failure_description(monitor, latest_error: str) -> str:
@@ -53,19 +63,28 @@ def _build_failure_description(monitor, latest_error: str) -> str:
 
 def fire_failure(monitor, *, latest_error: str):
     """Create an Issue for this monitor going down, link it, and notify project members."""
-    from apps.issues.models import Issue
+    from apps.issues.models import Issue, IssueStatus
     from apps.notifications.models import Notification, NotificationRecipient
     from apps.projects.models import ProjectMember
 
     bot = _get_bot_user()
     now = timezone.now()
 
+    if bot is None:
+        # Degrade gracefully: still flip the monitor into "down" so we don't fire
+        # the same threshold breach on every subsequent check, but skip Issue +
+        # notification creation. Operator will see the row turn red.
+        monitor.last_status = "down"
+        monitor.outage_started_at = now
+        monitor.save(update_fields=["last_status", "outage_started_at", "updated_at"])
+        return
+
     issue = Issue.objects.create(
         project=monitor.project,
         title=f"[监控告警] {monitor.name} 不可达",
         description=_build_failure_description(monitor, latest_error),
         priority="P1",
-        status="待处理",
+        status=IssueStatus.UNASSIGNED.value,
         created_by=bot,
         reporter="",
     )
@@ -108,7 +127,7 @@ def _format_duration_zh(delta) -> str:
 
 def fire_recovery(monitor):
     """Close the active incident Issue (if any), add an Activity row, notify project members."""
-    from apps.issues.models import Issue, Activity
+    from apps.issues.models import Issue, IssueStatus, Activity
     from apps.notifications.models import Notification, NotificationRecipient
     from apps.projects.models import ProjectMember
 
@@ -118,8 +137,9 @@ def fire_recovery(monitor):
     duration_human = _format_duration_zh(duration)
 
     issue = monitor.active_incident_issue
-    if issue is not None and issue.status not in ("已解决", "已关闭"):
-        issue.status = "已解决"
+    closed_states = (IssueStatus.RESOLVED.value, IssueStatus.CLOSED.value)
+    if bot is not None and issue is not None and issue.status not in closed_states:
+        issue.status = IssueStatus.RESOLVED.value
         issue.resolved_at = now
         issue.save(update_fields=["status", "resolved_at", "updated_at"])
         Activity.objects.create(
@@ -136,6 +156,11 @@ def fire_recovery(monitor):
         "active_incident_issue", "outage_started_at", "last_status",
         "last_up_at", "consecutive_failures", "updated_at",
     ])
+
+    if bot is None:
+        # Without a bot user we can't author the notification. Monitor state was
+        # already updated above so we exit cleanly; operator sees the green dot.
+        return
 
     notification = Notification.objects.create(
         notification_type=Notification.Type.SYSTEM,

@@ -1,4 +1,5 @@
 import pytest
+import socket
 from datetime import timedelta
 from unittest.mock import patch
 from django.utils import timezone
@@ -17,6 +18,22 @@ pytestmark = pytest.mark.django_db
 
 def _dev_role():
     return Group.objects.get_or_create(name="开发者")[0]
+
+
+@pytest.fixture(autouse=True)
+def _stub_dns(monkeypatch):
+    """Mock DNS resolution so URL safety checks don't depend on the runner's DNS.
+
+    Some networks (corp DNS, VPN, sinkhole) hijack public domains like
+    example.com to private/reserved IPs, which would falsely trip the SSRF
+    guard. Tests for literal-IP blocking still work because the safety check
+    short-circuits on literal IPs before hitting DNS.
+    """
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', port or 0))]
+    monkeypatch.setattr(
+        "apps.uptime.url_safety.socket.getaddrinfo", fake_getaddrinfo,
+    )
 
 
 class TestDecideTransition:
@@ -76,7 +93,7 @@ class TestFireFailure:
         assert "api-prod" in issue.title
         assert "不可达" in issue.title
         assert issue.priority == "P1"
-        assert issue.status == "待处理"
+        assert issue.status == "待分配"
         assert issue.created_by == bot
         assert "timeout" in issue.description
 
@@ -96,13 +113,18 @@ class TestFireFailure:
         recipients = list(notification.recipients.values_list("user_id", flat=True))
         assert member.id in recipients
 
-    def test_no_bot_user_raises(self, site_settings):
+    def test_no_bot_user_degrades_gracefully(self, site_settings):
+        # When the configured bot user does not exist, fire_failure should not
+        # raise — it should log, flip the monitor to "down", and exit cleanly so
+        # Celery doesn't get stuck in a retry loop.
         project = ProjectFactory()
         monitor = UptimeMonitorFactory(
             project=project, last_status="up", consecutive_failures=2,
         )
-        with pytest.raises(Exception):
-            fire_failure(monitor, latest_error="timeout")
+        fire_failure(monitor, latest_error="timeout")
+        monitor.refresh_from_db()
+        assert monitor.last_status == "down"
+        assert Issue.objects.count() == 0
 
 
 from apps.uptime.services import fire_recovery
@@ -117,7 +139,7 @@ class TestFireRecovery:
         ProjectMember.objects.create(project=project, user=member, role=_dev_role())
         existing_issue = Issue.objects.create(
             project=project, title="[监控告警] api-prod 不可达",
-            description="...", priority="P1", status="待处理",
+            description="...", priority="P1", status="待分配",
             created_by=bot, reporter="",
         )
         monitor = UptimeMonitorFactory(
@@ -195,6 +217,11 @@ def _mock_response(status_code: int, text: str = "OK"):
     resp = MagicMock()
     resp.status_code = status_code
     resp.text = text
+    resp.encoding = "utf-8"
+    body_bytes = text.encode("utf-8")
+    # Yield as a single chunk; perform_check breaks once the cap is reached.
+    resp.iter_content.return_value = iter([body_bytes])
+    resp.close.return_value = None
     return resp
 
 
@@ -310,7 +337,7 @@ class TestCheckMonitorTask:
         project = ProjectFactory()
         issue = Issue.objects.create(
             project=project, title="x", description="x", priority="P1",
-            status="待处理", created_by=bot, reporter="",
+            status="待分配", created_by=bot, reporter="",
         )
         monitor = UptimeMonitorFactory(
             project=project, last_status="down", consecutive_failures=5,
@@ -574,3 +601,124 @@ class TestProjectMonitorsAPI:
             format="json",
         )
         assert response.status_code == 400
+
+
+from apps.uptime.url_safety import check_url_safety
+
+
+class TestUrlSafety:
+    def test_public_hostname_accepted(self):
+        safe, _ = check_url_safety("https://www.example.com/health")
+        assert safe
+
+    def test_localhost_rejected(self):
+        safe, reason = check_url_safety("http://localhost/health")
+        assert not safe
+        assert "内部地址" in reason
+
+    def test_loopback_ipv4_rejected(self):
+        safe, _ = check_url_safety("http://127.0.0.1/")
+        assert not safe
+
+    def test_loopback_ipv6_rejected(self):
+        safe, _ = check_url_safety("http://[::1]/")
+        assert not safe
+
+    def test_rfc1918_10_rejected(self):
+        safe, _ = check_url_safety("http://10.0.0.1/")
+        assert not safe
+
+    def test_rfc1918_192_168_rejected(self):
+        safe, _ = check_url_safety("http://192.168.1.1/")
+        assert not safe
+
+    def test_rfc1918_172_16_rejected(self):
+        safe, _ = check_url_safety("http://172.16.0.1/")
+        assert not safe
+
+    def test_link_local_aws_metadata_rejected(self):
+        safe, _ = check_url_safety("http://169.254.169.254/latest/meta-data/")
+        assert not safe
+
+    def test_unspecified_rejected(self):
+        safe, _ = check_url_safety("http://0.0.0.0/")
+        assert not safe
+
+    def test_non_http_scheme_rejected(self):
+        safe, _ = check_url_safety("file:///etc/passwd")
+        assert not safe
+
+    def test_serializer_rejects_loopback(self, site_settings):
+        data = {
+            "name": "internal",
+            "url": "http://127.0.0.1/health",
+            "method": "GET",
+            "expected_status": "200",
+            "expected_body": "",
+            "interval_minutes": 1,
+            "timeout_secs": 20,
+            "is_enabled": True,
+        }
+        serializer = UptimeMonitorSerializer(data=data)
+        assert not serializer.is_valid()
+        assert "url" in serializer.errors
+
+
+class TestBotUserMissing:
+    """Graceful degradation when settings.UPTIME_SYSTEM_BOT_USERNAME is unset
+    or refers to a non-existent user."""
+
+    def test_fire_failure_without_bot_still_updates_monitor(self, site_settings):
+        # Note: no UserFactory(username="bot") here
+        project = ProjectFactory()
+        monitor = UptimeMonitorFactory(
+            project=project, last_status="up", consecutive_failures=2,
+        )
+        fire_failure(monitor, latest_error="timeout")
+        monitor.refresh_from_db()
+        assert monitor.last_status == "down"
+        assert monitor.outage_started_at is not None
+        # No Issue and no Notification should exist
+        assert Issue.objects.count() == 0
+        assert Notification.objects.count() == 0
+
+    def test_fire_recovery_without_bot_still_clears_state(self, site_settings):
+        project = ProjectFactory()
+        monitor = UptimeMonitorFactory(
+            project=project, last_status="down", consecutive_failures=5,
+            outage_started_at=timezone.now() - timedelta(minutes=10),
+        )
+        fire_recovery(monitor)
+        monitor.refresh_from_db()
+        assert monitor.last_status == "up"
+        assert monitor.outage_started_at is None
+        assert monitor.last_up_at is not None
+        # No notification authored
+        assert Notification.objects.count() == 0
+
+
+from apps.uptime.http_check import perform_check as _perform_check_for_body_test
+
+
+class TestResponseBodyCap:
+    """The HTTP checker caps how much of the response body it reads to avoid
+    OOMing the worker on a misbehaving monitored URL."""
+
+    def test_huge_body_does_not_blow_memory_when_match_requested(self):
+        monitor = UptimeMonitorFactory(expected_status="200", expected_body="needle")
+        # Simulate a streaming response: 100 chunks of 4 KB = 400 KB total
+        chunks = [b"x" * 4096 for _ in range(100)]
+
+        class FakeResp:
+            status_code = 200
+            encoding = "utf-8"
+            def iter_content(self, chunk_size=4096, decode_unicode=False):
+                return iter(chunks)
+            def close(self):
+                pass
+
+        with patch("apps.uptime.http_check.requests.get", return_value=FakeResp()):
+            result = _perform_check_for_body_test(monitor)
+        # needle is never in the body -> body mismatch, not OOM
+        assert result.is_up is False
+        assert result.error == "body mismatch"

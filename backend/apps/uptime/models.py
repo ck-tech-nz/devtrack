@@ -20,6 +20,11 @@ class UptimeMonitor(models.Model):
         (ENV_TEST, "测试"),
     ]
 
+    METHOD_GET = "GET"
+    METHOD_CHOICES = [
+        (METHOD_GET, "GET"),
+    ]
+
     project = models.ForeignKey(
         "projects.Project", on_delete=models.CASCADE, related_name="uptime_monitors",
     )
@@ -28,7 +33,9 @@ class UptimeMonitor(models.Model):
         max_length=20, choices=ENV_CHOICES, default=ENV_PRODUCTION, verbose_name="环境",
     )
     url = models.URLField(max_length=500, verbose_name="URL")
-    method = models.CharField(max_length=10, default="GET", verbose_name="方法")
+    method = models.CharField(
+        max_length=10, choices=METHOD_CHOICES, default=METHOD_GET, verbose_name="方法",
+    )
     expected_status = models.CharField(max_length=50, default="200", verbose_name="期望状态码")
     expected_body = models.CharField(max_length=200, blank=True, verbose_name="期望响应体关键字")
     interval_minutes = models.PositiveIntegerField(default=1, verbose_name="检查间隔(分钟)")

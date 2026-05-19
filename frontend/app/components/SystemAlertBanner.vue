@@ -85,6 +85,7 @@ const primaryLink = computed(() => {
 
 async function fetchMonitors() {
   if (!user.value) return
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
   try {
     const data = await api<MonitorRow[]>('/api/uptime/monitors/')
     monitors.value = data ?? []

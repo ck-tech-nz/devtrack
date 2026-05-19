@@ -156,6 +156,9 @@ function patchStatusFields(fresh: Monitor[]) {
 }
 
 async function pollStatus() {
+  // Don't burn requests when the tab is hidden — the user can't see the result
+  // anyway and we'd otherwise pile up ~17k useless calls overnight.
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
   try {
     const fresh = await api<Monitor[]>(`/api/projects/${props.projectId}/monitors/`)
     patchStatusFields(fresh ?? [])

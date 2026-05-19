@@ -56,6 +56,7 @@ const monitors = ref<Monitor[]>([])
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 async function fetchMonitors() {
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
   try {
     const data = await api<Monitor[]>('/api/uptime/monitors/')
     monitors.value = data ?? []

@@ -17,7 +17,7 @@
         >{{ envLabel }}</span>
       </div>
       <a
-        :href="monitor.url" target="_blank" rel="noopener"
+        :href="monitor.url" target="_blank" rel="noopener noreferrer"
         class="text-xs text-gray-500 dark:text-gray-400 hover:text-crystal-500 truncate block"
         @click.stop
       >{{ monitor.url }}</a>
