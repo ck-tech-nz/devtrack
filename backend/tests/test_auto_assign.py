@@ -183,27 +183,43 @@ class TestAutoAssign:
 
 @pytest.mark.django_db
 class TestCreateIssueAutoAssignIntegration:
-    def test_create_without_assignee_triggers_auto_assign(self, auto_assign_prompt, default_llm_config, developer_role):
+    def test_create_without_assignee_queues_celery_task(self):
+        """create_issue must NOT call the LLM synchronously — the wizard POST
+        has to return instantly. The Issue is left in 待分配 + assignee=None
+        and a Celery task is queued (on transaction commit) to do the LLM pick.
+        """
+        from django.test import TestCase
+        project = ProjectFactory()
+        with patch("apps.issues.tasks.auto_assign_issue_task.delay") as mock_delay:
+            with TestCase.captureOnCommitCallbacks(execute=True):
+                issue = create_issue(
+                    project=project,
+                    actor=UserFactory(),
+                    title="修复登录Bug",
+                    description="无法登录系统",
+                    priority="P1",
+                )
+
+        issue.refresh_from_db()
+        assert issue.assignee_id is None
+        assert issue.status == "待分配"
+        mock_delay.assert_called_once_with(issue.id)
+
+    def test_create_with_assignee_skips_celery_task(self):
+        """When the caller passes an explicit assignee the workflow is sync —
+        no Celery dispatch."""
         project = ProjectFactory()
         target = UserFactory()
-        ProjectMember.objects.create(
-            project=project,
-            user=target,
-            role=developer_role,
-            personal_description="后端专家",
-        )
-
-        fake = json.dumps({"assignee_id": target.id, "reason": "后端"})
-        with patch("apps.issues.services.LLMClient") as MockClient:
-            MockClient.return_value.complete.return_value = fake
-            issue = create_issue(
-                project=project,
-                actor=UserFactory(),
-                title="修复登录Bug",
-                description="无法登录系统",
-                priority="P1",
-            )
-
+        with patch("apps.issues.tasks.auto_assign_issue_task.delay") as mock_delay:
+            from django.test import TestCase
+            with TestCase.captureOnCommitCallbacks(execute=True):
+                issue = create_issue(
+                    project=project,
+                    actor=UserFactory(),
+                    title="x", description="y", priority="P2",
+                    assignee=target,
+                )
         issue.refresh_from_db()
         assert issue.assignee == target
         assert issue.status == "待确认"
+        mock_delay.assert_not_called()

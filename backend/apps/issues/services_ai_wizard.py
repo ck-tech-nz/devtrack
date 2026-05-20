@@ -3,13 +3,10 @@ free-form bug description. Used by the SSE endpoint POST /api/issues/ai-draft/.
 """
 import json
 import logging
-import queue
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from apps.ai.client import LLMClient
 from apps.ai.models import Prompt
-from apps.issues.services import check_duplicates, pick_assignee_for_draft
 
 
 logger = logging.getLogger(__name__)
@@ -65,19 +62,26 @@ def _read_attachment_bytes(file_key: str) -> bytes:
 
 
 def _validate_shape(step: int, slug: str, data, schema):
-    """Validate parsed LLM output against expected shape; raise AiWizardError on mismatch."""
+    """Validate parsed LLM output against expected shape.
+
+    - Required field missing or wrong type → raise AiWizardError.
+    - Optional field missing or wrong type → coerce to default. LLMs occasionally
+      emit `follow_up_questions: null` or `labels: "..."` instead of a list; we
+      shouldn't abort the whole wizard over a recoverable optional field.
+    """
     if not isinstance(data, dict):
         raise AiWizardError(step=step, code="llm_bad_shape", message=f"{slug} 返回非对象")
     for key, expected_type, optional in schema:
-        if key not in data:
+        if key not in data or not isinstance(data[key], expected_type):
             if optional:
                 data[key] = "" if expected_type is str else (expected_type())
                 continue
-            raise AiWizardError(step=step, code="llm_bad_shape", message=f"{slug} 缺少字段 {key}")
-        if not isinstance(data[key], expected_type):
             raise AiWizardError(
                 step=step, code="llm_bad_shape",
-                message=f"{slug} 字段 {key} 类型错误（期望 {expected_type.__name__}）",
+                message=(
+                    f"{slug} 缺少字段 {key}" if key not in data
+                    else f"{slug} 字段 {key} 类型错误（期望 {expected_type.__name__}）"
+                ),
             )
     return data
 
@@ -338,159 +342,51 @@ class AiWizardService:
     def _stream_draft_v2(self, description: str, project_id, attachment_ids: list | None = None, user=None):
         """v2 generator yielding (event_name, payload) for the SSE layer.
 
-        Runs three LLM calls in parallel via a thread pool:
-          - oneshot_draft     → ("draft", {...})
-          - check_duplicates  → ("duplicates", {"items":[...]})
-          - pick_assignee     → ("assignee_suggestion", {user_id,name,reason} | null)
-        Pre-picking the assignee here lets the subsequent create-issue POST
-        skip its own LLM call and return instantly. The assignee is based on
-        the user's raw description (the oneshot draft isn't available yet
-        when this fires); on user edits in StepDraft, they can override.
+        Single LLM call (oneshot multimodal draft). Issue-content-unrelated
+        side-effects — auto-assign, future enrichment — are deferred to Celery
+        tasks fired from POST /api/issues/, on the principle that the submitter
+        only cares whether the AI draft matches their intent, not who handles
+        the issue afterwards.
 
-        Events are emitted in arrival order. ("done", {}) closes the stream.
+        Events: step(running) → step(done) + draft → done.
+                On failure: step(error) + error.
         """
-        from apps.projects.models import Project
-        project = Project.objects.filter(pk=project_id).first() if project_id else None
-        images = self._load_image_attachments(attachment_ids or [], user)
-
-        q: queue.Queue = queue.Queue()
-        STEP_LABEL = "理解描述与截图"
-        # Hard upper bound on each worker thread; q.get below adds a small safety
-        # margin so the generator can surface a typed error instead of hanging
-        # if a thread crashes with BaseException (e.g. SIGTERM/worker reload).
-        WORKER_DEADLINE_S = ONESHOT_TIMEOUT_SECONDS + 10
-
         import time
         t0 = time.monotonic()
 
-        def run_oneshot():
-            started = time.monotonic()
-            try:
-                draft = self.oneshot_draft(description, images)
-                logger.info("wizard oneshot ok elapsed_ms=%d", int((time.monotonic() - started) * 1000))
-                # Look up image attachment metadata (name + url) so the assembled
-                # description can embed them as inline markdown previews.
-                image_meta = self._load_image_metadata(attachment_ids or [], user)
-                draft["description"] = self._assemble_description(
-                    description, draft.get("inferred_env", ""), image_meta,
-                )
-                q.put(("draft", draft, None))
-            except AiWizardError as e:
-                logger.warning("wizard oneshot AiWizardError code=%s elapsed_ms=%d", e.code, int((time.monotonic() - started) * 1000))
-                q.put(("draft", None, e))
-            except BaseException:
-                # 包括 SystemExit/KeyboardInterrupt — worker reload (SIGTERM)
-                # 期间不能让 SSE 生成器 q.get 永久阻塞
-                logger.exception("wizard oneshot unexpected failure elapsed_ms=%d", int((time.monotonic() - started) * 1000))
-                q.put(("draft", None, AiWizardError(
-                    step=1, code="llm_call_failed", message="AI 调用失败，请重试")))
-            finally:
-                # Close thread-local DB connections so Django can tear down test
-                # DBs and prod pools don't leak per-request connections.
-                from django.db import connections
-                connections.close_all()
+        STEP_LABEL = "理解描述与截图"
+        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "running"})
 
-        def run_dupcheck():
-            started = time.monotonic()
-            try:
-                items = check_duplicates(project_id, description[:50], description) or []
-                logger.info("wizard dupcheck ok elapsed_ms=%d", int((time.monotonic() - started) * 1000))
-                q.put(("duplicates", items, None))
-            except BaseException:
-                logger.warning("wizard check_duplicates failed elapsed_ms=%d", int((time.monotonic() - started) * 1000), exc_info=True)
-                q.put(("duplicates", [], None))
-            finally:
-                from django.db import connections
-                connections.close_all()
+        images = self._load_image_attachments(attachment_ids or [], user)
 
-        def run_pick_assignee():
-            started = time.monotonic()
-            try:
-                if project is None:
-                    q.put(("assignee_suggestion", None, None))
-                    return
-                # 用户的标题/标签此时还没生成,仅用原始描述驱动挑选;
-                # 提示词里的 "{title}" 拿描述首段做近似,labels 为空
-                pick = pick_assignee_for_draft(
-                    project=project,
-                    title=description[:50],
-                    description=description,
-                    labels=[],
-                    priority="P2",
-                )
-                if pick is None:
-                    logger.info("wizard pick_assignee no-pick elapsed_ms=%d", int((time.monotonic() - started) * 1000))
-                    q.put(("assignee_suggestion", None, None))
-                else:
-                    target, reason = pick
-                    logger.info("wizard pick_assignee ok user=%s elapsed_ms=%d", target.id, int((time.monotonic() - started) * 1000))
-                    q.put(("assignee_suggestion", {
-                        "user_id": target.id,
-                        "name": target.name or target.username,
-                        "reason": reason,
-                    }, None))
-            except BaseException:
-                logger.warning("wizard pick_assignee failed elapsed_ms=%d", int((time.monotonic() - started) * 1000), exc_info=True)
-                q.put(("assignee_suggestion", None, None))
-            finally:
-                from django.db import connections
-                connections.close_all()
+        try:
+            draft = self.oneshot_draft(description, images)
+            image_meta = self._load_image_metadata(attachment_ids or [], user)
+            draft["description"] = self._assemble_description(
+                description, draft.get("inferred_env", ""), image_meta,
+            )
+        except AiWizardError as e:
+            logger.warning(
+                "wizard oneshot AiWizardError code=%s elapsed_ms=%d",
+                e.code, int((time.monotonic() - t0) * 1000),
+            )
+            yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
+            yield ("error", {"code": e.code, "message": e.message})
+            yield ("done", {})
+            return
+        except BaseException:
+            logger.exception(
+                "wizard oneshot unexpected failure elapsed_ms=%d",
+                int((time.monotonic() - t0) * 1000),
+            )
+            yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
+            yield ("error", {"code": "llm_call_failed", "message": "AI 调用失败，请重试"})
+            yield ("done", {})
+            return
 
-        # 关键路径只盯 oneshot + 去重;assignee_suggestion 是机会主义事件,
-        # 不计入 results_pending,避免 LLM 配额抖动让整条 SSE 卡死 (上一次回归
-        # 就是因为把第三路 LLM 当成必到事件,某个 worker 慢就触发 35s worker
-        # _timeout,前端傻等 ~50s)
-        pick_emitted = False
-        with ThreadPoolExecutor(max_workers=3) as ex:
-            ex.submit(run_oneshot)
-            ex.submit(run_dupcheck)
-            ex.submit(run_pick_assignee)
-
-            yield ("step", {"step": 1, "label": STEP_LABEL, "status": "running"})
-
-            results_pending = 2
-            while results_pending > 0:
-                try:
-                    kind, payload, error = q.get(timeout=WORKER_DEADLINE_S)
-                except queue.Empty:
-                    logger.error(
-                        "wizard worker did not enqueue result within %ss; aborting",
-                        WORKER_DEADLINE_S,
-                    )
-                    yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
-                    yield ("error", {"code": "worker_timeout", "message": "AI 分析超时，请重试"})
-                    break
-
-                if kind == "duplicates":
-                    results_pending -= 1
-                    yield ("duplicates", {"items": payload})
-                elif kind == "draft":
-                    results_pending -= 1
-                    if error:
-                        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
-                        yield ("error", {"code": error.code, "message": error.message})
-                    else:
-                        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "done"})
-                        yield ("draft", payload)
-                elif kind == "assignee_suggestion":
-                    pick_emitted = True
-                    yield ("assignee_suggestion", payload or {})
-
-            # 关键事件全部抵达后,给 pick_assignee 最多 PICK_GRACE_S 的缓冲;
-            # 仍未到就发空对象,前端不再等候,用户可在 StepDraft 手动选人。
-            # 没派单兜底:留空时 create_issue 仍会调 auto_assign_issue。
-            if not pick_emitted:
-                PICK_GRACE_S = 3
-                try:
-                    kind, payload, error = q.get(timeout=PICK_GRACE_S)
-                    if kind == "assignee_suggestion":
-                        yield ("assignee_suggestion", payload or {})
-                    else:
-                        # 万一是迟到的 draft/duplicates(理论上不该发生),不再向客户端发
-                        yield ("assignee_suggestion", {})
-                except queue.Empty:
-                    yield ("assignee_suggestion", {})
-        logger.info("wizard total elapsed_ms=%d", int((time.monotonic() - t0) * 1000))
+        logger.info("wizard oneshot ok elapsed_ms=%d", int((time.monotonic() - t0) * 1000))
+        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "done"})
+        yield ("draft", draft)
         yield ("done", {})
 
     @staticmethod

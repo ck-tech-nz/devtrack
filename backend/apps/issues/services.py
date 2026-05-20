@@ -406,13 +406,13 @@ def auto_assign_issue(issue):
 
 def create_issue(*, project, actor, title, description, priority,
                  assignee=None, **extra_fields):
-    """Unified entry point for creating an Issue. Both the manual create
-    form (POST /api/issues/) and the AI-wizard commit path route through
-    this so workflow rules are enforced exactly once.
+    """Unified entry point for creating an Issue.
 
     Behavior:
-      - assignee provided → status=待确认, writes an `assign` event
-      - assignee=None → calls auto_assign_issue(); on None, leaves status=待分配
+      - assignee provided → status=待确认, writes an `assign` event synchronously
+      - assignee=None → leaves status=待分配 and queues a Celery task to LLM-pick
+        a developer. The submitter only cares the AI draft matches their intent;
+        the assignment decision runs off the critical path.
     """
     issue = Issue.objects.create(
         project=project,
@@ -430,6 +430,10 @@ def create_issue(*, project, actor, title, description, priority,
         _do_assign(issue, actor=actor, to_user=assignee,
                    action=AssignmentAction.ASSIGN, reason="")
     else:
-        auto_assign_issue(issue)
+        # Defer until the surrounding serializer transaction commits, otherwise
+        # the worker can fire before the Issue row is visible
+        from django.db import transaction as _transaction
+        from apps.issues.tasks import auto_assign_issue_task
+        _transaction.on_commit(lambda: auto_assign_issue_task.delay(issue.id))
 
     return issue

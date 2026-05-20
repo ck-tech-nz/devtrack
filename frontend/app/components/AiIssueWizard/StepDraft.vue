@@ -10,8 +10,8 @@
         ISS-{{ String(successIssueId).padStart(3, '0') }}
       </NuxtLink>
       <div class="success-sub">
-        <template v-if="successAssigneeName">已自动分配给 <strong>{{ successAssigneeName }}</strong> · </template>
-        <template v-else>暂未分派 · 待项目经理手动指派 · </template>
+        <template v-if="successAssigneeName">已分配给 <strong>{{ successAssigneeName }}</strong> · </template>
+        <template v-else>AI 正在后台自动分派负责人 · </template>
         优先级 <strong>{{ form.priority }}</strong>
       </div>
       <UButton size="sm" icon="i-heroicons-plus" @click="emit('reset')">继续提交新 Issue</UButton>
@@ -24,26 +24,6 @@
         <div class="header-icon"><UIcon name="i-heroicons-check" class="w-4 h-4 text-white" /></div>
         <div class="header-title">Issue 已生成 · 确认后一键提交</div>
         <span class="header-sub">AI 自动分析完成</span>
-      </div>
-
-      <!-- Possible duplicates (advisory only — does not block submit) -->
-      <div v-if="duplicates.length" class="dup-panel">
-        <details>
-          <summary>
-            <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4" />
-            <span>发现 {{ duplicates.length }} 条可能重复的 Issue</span>
-            <span class="dup-hint">— 点开查看（仅提示，不阻止提交）</span>
-          </summary>
-          <ul class="dup-list">
-            <li v-for="d in duplicates" :key="d.id">
-              <NuxtLink :to="`/app/issues/${d.id}`" target="_blank" class="dup-link">
-                ISS-{{ String(d.id).padStart(3, '0') }} · {{ d.title }}
-                <span class="dup-status">[{{ d.status }}]</span>
-              </NuxtLink>
-              <div v-if="d.reason" class="dup-reason">{{ d.reason }}</div>
-            </li>
-          </ul>
-        </details>
       </div>
 
       <!-- Title (centered, large) -->
@@ -79,16 +59,9 @@
           value-key="value"
           size="xs"
           icon="i-heroicons-user"
-          placeholder="（不指派）"
+          placeholder="（AI 后台自动分派）"
           class="pill-select"
         />
-        <span
-          v-if="assigneeSuggestion && String(form.assignee) === String(assigneeSuggestion.user_id)"
-          class="assignee-reason"
-          :title="assigneeSuggestion.reason"
-        >
-          ✦ AI 推荐 · {{ assigneeSuggestion.reason }}
-        </span>
       </div>
 
       <!-- Follow-up questions hint (if any) -->
@@ -149,7 +122,7 @@
 
 <script setup lang="ts">
 import AiBadge from './AiBadge.vue'
-import type { WizardDraft, DuplicateItem, AssigneeSuggestion } from '~/composables/useAiWizard'
+import type { WizardDraft } from '~/composables/useAiWizard'
 
 type UserChoice = { id: string; name: string }
 type Project = { id: string; name: string }
@@ -164,14 +137,11 @@ const props = defineProps<{
   attachmentIds: string[]
   // 用户最初输入的原文（未经 AI 拼装）。写入 source_meta.original_input。
   originalInput: string
-  duplicates: DuplicateItem[]
-  // 后端在 SSE 阶段并行 LLM 选出的推荐负责人;null 表示无候选/LLM 没选中,
-  // UI 不强制预填,用户可手动指派或留空 (留空时 create_issue 仍会兜底 LLM)
-  assigneeSuggestion: AssigneeSuggestion | null
   submitting: boolean
   submitError: string
   successIssueId: number | null
-  // 后端创建 Issue 后返回的 assignee 用户 id;为 null 表示未自动分派 (无开发者候选 / LLM 未选中)
+  // 后端创建 Issue 后返回的 assignee — 同步路径下一般为 null(分派走 Celery),
+  // 留空时 UI 提示"暂未分派,AI 后台正在自动分派"
   successAssignee: string | null
 }>()
 
@@ -189,9 +159,9 @@ const form = ref({
   priority: props.draft.priority,
   module: props.draft.module,
   labels: props.draft.labels,
-  // 优先采用 SSE 期间并行 LLM 给出的推荐;无推荐时留空,提交时 create_issue 会兜底再选
-  // 用户在下拉里手动选择会覆盖此预填
-  assignee: props.assigneeSuggestion ? String(props.assigneeSuggestion.user_id) : '',
+  // 默认留空;提交后 Celery 异步跑 issue_auto_assign 自动挑人,
+  // 用户在下拉里手动选择会优先于自动分派
+  assignee: '',
   project: props.initialProjectId,
 })
 
@@ -209,14 +179,6 @@ const assigneeOptions = computed(() => props.users.map(u => ({ label: u.name, va
 const assigneeName = computed(() => {
   const u = props.users.find(x => String(x.id) === String(form.value.assignee))
   return u?.name || ''
-})
-
-// 推荐有时晚于 draft 到达 (oneshot 通常更慢,但偶尔挑人更慢):draft 已渲染、表单已建好,
-// 这时再补一次预填,避免推荐迟到导致下拉里看不到 AI 选择
-watch(() => props.assigneeSuggestion, (s) => {
-  if (s && !form.value.assignee) {
-    form.value.assignee = String(s.user_id)
-  }
 })
 
 // 成功视图里展示后端实际分派到的人 (form.assignee 在自动分派路径下是空字符串)
@@ -299,16 +261,6 @@ function onSubmit() {
   display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.25rem 0;
 }
 .pill-select :deep(button) { font-size: 0.75rem; min-width: auto; }
-.assignee-reason {
-  font-size: 0.75rem;
-  color: #6b7280;
-  max-width: 22rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  align-self: center;
-}
-:root.dark .assignee-reason { color: #9ca3af; }
 
 .hint-box {
   background-color: #fffbeb;
@@ -362,26 +314,4 @@ function onSubmit() {
 .success-sub { font-size: 0.8125rem; color: #6b7280; margin-bottom: 0.5rem; }
 :root.dark .success-sub { color: #9ca3af; }
 
-.dup-panel {
-  background-color: #fef3c7;
-  border: 1px solid #fde68a;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.875rem;
-  font-size: 0.8125rem;
-}
-:root.dark .dup-panel { background-color: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.3); }
-.dup-panel summary {
-  display: flex; align-items: center; gap: 0.375rem;
-  cursor: pointer; color: #92400e; font-weight: 500;
-}
-:root.dark .dup-panel summary { color: #fcd34d; }
-.dup-hint { color: #9ca3af; font-weight: 400; margin-left: auto; }
-.dup-list { list-style: none; padding: 0.5rem 0 0 0; margin: 0; display: flex; flex-direction: column; gap: 0.375rem; }
-.dup-list li { padding: 0.25rem 0; border-top: 1px dashed rgba(146, 64, 14, 0.2); }
-.dup-link { color: #1f2937; text-decoration: none; }
-.dup-link:hover { text-decoration: underline; }
-:root.dark .dup-link { color: #e5e7eb; }
-.dup-status { color: #9ca3af; font-size: 0.75rem; margin-left: 0.25rem; }
-.dup-reason { color: #78350f; font-size: 0.75rem; margin-top: 0.125rem; }
-:root.dark .dup-reason { color: #fcd34d; }
 </style>

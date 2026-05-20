@@ -842,14 +842,11 @@ def test_load_image_metadata_rejects_other_users_attachments():
 
 
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)
-def test_stream_draft_v2_emits_step_duplicates_draft_done(site_settings):
-    """The v2 stream emits exactly: step(running), duplicates, step(done), draft, done.
+def test_stream_draft_v2_emits_step_then_draft_then_done(site_settings):
+    """The simplified v2 stream emits exactly: step(running), step(done), draft, done.
 
-    Order of the duplicates event vs the step(done)/draft pair is not
-    asserted — they are emitted as each thread finishes.
-    transaction=True so the worker threads can see the LLMConfig/Prompt
-    rows created in the test setup (default django_db transactional rollback
-    isolates per-connection).
+    No duplicates / no assignee_suggestion events — those side-effects moved off
+    the critical path (auto-assign runs in Celery; dup check was removed).
     """
     from apps.issues.services_ai_wizard import AiWizardService
     from apps.settings.models import SiteSettings
@@ -868,9 +865,6 @@ def test_stream_draft_v2_emits_step_duplicates_draft_done(site_settings):
     with patch(
         "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
         return_value=valid_json,
-    ), patch(
-        "apps.issues.services_ai_wizard.check_duplicates",
-        return_value=[{"id": 7, "title": "old", "status": "待分配", "reason": "same"}],
     ):
         svc = AiWizardService()
         events = list(svc.stream_draft(
@@ -880,22 +874,13 @@ def test_stream_draft_v2_emits_step_duplicates_draft_done(site_settings):
         ))
 
     names = [e[0] for e in events]
-    # First event is always step running
-    assert names[0] == "step"
+    assert names == ["step", "step", "draft", "done"]
     assert events[0][1]["status"] == "running"
-    # Last event is always done
-    assert names[-1] == "done"
-    # Set of events between contains step-done, draft, duplicates
-    middle_names = set(names[1:-1])
-    assert "step" in middle_names    # the "done" status step
-    assert "draft" in middle_names
-    assert "duplicates" in middle_names
-    # The draft payload has the inferred_env stitched into description
-    draft_event = next(e for e in events if e[0] == "draft")
-    assert draft_event[1]["title"] == "T"
-    # Duplicates payload shape
-    dup_event = next(e for e in events if e[0] == "duplicates")
-    assert dup_event[1]["items"] == [{"id": 7, "title": "old", "status": "待分配", "reason": "same"}]
+    assert events[1][1]["status"] == "done"
+    assert events[2][1]["title"] == "T"
+    # The wizard no longer emits issue-content-unrelated events
+    assert "duplicates" not in names
+    assert "assignee_suggestion" not in names
 
 
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)
@@ -920,9 +905,6 @@ def test_stream_draft_v2_assembles_description_with_inferred_env(site_settings):
     with patch(
         "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
         return_value=valid_json,
-    ), patch(
-        "apps.issues.services_ai_wizard.check_duplicates",
-        return_value=[],
     ):
         svc = AiWizardService()
         events = list(svc.stream_draft(
@@ -939,7 +921,7 @@ def test_stream_draft_v2_assembles_description_with_inferred_env(site_settings):
 
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)
 def test_stream_draft_v2_emits_error_when_oneshot_fails(site_settings):
-    """oneshot_draft raising AiWizardError → SSE error event; duplicates still emitted."""
+    """oneshot_draft raising AiWizardError → SSE error event then done."""
     from apps.issues.services_ai_wizard import AiWizardService
     from apps.settings.models import SiteSettings
     from tests.factories import LLMConfigFactory, ProjectFactory
@@ -951,9 +933,6 @@ def test_stream_draft_v2_emits_error_when_oneshot_fails(site_settings):
     with patch(
         "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
         return_value="not json",
-    ), patch(
-        "apps.issues.services_ai_wizard.check_duplicates",
-        return_value=[],
     ):
         svc = AiWizardService()
         events = list(svc.stream_draft(
@@ -966,47 +945,6 @@ def test_stream_draft_v2_emits_error_when_oneshot_fails(site_settings):
     assert "error" in names
     err = next(e for e in events if e[0] == "error")[1]
     assert err["code"] == "llm_bad_json"
-
-
-@pytest.mark.django_db(transaction=True, serialized_rollback=True)
-def test_stream_draft_v2_silently_swallows_check_duplicates_failure(site_settings):
-    """A failure inside check_duplicates must NOT abort the draft path."""
-    from apps.issues.services_ai_wizard import AiWizardService
-    from apps.settings.models import SiteSettings
-    from tests.factories import LLMConfigFactory, ProjectFactory
-    from unittest.mock import patch
-    LLMConfigFactory(is_default=True, is_active=True)
-    SiteSettings.objects.update(modules=["其他"], labels={})
-    project = ProjectFactory()
-
-    valid_json = (
-        '{"title": "T", "priority": "P2", "module": "其他", '
-        '"repro_steps": "", "expected_behavior": "", '
-        '"labels": [], "follow_up_questions": [], "inferred_env": ""}'
-    )
-
-    def boom(*a, **k):
-        raise RuntimeError("dedup service down")
-
-    with patch(
-        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
-        return_value=valid_json,
-    ), patch(
-        "apps.issues.services_ai_wizard.check_duplicates",
-        side_effect=boom,
-    ):
-        svc = AiWizardService()
-        events = list(svc.stream_draft(
-            description="ok",
-            project_id=project.id,
-            attachment_ids=[],
-        ))
-
-    names = [e[0] for e in events]
-    assert "draft" in names
-    assert "done" in names
-    dup_event = next(e for e in events if e[0] == "duplicates")
-    assert dup_event[1]["items"] == []
 
 
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)
@@ -1042,9 +980,6 @@ def test_stream_draft_v2_appends_image_markdown_to_description(site_settings):
     with patch(
         "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
         return_value=valid_json,
-    ), patch(
-        "apps.issues.services_ai_wizard.check_duplicates",
-        return_value=[],
     ):
         svc = AiWizardService()
         events = list(svc.stream_draft(
@@ -1061,104 +996,6 @@ def test_stream_draft_v2_appends_image_markdown_to_description(site_settings):
     assert "![shot.png](/uploads/2026/05/shot.png)" in draft["description"]
     # PDF must NOT appear as markdown image
     assert "notes.pdf" not in draft["description"]
-
-
-@pytest.mark.django_db(transaction=True, serialized_rollback=True)
-def test_stream_draft_v2_emits_assignee_suggestion(site_settings):
-    """Wizard SSE pre-picks an assignee in parallel so the subsequent POST
-    /api/issues/ skips its own LLM call. Event payload carries user_id+name+reason.
-    """
-    import json
-    from django.contrib.auth.models import Group
-    from apps.issues.services_ai_wizard import AiWizardService
-    from apps.projects.models import ProjectMember
-    from apps.settings.models import SiteSettings
-    from tests.factories import LLMConfigFactory, ProjectFactory, PromptFactory, UserFactory
-    from unittest.mock import patch
-    LLMConfigFactory(is_default=True, is_active=True)
-    SiteSettings.objects.update(modules=["其他"], labels={})
-    # auto_assign 仅在 role.name=开发者 的成员中挑选,所以这里必须显式建该角色
-    dev_role, _ = Group.objects.get_or_create(name="开发者")
-    project = ProjectFactory()
-    dev = UserFactory(name="张三")
-    ProjectMember.objects.create(
-        project=project, user=dev, role=dev_role, personal_description="后端开发",
-    )
-    # Migration 0009 seeds this prompt; replace with a controllable template
-    from apps.ai.models import Prompt
-    Prompt.objects.filter(slug="issue_auto_assign").delete()
-    PromptFactory(
-        slug="issue_auto_assign",
-        system_prompt="x",
-        user_prompt_template="{title} {description} {labels} {priority} {members_block}",
-        is_active=True,
-    )
-
-    oneshot_json = (
-        '{"title": "T", "priority": "P2", "module": "其他", '
-        '"repro_steps": "", "expected_behavior": "", '
-        '"labels": [], "follow_up_questions": [], "inferred_env": ""}'
-    )
-    pick_json = json.dumps({"assignee_id": dev.id, "reason": "后端匹配 + 当前0单"})
-
-    with patch(
-        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
-        return_value=oneshot_json,
-    ), patch(
-        "apps.issues.services_ai_wizard.check_duplicates",
-        return_value=[],
-    ), patch(
-        "apps.issues.services.LLMClient",
-    ) as PickClient:
-        PickClient.return_value.complete.return_value = pick_json
-        svc = AiWizardService()
-        events = list(svc.stream_draft(
-            description="登录接口报 500",
-            project_id=project.id,
-            attachment_ids=[],
-        ))
-
-    sugg = next(e for e in events if e[0] == "assignee_suggestion")[1]
-    assert sugg["user_id"] == dev.id
-    assert sugg["name"] == "张三"
-    assert "0单" in sugg["reason"]
-
-
-@pytest.mark.django_db(transaction=True, serialized_rollback=True)
-def test_stream_draft_v2_emits_empty_suggestion_when_no_developers(site_settings):
-    """Project with no developer members → assignee_suggestion event still
-    fires (empty {}) so the frontend doesn't wait forever for the event."""
-    from apps.issues.services_ai_wizard import AiWizardService
-    from apps.settings.models import SiteSettings
-    from tests.factories import LLMConfigFactory, ProjectFactory
-    from unittest.mock import patch
-    LLMConfigFactory(is_default=True, is_active=True)
-    SiteSettings.objects.update(modules=["其他"], labels={})
-    project = ProjectFactory()
-
-    oneshot_json = (
-        '{"title": "T", "priority": "P2", "module": "其他", '
-        '"repro_steps": "", "expected_behavior": "", '
-        '"labels": [], "follow_up_questions": [], "inferred_env": ""}'
-    )
-    with patch(
-        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
-        return_value=oneshot_json,
-    ), patch(
-        "apps.issues.services_ai_wizard.check_duplicates",
-        return_value=[],
-    ):
-        svc = AiWizardService()
-        events = list(svc.stream_draft(
-            description="x",
-            project_id=project.id,
-            attachment_ids=[],
-        ))
-
-    names = [e[0] for e in events]
-    assert "assignee_suggestion" in names
-    sugg = next(e for e in events if e[0] == "assignee_suggestion")[1]
-    assert sugg == {}
 
 
 @pytest.mark.django_db(transaction=True, serialized_rollback=True)
