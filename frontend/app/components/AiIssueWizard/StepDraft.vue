@@ -39,12 +39,13 @@
             :ui="{ base: 'issue-title-input' }"
           />
 
-          <UTextarea
+          <!-- AI 生成的描述里会带 ![image](url) 之类的 markdown, 默认进入预览模式让图片直接渲染;
+               点击"编辑"tab 可改文本 -->
+          <MarkdownEditor
+            ref="descEditorRef"
             v-model="form.description"
-            :rows="2"
-            autoresize
             placeholder="一句话补充上下文（可选）"
-            :ui="{ base: 'issue-desc-input' }"
+            default-mode="preview"
           />
 
           <div class="section">
@@ -176,6 +177,10 @@ const emit = defineEmits<{
   back: []
   reset: []
 }>()
+
+// 强制 description 编辑器进入预览态 — 避免某些环境下 default-mode prop 时序不稳
+const descEditorRef = ref<{ setMode: (m: 'edit' | 'preview') => void } | null>(null)
+onMounted(() => { descEditorRef.value?.setMode('preview') })
 
 const form = ref({
   title: props.draft.title,
