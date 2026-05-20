@@ -42,9 +42,11 @@
         placeholder="描述问题：哪个页面/角色，做了什么，看到什么。可以贴截图——AI 会读取截图内容。"
         autoresize
         variant="none"
+        :disabled="analyzing"
         @paste="onPaste"
         @drop.prevent="onDrop"
         @dragover.prevent
+        @keydown="onKeydown"
       />
 
       <!-- 隐藏文件输入 -->
@@ -72,6 +74,7 @@
           color="neutral"
           icon="i-heroicons-plus"
           title="添加附件"
+          :disabled="analyzing"
           @click="fileInputRef?.click()"
         />
         <UButton
@@ -80,6 +83,7 @@
           color="neutral"
           icon="i-heroicons-photo"
           title="添加图片"
+          :disabled="analyzing"
           @click="imgInputRef?.click()"
         />
         <USelect
@@ -90,6 +94,7 @@
           icon="i-heroicons-folder"
           placeholder="选择项目"
           class="project-chip"
+          :disabled="analyzing"
         />
         <div class="toolbar-spacer" />
         <span v-if="hintMessage" class="send-hint">{{ hintMessage }}</span>
@@ -114,6 +119,7 @@ type AttachmentRef = { id: string; file_name: string; file_url: string }
 const props = defineProps<{
   projects: Project[]
   defaultProjectId: string | null
+  analyzing?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -141,14 +147,22 @@ const projectOptions = computed(() =>
 
 const MIN_DESC_LEN = 5
 const trimmedLen = computed(() => description.value.trim().length)
-const canAnalyze = computed(() => trimmedLen.value >= MIN_DESC_LEN && !!projectId.value)
+const canAnalyze = computed(() => trimmedLen.value >= MIN_DESC_LEN && !!projectId.value && !props.analyzing)
 
-// 仅在用户已开始输入但条件未满足时提示;空输入态不打扰
+// 平台检测：Mac 显示 ⌘，其他平台显示 Ctrl
+const isMac = computed(() => {
+  if (typeof navigator === 'undefined') return false
+  return /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+})
+const sendShortcutHint = computed(() => `${isMac.value ? '⌘' : 'Ctrl'} + Enter 发送`)
+
+// 校验未通过时提示问题,否则始终展示快捷键提示(按系统区分 ⌘/Ctrl)
 const hintMessage = computed(() => {
-  if (trimmedLen.value === 0) return ''
-  if (trimmedLen.value < MIN_DESC_LEN) return `至少 ${MIN_DESC_LEN} 个字（当前 ${trimmedLen.value}）`
-  if (!projectId.value) return '请选择项目'
-  return ''
+  if (trimmedLen.value > 0 && trimmedLen.value < MIN_DESC_LEN) {
+    return `至少 ${MIN_DESC_LEN} 个字（当前 ${trimmedLen.value}）`
+  }
+  if (trimmedLen.value >= MIN_DESC_LEN && !projectId.value) return '请选择项目'
+  return sendShortcutHint.value
 })
 
 function isImage(name: string): boolean {
@@ -202,6 +216,13 @@ function onAnalyze() {
     project: projectId.value,
     attachment_ids: attachments.value.map(a => a.id),
   })
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault()
+    onAnalyze()
+  }
 }
 
 watch(() => props.defaultProjectId, (v) => {

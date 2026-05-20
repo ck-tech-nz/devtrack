@@ -2,18 +2,19 @@
   <div class="ai-wizard">
     <h2 v-if="currentStep === 1" class="hero-title">有什么我可以帮你的？</h2>
 
-    <StepDescribe
-      v-if="currentStep === 1"
-      :projects="projects"
-      :default-project-id="defaultProjectId"
-      @analyze="onAnalyze"
-    />
     <StepAnalyzing
-      v-else-if="currentStep === 2"
+      v-if="currentStep === 2"
       :steps="wizard.steps.value"
       :error-message="wizard.errorMessage.value"
       @retry="onRetry"
       @back="onBackToDescribe"
+    />
+    <StepDescribe
+      v-if="currentStep === 1 || currentStep === 2"
+      :projects="projects"
+      :default-project-id="defaultProjectId"
+      :analyzing="currentStep === 2"
+      @analyze="onAnalyze"
     />
     <StepDraft
       v-else-if="currentStep === 3 && wizard.draft.value"
