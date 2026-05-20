@@ -883,11 +883,15 @@ class AiChatService:
         attachment_ids: list | None = None,
         user=None,
         conversation_attachment_ids: list | None = None,
+        project=None,
     ):
         """SSE 流式 wrap chat() - 按 action 分发事件:
           - draft  → emit ('draft', {title, priority, ...})
           - ask    → emit ('ask',   {question})
           - submit → emit ('submit', {})
+
+        额外的 dup 事件 (仅首份 draft, 受 settings.WIZARD_CHAT_DUP_CHECK_ENABLED 控制):
+          - dup    → emit ('dup', {candidates: [{id, title, status, reason}, ...]})
 
         失败时 emit ('step', error) + ('error', {code, message}) + ('done', {})
         """
@@ -951,4 +955,35 @@ class AiChatService:
         # description 已在 chat() 内拼装好 (含原始用户描述 + AI 推断环境 + 本轮图片 markdown)
         yield ("step", {"step": 1, "label": STEP_LABEL, "status": "done"})
         yield ("draft", draft)
+
+        # 仅首份 draft 跑一次重复检测; revise 路径用户已表明要新建, 不再骚扰。
+        # 关闭方式: env WIZARD_CHAT_DUP_CHECK_ENABLED=0 (重启) 或 把 issue_duplicate_check
+        # prompt is_active 改 false (热切换, 不用重启)
+        from django.conf import settings as _settings
+        if (
+            getattr(_settings, "WIZARD_CHAT_DUP_CHECK_ENABLED", True)
+            and project is not None
+            and self._is_first_draft(messages)
+            and draft.get("title")
+        ):
+            from .services import check_duplicates
+            try:
+                project_id = project.id if hasattr(project, "id") else int(project)
+                candidates = check_duplicates(
+                    project_id, draft["title"], draft.get("description", ""),
+                )
+            except Exception:
+                logger.exception("wizard_chat dup-check failed; skipping")
+                candidates = []
+            if candidates:
+                yield ("dup", {"candidates": candidates})
+
         yield ("done", {})
+
+    @staticmethod
+    def _is_first_draft(messages: list[dict]) -> bool:
+        """messages 里如果已经有 assistant 返回过 draft, 当前就是 revise, 跳过 dup-check"""
+        for m in messages:
+            if m.get("role") == "assistant" and '"action":"draft"' in (m.get("content") or ""):
+                return False
+        return True

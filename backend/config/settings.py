@@ -155,6 +155,15 @@ MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "/uploads")
 # v1 prompt rows are preserved for the 7-day rollback window post-deploy.
 AI_WIZARD_LEGACY = os.environ.get("AI_WIZARD_LEGACY", "False").lower() in ("true", "1")
 
+# 对话式 wizard 首份 draft 出来后, 是否额外跑一次重复检测 (issue_duplicate_check prompt)
+# 关掉的两种方式 (二选一即可):
+#   1. env: WIZARD_CHAT_DUP_CHECK_ENABLED=0  (需重启, 永久关停)
+#   2. /admin/ai/prompt/ 把 slug=issue_duplicate_check 的 prompt 设为 is_active=False
+#      (热切换, 不用重启, 同时也关闭老 /api/issues/check-duplicate/ 端点)
+WIZARD_CHAT_DUP_CHECK_ENABLED = os.environ.get(
+    "WIZARD_CHAT_DUP_CHECK_ENABLED", "True",
+).lower() in ("true", "1")
+
 REPO_CLONE_DIR = os.environ.get("REPO_CLONE_DIR", "/data/repos")
 BACKUP_DIR = os.environ.get("BACKUP_DIR", "/data/backups")
 

@@ -38,6 +38,11 @@ export type Turn =
     }
   | { id: string; role: 'ai-draft'; version: number; draft: WizardDraft; attachmentIds: string[] }
   | { id: string; role: 'ai-ask'; question: string }
+  | {
+      id: string
+      role: 'ai-dup-hint'
+      candidates: Array<{ id: number; title: string; status: string; reason: string }>
+    }
 
 /** 发送给后端 /ai-draft/chat/ 的对话历史; system 由服务端控制不能从这里送 */
 export type ChatMessage = {
@@ -585,6 +590,16 @@ export function useAiWizard() {
             if (text) {
               if (!thinking.warnings) thinking.warnings = []
               thinking.warnings.push(text)
+            }
+          } else if (event === 'dup') {
+            // 重复检测命中 - 追加独立的提示气泡, 不阻塞已经显示的 draft
+            const cands = Array.isArray(payload.candidates) ? payload.candidates : []
+            if (cands.length) {
+              appendTurn({
+                id: genId(),
+                role: 'ai-dup-hint',
+                candidates: cands,
+              })
             }
           } else if (event === 'draft') {
             gotTerminal = true

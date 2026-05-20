@@ -8,17 +8,16 @@
   >
     <h2 v-if="!inChatMode" class="hero-title">有什么我可以帮你的？</h2>
 
-    <!-- 清空对话按钮 — chat 模式下右上角 floating, 永远可见 -->
-    <button
+    <!-- 清空对话按钮 — chat 模式下右上角 floating, 永远可见. 用 LiquidGlass 实现 iOS 26 折射效果 -->
+    <LiquidGlass
       v-if="inChatMode"
-      type="button"
       class="clear-btn"
       title="清空当前对话, 重新开始"
       @click="onClearConversation"
     >
       <UIcon name="i-heroicons-x-mark" class="w-3.5 h-3.5" />
       <span class="clear-btn-label">清空对话</span>
-    </button>
+    </LiquidGlass>
 
     <!-- 对话 thread -->
     <div v-if="inChatMode" ref="threadEl" class="thread">
@@ -119,6 +118,34 @@
           <div class="msg-ask-bubble">{{ turn.question }}</div>
         </div>
 
+        <!-- AI 查重提示 (chat 路径 dup 事件): 不拦截, 仅供对比 -->
+        <div v-else-if="turn.role === 'ai-dup-hint'" class="msg msg--ai msg--ai-dup">
+          <div class="msg-brand">
+            <span class="msg-brand-mark">
+              <UIcon name="i-heroicons-document-duplicate" class="w-3 h-3" />
+            </span>
+            <span class="msg-brand-name">DevTrakr</span>
+            <span class="msg-brand-status msg-brand-status--dup">我注意到类似 issue</span>
+          </div>
+          <div class="msg-dup-card">
+            <NuxtLink
+              v-for="c in turn.candidates"
+              :key="c.id"
+              :to="`/app/issues/${c.id}`"
+              target="_blank"
+              class="dup-item"
+            >
+              <span class="dup-id">ISS-{{ String(c.id).padStart(3, '0') }}</span>
+              <span class="dup-title">{{ c.title }}</span>
+              <span
+                class="dup-status"
+                :class="`dup-status--${c.status === '已解决' || c.status === '已关闭' || c.status === '已发布' ? 'closed' : 'open'}`"
+              >{{ c.status }}</span>
+            </NuxtLink>
+            <div class="dup-hint">仅供参考, 可点链接对比 · 也可直接提交新建</div>
+          </div>
+        </div>
+
         <!-- AI 草稿 (可能有多张, 最新可编辑) -->
         <div v-else-if="turn.role === 'ai-draft'" class="msg msg--ai msg--ai-draft">
           <div class="msg-brand">
@@ -193,6 +220,7 @@
 <script setup lang="ts">
 import StepDescribe from './AiIssueWizard/StepDescribe.vue'
 import StepDraft from './AiIssueWizard/StepDraft.vue'
+import LiquidGlass from './LiquidGlass.vue'
 import type { Turn, AttachmentRef } from '~/composables/useAiWizard'
 
 const emit = defineEmits<{ created: [issueId: number] }>()
@@ -399,9 +427,8 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.4375rem;
   padding: 0.5rem 0.875rem;
-  /* iOS 26 Liquid Glass.
-     纯白页面背景下任何"真透明"都看起来还是白色 (物理) — 所以加点冷色折射,
-     再用更明显的环线/投影把玻璃形态画出来. */
+  /* iOS 26 Liquid Glass: 真折射由 <LiquidGlass> 通过 SVG feDisplacementMap 提供,
+     这里只负责形态 (边/影/高光) + 一丝冷色折射底, 让玻璃在纯白页面上也能看出来. */
   background-image: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.05) 0%,
@@ -409,8 +436,6 @@ onBeforeUnmount(() => {
     rgba(255, 255, 255, 0.08) 100%
   );
   background-color: transparent;
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 9999px;
   font-size: 0.8125rem;
@@ -633,6 +658,72 @@ onBeforeUnmount(() => {
   color: #d97706;
 }
 :root.dark .msg-brand-status--ask { color: #fbbf24; }
+
+.msg-brand-status--dup { color: #0ea5e9; }
+:root.dark .msg-brand-status--dup { color: #7dd3fc; }
+
+/* AI 查重提示卡 - 蓝色边框, 表明"信息性"而非"警告/错误" */
+.msg-dup-card {
+  display: flex; flex-direction: column;
+  gap: 0.375rem;
+  margin-left: 1.625rem;
+  padding: 0.625rem 0.75rem;
+  max-width: min(40rem, 90%);
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.625rem;
+  animation: msg-rise 0.32s ease both;
+}
+:root.dark .msg-dup-card {
+  background-color: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.25);
+}
+.dup-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  color: #0c4a6e;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.dup-item:hover { background-color: rgba(14, 165, 233, 0.12); }
+:root.dark .dup-item { color: #bae6fd; }
+:root.dark .dup-item:hover { background-color: rgba(14, 165, 233, 0.18); }
+.dup-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  color: #0284c7;
+  flex-shrink: 0;
+}
+:root.dark .dup-id { color: #7dd3fc; }
+.dup-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dup-status {
+  font-size: 0.625rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+}
+.dup-status--open {
+  background-color: #fef3c7; color: #92400e;
+}
+.dup-status--closed {
+  background-color: #d1fae5; color: #065f46;
+}
+:root.dark .dup-status--open { background-color: rgba(251, 191, 36, 0.18); color: #fde68a; }
+:root.dark .dup-status--closed { background-color: rgba(16, 185, 129, 0.18); color: #6ee7b7; }
+.dup-hint {
+  font-size: 0.6875rem;
+  color: #075985;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(14, 165, 233, 0.18);
+}
+:root.dark .dup-hint { color: #7dd3fc; }
 
 /* AI 反问气泡 - 跟用户气泡视觉成对, 但左对齐 + 暖色边框透露"求确认"语气 */
 .msg-ask-bubble {

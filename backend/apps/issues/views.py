@@ -622,6 +622,7 @@ class IssueAiChatView(APIView):
                     attachment_ids=current_attachments,
                     conversation_attachment_ids=cumulative_attachments,
                     user=request_user,
+                    project=data["project"],
                 ):
                     if event_name == "_heartbeat":
                         yield ": heartbeat\n\n"

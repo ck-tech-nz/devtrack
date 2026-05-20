@@ -1954,3 +1954,161 @@ def test_chat_no_warning_event_for_under_limit_images(site_settings, monkeypatch
         ))
 
     assert "warning" not in [e[0] for e in events]
+
+
+# ============================================================================
+# Duplicate-check hint in chat flow (热插拔, 受 WIZARD_CHAT_DUP_CHECK_ENABLED 控制)
+# ============================================================================
+
+@pytest.mark.django_db
+def test_stream_chat_emits_dup_event_on_first_draft_when_candidates_exist(site_settings, monkeypatch, settings):
+    from apps.issues.services_ai_wizard import AiChatService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["其他"], labels={})
+    settings.WIZARD_CHAT_DUP_CHECK_ENABLED = True
+    project = ProjectFactory()
+
+    fake_draft = (
+        '{"action":"draft","title":"通知中心乱码","priority":"P2","module":"其他",'
+        '"repro_steps":"","expected_behavior":"","labels":[],'
+        '"follow_up_questions":[],"inferred_env":""}'
+    )
+    fake_candidates = [
+        {"id": 145, "title": "通知中心乱码刷新就好", "status": "进行中", "reason": "几乎一致"},
+    ]
+    with patch("apps.issues.services_ai_wizard.LLMClient.chat", return_value=fake_draft), \
+         patch("apps.issues.services.check_duplicates", return_value=fake_candidates):
+        svc = AiChatService()
+        events = list(svc.stream_chat(
+            messages=[{"role": "user", "content": "通知中心显示乱码"}],
+            project=project,
+        ))
+
+    dup_payloads = [e[1] for e in events if e[0] == "dup"]
+    assert len(dup_payloads) == 1
+    assert dup_payloads[0]["candidates"] == fake_candidates
+    # 事件顺序: draft 在 dup 之前 (用户先看到草稿, 再看到查重提示)
+    names = [e[0] for e in events]
+    assert names.index("draft") < names.index("dup") < names.index("done")
+
+
+@pytest.mark.django_db
+def test_stream_chat_skips_dup_check_when_flag_disabled(site_settings, monkeypatch, settings):
+    from apps.issues.services_ai_wizard import AiChatService
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    settings.WIZARD_CHAT_DUP_CHECK_ENABLED = False
+    project = ProjectFactory()
+
+    fake_draft = (
+        '{"action":"draft","title":"t","priority":"P2","module":"其他",'
+        '"repro_steps":"","expected_behavior":"","labels":[],'
+        '"follow_up_questions":[],"inferred_env":""}'
+    )
+    called = {"n": 0}
+    def fake_check(*args, **kwargs):
+        called["n"] += 1
+        return [{"id": 1, "title": "x", "status": "进行中", "reason": "x"}]
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.chat", return_value=fake_draft), \
+         patch("apps.issues.services.check_duplicates", side_effect=fake_check):
+        svc = AiChatService()
+        events = list(svc.stream_chat(
+            messages=[{"role": "user", "content": "x"}],
+            project=project,
+        ))
+
+    assert "dup" not in [e[0] for e in events], "WIZARD_CHAT_DUP_CHECK_ENABLED=False 时不应跑/发送 dup"
+    assert called["n"] == 0, "flag 关闭时 check_duplicates 完全不被调用 (省 token)"
+
+
+@pytest.mark.django_db
+def test_stream_chat_skips_dup_check_on_revise(site_settings, monkeypatch, settings):
+    """messages 里已经有过 action:draft 的 assistant 消息 = 用户在 revise, 跳过 dup-check"""
+    from apps.issues.services_ai_wizard import AiChatService
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    settings.WIZARD_CHAT_DUP_CHECK_ENABLED = True
+    project = ProjectFactory()
+
+    fake_draft = (
+        '{"action":"draft","title":"t","priority":"P0","module":"其他",'
+        '"repro_steps":"","expected_behavior":"","labels":[],'
+        '"follow_up_questions":[],"inferred_env":""}'
+    )
+    called = {"n": 0}
+    def fake_check(*args, **kwargs):
+        called["n"] += 1
+        return [{"id": 1, "title": "x", "status": "进行中", "reason": "x"}]
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.chat", return_value=fake_draft), \
+         patch("apps.issues.services.check_duplicates", side_effect=fake_check):
+        svc = AiChatService()
+        events = list(svc.stream_chat(
+            messages=[
+                {"role": "user", "content": "通知中心乱码"},
+                {"role": "assistant", "content": '{"action":"draft","title":"v1"}'},
+                {"role": "user", "content": "改 P0"},
+            ],
+            project=project,
+        ))
+
+    assert "dup" not in [e[0] for e in events]
+    assert called["n"] == 0, "revise 路径不该调 check_duplicates"
+
+
+@pytest.mark.django_db
+def test_stream_chat_no_dup_event_when_no_candidates(site_settings, monkeypatch, settings):
+    """跑了 check_duplicates 但返回空 → 不 emit dup 事件保持 thread 干净"""
+    from apps.issues.services_ai_wizard import AiChatService
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    settings.WIZARD_CHAT_DUP_CHECK_ENABLED = True
+    project = ProjectFactory()
+
+    fake_draft = (
+        '{"action":"draft","title":"t","priority":"P2","module":"其他",'
+        '"repro_steps":"","expected_behavior":"","labels":[],'
+        '"follow_up_questions":[],"inferred_env":""}'
+    )
+    with patch("apps.issues.services_ai_wizard.LLMClient.chat", return_value=fake_draft), \
+         patch("apps.issues.services.check_duplicates", return_value=[]):
+        svc = AiChatService()
+        events = list(svc.stream_chat(
+            messages=[{"role": "user", "content": "x"}],
+            project=project,
+        ))
+
+    assert "dup" not in [e[0] for e in events]
+
+
+@pytest.mark.django_db
+def test_stream_chat_dup_check_failure_swallowed(site_settings, monkeypatch, settings):
+    """check_duplicates 抛异常时不影响 draft / done 发送 (degrade gracefully)"""
+    from apps.issues.services_ai_wizard import AiChatService
+    from tests.factories import LLMConfigFactory, ProjectFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    settings.WIZARD_CHAT_DUP_CHECK_ENABLED = True
+    project = ProjectFactory()
+
+    fake_draft = (
+        '{"action":"draft","title":"t","priority":"P2","module":"其他",'
+        '"repro_steps":"","expected_behavior":"","labels":[],'
+        '"follow_up_questions":[],"inferred_env":""}'
+    )
+    def boom(*args, **kwargs):
+        raise RuntimeError("LLM down")
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.chat", return_value=fake_draft), \
+         patch("apps.issues.services.check_duplicates", side_effect=boom):
+        svc = AiChatService()
+        events = list(svc.stream_chat(
+            messages=[{"role": "user", "content": "x"}],
+            project=project,
+        ))
+
+    names = [e[0] for e in events]
+    assert "draft" in names and "done" in names
+    assert "dup" not in names
