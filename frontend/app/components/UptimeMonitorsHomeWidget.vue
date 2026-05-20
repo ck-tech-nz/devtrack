@@ -38,32 +38,10 @@
 
 <script setup lang="ts">
 import { formatUptime } from '~/utils/formatUptime'
+import type { UptimeMonitor } from '~/composables/useUptimeMonitors'
 
-interface Monitor {
-  id: number
-  project: number
-  project_name: string
-  name: string
-  environment: string
-  last_status: string
-  last_up_at: string | null
-  outage_started_at: string | null
-}
-
-const { api } = useApi()
-
-const monitors = ref<Monitor[]>([])
-let pollTimer: ReturnType<typeof setInterval> | null = null
-
-async function fetchMonitors() {
-  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-  try {
-    const data = await api<Monitor[]>('/api/uptime/monitors/')
-    monitors.value = data ?? []
-  } catch (e) {
-    console.warn('Failed to fetch uptime monitors', e)
-  }
-}
+// 复用共享单例 — 与 SystemAlertBanner 共用同一个 5s 轮询
+const { monitors } = useUptimeMonitors()
 
 const productionMonitors = computed(() => monitors.value.filter(m => m.environment === 'production'))
 
@@ -87,16 +65,7 @@ function statusTextClass(status: string): string {
   }
 }
 
-function shortStatus(m: Monitor): string {
+function shortStatus(m: UptimeMonitor): string {
   return formatUptime(m.last_up_at, m.outage_started_at, m.last_status)
 }
-
-onMounted(async () => {
-  await fetchMonitors()
-  pollTimer = setInterval(fetchMonitors, 5_000)
-})
-
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
-})
 </script>

@@ -30,22 +30,11 @@
 </template>
 
 <script setup lang="ts">
-interface MonitorRow {
-  id: number
-  project: number
-  project_name: string
-  name: string
-  environment: string
-  last_status: string
-  outage_started_at: string | null
-}
+// 数据来自共享的 useUptimeMonitors composable — 与首页的 UptimeMonitorsHomeWidget
+// 共用同一个 5s 轮询,不再各自打接口
+const { monitors } = useUptimeMonitors()
 
-const { api } = useApi()
-const { user } = useAuth()
-
-const monitors = ref<MonitorRow[]>([])
 const dismissedSignature = ref<string>('')
-let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const DISMISS_KEY = 'vigil_dismissed_signature_v1'
 
@@ -83,17 +72,6 @@ const primaryLink = computed(() => {
   return first ? `/app/projects/${first.project}` : '/app/home'
 })
 
-async function fetchMonitors() {
-  if (!user.value) return
-  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-  try {
-    const data = await api<MonitorRow[]>('/api/uptime/monitors/')
-    monitors.value = data ?? []
-  } catch (e) {
-    // silent fail — banner is informational, don't disrupt the app
-  }
-}
-
 function dismiss() {
   dismissedSignature.value = signature.value
   if (typeof localStorage !== 'undefined') {
@@ -101,16 +79,10 @@ function dismiss() {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   if (typeof localStorage !== 'undefined') {
     dismissedSignature.value = localStorage.getItem(DISMISS_KEY) || ''
   }
-  await fetchMonitors()
-  pollTimer = setInterval(fetchMonitors, 5_000)
-})
-
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 
