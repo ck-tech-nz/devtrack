@@ -540,9 +540,9 @@ onBeforeUnmount(() => {
 
 /* ---------- 草稿卡片容器 ---------- */
 /* StepDraft 在 thread 内只是预览, 用 :deep() 把内部尺寸全面紧凑化,
-   宽度限制在 60% 且最大 36rem (~576px), 左对齐, 看不清/截断都无所谓 */
+   宽度限制在 72% 且最大 44rem (~704px), 左对齐 */
 .msg-draft-card {
-  width: min(60%, 36rem);
+  width: min(72%, 44rem);
   margin-left: 0;
   animation: draft-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
