@@ -175,7 +175,7 @@ class PromptFactory(factory.django.DjangoModelFactory):
     user_prompt_template = "Analyze: {total_issues} total issues."
     llm_model = "gpt-4o"
     temperature = 0.3
-    llm_config = None
+    llm_config = factory.SubFactory(LLMConfigFactory)
     is_active = True
 
 

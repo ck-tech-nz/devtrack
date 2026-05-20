@@ -123,12 +123,6 @@ class GenerateNicknameView(APIView):
             return Response({"detail": "昵称生成提示词未配置（slug: generate_nickname）"}, status=503)
 
         llm_config = prompt.llm_config
-        if llm_config is None:
-            llm_config = LLMConfig.objects.filter(is_default=True, is_active=True).first()
-        if llm_config is None:
-            llm_config = LLMConfig.objects.filter(is_active=True).first()
-        if llm_config is None:
-            return Response({"detail": "AI 服务未配置"}, status=503)
 
         raw_exclude = request.data.get("exclude") or []
         if isinstance(raw_exclude, str):

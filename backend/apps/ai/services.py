@@ -12,7 +12,7 @@ from django.utils import timezone
 from apps.issues.models import Issue
 from apps.repos.models import GitHubIssue
 from .client import LLMClient
-from .models import LLMConfig, Prompt, Analysis
+from .models import Prompt, Analysis
 from .opencode import OpenCodeRunner
 
 
@@ -147,10 +147,6 @@ class AIAnalysisService:
             raise AIConfigurationError(f"No active Prompt for '{analysis_type}'")
 
         llm_config = template.llm_config
-        if llm_config is None:
-            llm_config = LLMConfig.objects.filter(is_default=True, is_active=True).first()
-        if llm_config is None:
-            raise AIConfigurationError("No default LLMConfig configured")
 
         context = self._aggregate_context(analysis_type)
 
@@ -258,14 +254,7 @@ class IssueAnalysisService:
             analysis.save(update_fields=["status", "error_message", "updated_at"])
             return
 
-        llm_config = prompt_template.llm_config or LLMConfig.objects.filter(
-            is_default=True, is_active=True
-        ).first()
-        if not llm_config:
-            analysis.status = Analysis.Status.FAILED
-            analysis.error_message = "No default LLMConfig configured"
-            analysis.save(update_fields=["status", "error_message", "updated_at"])
-            return
+        llm_config = prompt_template.llm_config
 
         try:
             context = {

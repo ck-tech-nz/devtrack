@@ -77,12 +77,6 @@ class TestAutoAssign:
         issue = IssueFactory(project=project, status="待分配", assignee=None)
         assert auto_assign_issue(issue) is None
 
-    def test_returns_none_when_no_llm_config(self, auto_assign_prompt):
-        project, _ = self._project_with_members(2)
-        issue = IssueFactory(project=project, status="待分配", assignee=None)
-        # No active LLMConfig → should return None
-        assert auto_assign_issue(issue) is None
-
     def test_returns_none_when_no_prompt(self, default_llm_config):
         project, _ = self._project_with_members(2)
         issue = IssueFactory(project=project, status="待分配", assignee=None)

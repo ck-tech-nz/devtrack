@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from apps.ai.client import LLMClient
-from apps.ai.models import LLMConfig, Prompt
+from apps.ai.models import Prompt
 from apps.issues.services import check_duplicates
 
 
@@ -99,9 +99,7 @@ class AiWizardService:
         if prompt is None:
             raise AiWizardError(step=step, code="missing_prompt", message=f"未配置 Prompt: {slug}")
 
-        config = prompt.llm_config or LLMConfig.objects.filter(is_default=True, is_active=True).first()
-        if config is None:
-            raise AiWizardError(step=step, code="missing_llm_config", message="未配置可用的 LLM")
+        config = prompt.llm_config
 
         try:
             user_prompt = prompt.user_prompt_template.format(**format_kwargs)
@@ -192,9 +190,7 @@ class AiWizardService:
         if prompt is None:
             raise AiWizardError(step=1, code="missing_prompt", message="未配置 Prompt: wizard_oneshot")
 
-        config = prompt.llm_config or LLMConfig.objects.filter(is_default=True, is_active=True).first()
-        if config is None:
-            raise AiWizardError(step=1, code="missing_llm_config", message="未配置可用的 LLM")
+        config = prompt.llm_config
 
         site = SiteSettings.get_solo()
         modules = list(site.modules or [])

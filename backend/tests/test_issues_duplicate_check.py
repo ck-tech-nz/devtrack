@@ -151,16 +151,6 @@ def test_check_duplicates_returns_empty_on_llm_exception(duplicate_prompt, defau
 
 
 @pytest.mark.django_db
-def test_check_duplicates_returns_empty_when_no_llm_config(duplicate_prompt):
-    from apps.issues.services import check_duplicates
-
-    project = ProjectFactory()
-    IssueFactory(project=project, status="待分配", title="A")
-    # No LLMConfig with is_default=True exists.
-    assert check_duplicates(project_id=project.id, title="abc", description="") == []
-
-
-@pytest.mark.django_db
 def test_check_duplicates_returns_empty_when_no_prompt(default_llm):
     from apps.issues.services import check_duplicates
 

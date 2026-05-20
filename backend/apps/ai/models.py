@@ -6,6 +6,13 @@ class LLMConfig(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="名称")
     api_key = models.CharField(max_length=500, verbose_name="API Key")
     base_url = models.CharField(max_length=500, blank=True, verbose_name="Base URL")
+    # 该配置下可用的模型 ID 列表。提供商之间不互通,所以挂在配置上而不是全局
+    # 表。可在 LLM 配置列表用"获取可用模型"动作自动调用 /v1/models 拉取
+    available_models = models.JSONField(
+        default=list, blank=True,
+        verbose_name="可用模型",
+        help_text="该配置可用的模型 ID 列表。留空时不校验;非空时提示词的「模型」字段必须在此列表内。",
+    )
     supports_json_mode = models.BooleanField(default=True, verbose_name="支持 JSON 模式")
     is_default = models.BooleanField(default=False, verbose_name="默认配置")
     is_active = models.BooleanField(default=True, verbose_name="启用")
@@ -40,8 +47,8 @@ class Prompt(models.Model):
     llm_model = models.CharField(max_length=100, verbose_name="模型")
     temperature = models.FloatField(default=0.3, verbose_name="Temperature")
     llm_config = models.ForeignKey(
-        LLMConfig, on_delete=models.SET_NULL, null=True, blank=True,
-        verbose_name="LLM 配置", help_text="留空时使用默认配置",
+        LLMConfig, on_delete=models.PROTECT,
+        verbose_name="LLM 配置",
     )
     is_active = models.BooleanField(default=True, verbose_name="启用")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -53,6 +60,19 @@ class Prompt(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.slug})"
+
+    def clean(self):
+        """校验 llm_model 是否在所选 LLMConfig.available_models 内。"""
+        super().clean()
+        cfg = self.llm_config
+        if cfg and cfg.available_models and self.llm_model and self.llm_model not in cfg.available_models:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({
+                "llm_model": (
+                    f"模型 {self.llm_model!r} 不在 LLM 配置「{cfg.name}」的可用模型列表中。"
+                    f"可用: {cfg.available_models}"
+                ),
+            })
 
 
 class Analysis(models.Model):

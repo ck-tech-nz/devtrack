@@ -8,7 +8,7 @@ import logging
 import time
 
 from apps.ai.client import LLMClient
-from apps.ai.models import LLMConfig, Prompt
+from apps.ai.models import Prompt
 from .models import Issue, IssueAssignment, AssignmentAction, IssueStatus, Activity
 
 
@@ -49,9 +49,7 @@ def check_duplicates(project_id, title, description):
     if not prompt:
         return []
 
-    llm_config = prompt.llm_config or LLMConfig.objects.filter(is_default=True, is_active=True).first()
-    if not llm_config:
-        return []
+    llm_config = prompt.llm_config
 
     truncated = [
         {
@@ -315,10 +313,7 @@ def auto_assign_issue(issue):
         logger.warning("auto_assign: prompt '%s' not configured", AUTO_ASSIGN_PROMPT_SLUG)
         return None
 
-    llm_config = prompt.llm_config or LLMConfig.objects.filter(is_default=True, is_active=True).first()
-    if not llm_config:
-        logger.warning("auto_assign: no active LLM config")
-        return None
+    llm_config = prompt.llm_config
 
     try:
         labels = issue.labels if isinstance(issue.labels, list) else []
