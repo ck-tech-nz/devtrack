@@ -403,7 +403,7 @@
           </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+        <div v-if="issue.github_issues?.length" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">GitHub 关联</h3>
             <ServiceStatusDot :online="isOnline('github')" />
@@ -435,8 +435,8 @@
           </div>
         </div>
 
-        <!-- 外部来源 -->
-        <div v-if="issue.source" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+        <!-- 外部来源 — 仅当真正来自第三方接口且带有元数据时才显示 (ai_wizard 内部生成不算) -->
+        <div v-if="hasExternalSource" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <button class="flex items-center justify-between w-full" @click="showSourceMeta = !showSourceMeta">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">外部来源</h3>
             <UIcon :name="showSourceMeta ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="w-4 h-4 text-gray-400" />
@@ -497,8 +497,8 @@
           </div>
         </div>
 
-        <!-- 更新历史 (仅管理员) -->
-        <div v-if="isManager" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
+        <!-- 更新历史 (仅管理员; 内容为空 + 已加载完成时整张卡隐藏) -->
+        <div v-if="isManager && (historyLoading || history.length)" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-3">
           <button class="flex items-center justify-between w-full" @click="toggleHistory">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">更新历史</h3>
             <UIcon :name="showHistory ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="w-4 h-4 text-gray-400" />
@@ -964,6 +964,23 @@ const ghCreateError = ref('')
 // GitHub 关联
 const showLinkGH = ref(false)
 const showSourceMeta = ref(true)
+
+// 外部来源: ai_wizard 是内部 AI 生成不算外部; 仅 github / external_api 等第三方接口
+// 且 source_meta 含具体字段 (feedback_id / reporter / context / attachments) 时才有展示价值
+const hasExternalSource = computed(() => {
+  const issue_val: any = issue.value
+  if (!issue_val) return false
+  const src = issue_val.source
+  if (!src || src === 'ai_wizard') return false
+  const meta = issue_val.source_meta
+  if (!meta || typeof meta !== 'object') return false
+  return !!(
+    meta.feedback_id
+    || meta.reporter
+    || meta.context
+    || (Array.isArray(meta.attachments) && meta.attachments.length)
+  )
+})
 const ghLinkRepoFilter = ref('')
 const ghSelectedIds = ref<number[]>([])
 const ghLinking = ref(false)
