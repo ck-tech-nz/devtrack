@@ -1314,7 +1314,7 @@ def test_oneshot_revise_returns_submit_action_when_llm_classifies_confirm(site_s
         svc = AiWizardService()
         result = svc.oneshot_revise(VALID_CURRENT_DRAFT, "OK 了", images=[])
 
-    assert result == {"action": "submit"}
+    assert result["action"] == "submit"
 
 
 @pytest.mark.django_db
@@ -1480,7 +1480,8 @@ def test_chat_returns_ask_action_when_info_incomplete(site_settings):
             user=None,
         )
 
-    assert result == {"action": "ask", "question": "你这边是 dev 还是 prod 环境?"}
+    assert result["action"] == "ask"
+    assert result["question"] == "你这边是 dev 还是 prod 环境?"
 
 
 @pytest.mark.django_db
@@ -1504,7 +1505,7 @@ def test_chat_returns_submit_action_on_user_confirmation(site_settings):
             user=None,
         )
 
-    assert result == {"action": "submit"}
+    assert result["action"] == "submit"
 
 
 @pytest.mark.django_db
@@ -1868,3 +1869,88 @@ def test_chat_endpoint_accepts_conversation_attachment_ids(api_client, site_sett
     assert resp.status_code == 200
     assert "event: draft" in body
     assert "/uploads/old.png" in body, "累计附件应出现在 draft.description 渲染里"
+
+
+# ============================================================================
+# Image vision diagnostics — surface size/read warnings instead of silent drop
+# ============================================================================
+
+@pytest.mark.django_db
+def test_load_image_attachments_returns_warning_for_oversize(site_settings, monkeypatch):
+    """超过 10MB 的截图被丢弃, 同时返回用户可见的警告字串。"""
+    from apps.issues.services_ai_wizard import AiWizardService, MAX_IMAGE_BYTES
+    from apps.tools.models import Attachment
+    from tests.factories import UserFactory
+
+    user = UserFactory()
+    over = Attachment.objects.create(
+        uploaded_by=user,
+        file_name="big.png",
+        file_key="2026/05/over.png",
+        file_url="http://x/over.png",
+        file_size=MAX_IMAGE_BYTES + 1024,
+        mime_type="image/png",
+    )
+
+    helper = AiWizardService()
+    images, warnings = helper._load_image_attachments_with_warnings([str(over.id)], user)
+    assert images == []
+    assert any("big.png" in w and "10MB" in w for w in warnings)
+
+
+@pytest.mark.django_db
+def test_chat_emits_warning_event_when_image_oversize(site_settings, monkeypatch):
+    """大图被过滤时, stream_chat 应 emit 'warning' 事件让前端有机会显示给用户。"""
+    from apps.issues.services_ai_wizard import AiChatService, MAX_IMAGE_BYTES
+    from apps.tools.models import Attachment
+    from tests.factories import LLMConfigFactory, UserFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    user = UserFactory()
+    over = Attachment.objects.create(
+        uploaded_by=user,
+        file_name="huge.png",
+        file_key="2026/05/huge.png",
+        file_url="http://x/huge.png",
+        file_size=MAX_IMAGE_BYTES + 1,
+        mime_type="image/png",
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.chat",
+        return_value='{"action":"ask","question":"补充一下"}',
+    ):
+        svc = AiChatService()
+        events = list(svc.stream_chat(
+            messages=[{"role": "user", "content": "x"}],
+            attachment_ids=[str(over.id)],
+            user=user,
+        ))
+
+    names = [e[0] for e in events]
+    assert "warning" in names, f"应包含 warning 事件, 实际: {names}"
+    warning_payload = [e[1] for e in events if e[0] == "warning"][0]
+    assert "huge.png" in warning_payload["message"]
+
+
+@pytest.mark.django_db
+def test_chat_no_warning_event_for_under_limit_images(site_settings, monkeypatch):
+    """正常大小的图片不应触发警告事件 (smoke test 防回归)。"""
+    from apps.issues.services_ai_wizard import AiChatService, AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    monkeypatch.setattr(AiWizardService, "_load_image_attachments_with_warnings",
+                        lambda self, ids, owner: ([], []))
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.chat",
+        return_value='{"action":"ask","question":"x"}',
+    ):
+        svc = AiChatService()
+        events = list(svc.stream_chat(
+            messages=[{"role": "user", "content": "y"}],
+            attachment_ids=[],
+        ))
+
+    assert "warning" not in [e[0] for e in events]

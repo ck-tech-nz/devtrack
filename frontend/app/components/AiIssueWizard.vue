@@ -97,6 +97,14 @@
             <button type="button" class="msg-action msg-action--primary" @click="onRetry">重试</button>
             <button type="button" class="msg-action" @click="onBackToDescribe">重新描述</button>
           </div>
+
+          <!-- 非致命警告 (截图过大被丢 / 视觉模型回退) - 黄色提示, 不阻塞流程 -->
+          <div v-if="turn.warnings && turn.warnings.length" class="msg-warnings">
+            <div v-for="(w, i) in turn.warnings" :key="i" class="msg-warning">
+              <UIcon name="i-heroicons-exclamation-triangle" class="w-3.5 h-3.5" />
+              <span>{{ w }}</span>
+            </div>
+          </div>
         </div>
 
         <!-- AI 反问 (chat 路径 ask 动作): 信息不全时主动追问一个最关键的问题 -->
@@ -191,7 +199,6 @@ const emit = defineEmits<{ created: [issueId: number] }>()
 
 const { api } = useApi()
 const { user } = useAuth()
-const { confirm: showConfirm } = useDialog()
 
 const defaultProjectId = computed(() => user.value?.default_project?.id || null)
 
@@ -331,21 +338,7 @@ function onReset() {
   submitError.value = ''
 }
 
-async function onClearConversation() {
-  // 已成功提交后, 清空相当于"开始新对话", 不需要确认
-  if (successIssueId.value) {
-    onReset()
-    return
-  }
-  // 进行中的草稿丢失成本较高 — 弹个轻确认
-  const ok = await showConfirm({
-    title: '清空对话?',
-    message: '这会丢弃当前 AI 草稿和所有聊天历史 (本地存储也会清除), 确定继续吗?',
-    confirmText: '清空',
-    cancelText: '保留',
-    color: 'error',
-  })
-  if (!ok) return
+function onClearConversation() {
   onReset()
 }
 
@@ -406,34 +399,68 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.4375rem;
   padding: 0.5rem 0.875rem;
-  background-color: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid #d1d5db;
+  /* iOS 26 Liquid Glass.
+     纯白页面背景下任何"真透明"都看起来还是白色 (物理) — 所以加点冷色折射,
+     再用更明显的环线/投影把玻璃形态画出来. */
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(180, 200, 220, 0.04) 50%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  background-color: transparent;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 9999px;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #4b5563;
+  color: #374151;
   cursor: pointer;
-  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
-  transition: color 0.15s, background-color 0.15s, border-color 0.15s, transform 0.15s;
+  /* 上沿白高光 + 下沿暗线 = 玻璃厚度, 外加双层浮起阴影 */
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0.5px rgba(0, 0, 0, 0.05),
+    0 8px 24px -6px rgba(15, 23, 42, 0.15),
+    0 3px 8px -2px rgba(15, 23, 42, 0.08);
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 .clear-btn:hover {
   color: #dc2626;
-  border-color: #fca5a5;
-  background-color: #fef2f2;
+  border-color: rgba(252, 165, 165, 0.7);
+  background-color: rgba(254, 226, 226, 0.35);
   transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+    0 8px 20px -4px rgba(220, 38, 38, 0.18),
+    0 2px 6px -2px rgba(0, 0, 0, 0.1);
 }
 :root.dark .clear-btn {
-  background-color: rgba(31, 41, 55, 0.92);
-  border-color: #4b5563;
-  color: #d1d5db;
-  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.01) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 6px 16px -4px rgba(0, 0, 0, 0.5),
+    0 2px 6px -2px rgba(0, 0, 0, 0.3);
 }
 :root.dark .clear-btn:hover {
   color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.5);
-  background-color: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+  background-color: rgba(239, 68, 68, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 8px 20px -4px rgba(239, 68, 68, 0.3),
+    0 2px 6px -2px rgba(0, 0, 0, 0.35);
 }
 .clear-btn-label { letter-spacing: 0.01em; }
 @media (max-width: 480px) {
@@ -700,6 +727,25 @@ onBeforeUnmount(() => {
   color: #fca5a5;
   background-color: rgba(239, 68, 68, 0.08);
   border-color: rgba(239, 68, 68, 0.25);
+}
+
+.msg-warnings {
+  display: flex; flex-direction: column; gap: 0.375rem;
+  margin-left: 1.625rem;
+}
+.msg-warning {
+  display: flex; align-items: center; gap: 0.375rem;
+  padding: 0.4375rem 0.625rem;
+  font-size: 0.75rem;
+  color: #92400e;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+}
+:root.dark .msg-warning {
+  color: #fde68a;
+  background-color: rgba(251, 191, 36, 0.10);
+  border-color: rgba(251, 191, 36, 0.30);
 }
 
 .msg-actions {

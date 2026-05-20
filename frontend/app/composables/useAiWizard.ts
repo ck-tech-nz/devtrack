@@ -33,6 +33,8 @@ export type Turn =
       errorMessage: string
       /** AI 判定用户意图; 控制 brand status 副标题 */
       intent?: 'update' | 'submit' | 'ask'
+      /** 服务端 emit 的非致命警告 (如截图超大被丢弃 / 视觉模型回退到文字) */
+      warnings?: string[]
     }
   | { id: string; role: 'ai-draft'; version: number; draft: WizardDraft; attachmentIds: string[] }
   | { id: string; role: 'ai-ask'; question: string }
@@ -576,6 +578,13 @@ export function useAiWizard() {
             if (s) {
               s.status = (payload.status as StepStatus) || 'done'
               if (payload.label) s.label = payload.label
+            }
+          } else if (event === 'warning') {
+            // 服务端非致命警告: 截图过大 / 视觉调用失败 / etc. 累积挂到 thinking turn
+            const text = String(payload.message || '').trim()
+            if (text) {
+              if (!thinking.warnings) thinking.warnings = []
+              thinking.warnings.push(text)
             }
           } else if (event === 'draft') {
             gotTerminal = true

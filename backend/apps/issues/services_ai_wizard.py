@@ -50,7 +50,8 @@ ONESHOT_TIMEOUT_SECONDS = 25
 ONESHOT_RETRY_COUNT = 1   # one retry on bad JSON (total 2 attempts)
 
 MAX_IMAGES = 3
-MAX_IMAGE_BYTES = 2 * 1024 * 1024  # 2 MB
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB — 与 DashScope qwen-vl-max 实测安全上限对齐;
+# 之前 2MB 太苛刻, 4K/Retina 屏截图普遍超过, 被静默丢导致 LLM "看不到截图"
 
 ALLOWED_PRIORITIES = {"P0", "P1", "P2", "P3"}
 
@@ -393,17 +394,24 @@ class AiWizardService:
         data["follow_up_questions"] = [str(q)[:100] for q in raw_q if q][:3]
 
     def _load_image_attachments(self, attachment_ids: list, owner) -> list[tuple[str, bytes]]:
-        """Resolve attachment_ids → up to MAX_IMAGES (mime, bytes) pairs.
+        """Backward-compat shim - 旧路径继续用, 不带 warning 信号."""
+        images, _ = self._load_image_attachments_with_warnings(attachment_ids, owner)
+        return images
 
-        - Filters to image MIME types only
-        - 仅允许调用者本人上传的附件 (uploaded_by=owner),防止跨用户 IDOR
-          泄露图片内容 (LLM 会 OCR 图片返回到 SSE 响应中)
-        - Skips files larger than MAX_IMAGE_BYTES
-        - Silently skips read failures (logs warning) so one bad attachment
-          doesn't abort the whole wizard call
+    def _load_image_attachments_with_warnings(
+        self, attachment_ids: list, owner,
+    ) -> tuple[list[tuple[str, bytes]], list[str]]:
+        """Resolve attachment_ids → ([(mime, bytes), ...], [user-facing warnings, ...]).
+
+        过滤规则:
+          - 仅 image/* mime
+          - 仅 owner 自己上传的附件 (防 IDOR; LLM 输出会回到 SSE 流中)
+          - 超过 MAX_IMAGE_BYTES (10MB) 的图跳过, 并把"xxx.png 超过 10MB"加入 warnings
+          - 读取失败的也跳过 + warning
+          - 最多 MAX_IMAGES (3) 张; 多余的也算 warning, 提示用户保留前 3 张
         """
         if not attachment_ids or owner is None:
-            return []
+            return [], []
 
         from apps.tools.models import Attachment
 
@@ -414,19 +422,28 @@ class AiWizardService:
         )
 
         out: list[tuple[str, bytes]] = []
+        warnings: list[str] = []
+        mb_cap = MAX_IMAGE_BYTES // (1024 * 1024)
         for att in rows:
             if att.file_size > MAX_IMAGE_BYTES:
+                size_mb = att.file_size / (1024 * 1024)
+                msg = f"截图「{att.file_name}」({size_mb:.1f}MB) 超过 {mb_cap}MB 上限, AI 无法读取"
                 logger.info("wizard skipping oversize image %s (%d bytes)", att.file_name, att.file_size)
+                warnings.append(msg)
                 continue
             try:
                 raw = _read_attachment_bytes(att.file_key)
             except Exception as e:
                 logger.warning("wizard could not read attachment %s: %s", att.file_key, e)
+                warnings.append(f"截图「{att.file_name}」读取失败, AI 无法看到")
                 continue
             out.append((att.mime_type, raw))
             if len(out) >= MAX_IMAGES:
+                remaining = len(rows) - rows.index(att) - 1
+                if remaining > 0:
+                    warnings.append(f"本轮共 {len(rows)} 张图, AI 仅处理前 {MAX_IMAGES} 张")
                 break
-        return out
+        return out, warnings
 
     def stream_draft(self, description: str, project_id=None, attachment_ids=None, user=None):
         """Dispatch on AI_WIZARD_LEGACY: True → v1 3-stage, False → v2 oneshot.
@@ -782,7 +799,7 @@ class AiChatService:
         # 加载本轮图片 (只挂到最后一条 user message 上)
         # 内部方法仍在 AiWizardService 上 — 复用免重写
         helper = AiWizardService()
-        images = helper._load_image_attachments(attachment_ids or [], user)
+        images, image_warnings = helper._load_image_attachments_with_warnings(attachment_ids or [], user)
 
         client = LLMClient(config)
         vision_warning = None
@@ -822,14 +839,19 @@ class AiChatService:
         if not isinstance(parsed, dict):
             raise AiWizardError(step=1, code="llm_bad_shape", message="AI 返回非对象")
 
+        # 合并所有 warning 信号 (尺寸/读取失败/视觉调用失败回退)
+        warnings_to_user = list(image_warnings)
+        if vision_warning:
+            warnings_to_user.append(vision_warning)
+
         action = parsed.get("action")
         if action == "submit":
-            return {"action": "submit"}
+            return {"action": "submit", "_warnings": warnings_to_user}
         if action == "ask":
             question = (parsed.get("question") or "").strip()[:200]
             if not question:
                 raise AiWizardError(step=1, code="llm_bad_shape", message="ask 缺少 question 字段")
-            return {"action": "ask", "question": question}
+            return {"action": "ask", "question": question, "_warnings": warnings_to_user}
 
         # action == "draft" 或缺失 (兼容: 缺失视为 draft)
         parsed.pop("action", None)
@@ -852,6 +874,7 @@ class AiChatService:
             first_user_text, parsed.get("inferred_env", ""), image_meta,
         )
         parsed["action"] = "draft"
+        parsed["_warnings"] = warnings_to_user
         return parsed
 
     def stream_chat(
@@ -902,6 +925,12 @@ class AiChatService:
 
         action = result.get("action")
         elapsed = int((time.monotonic() - t0) * 1000)
+
+        # 提取 chat() 顺带返回的 vision warning, 在终态事件之前 emit, 让前端把它显示给用户
+        warnings_to_user = result.pop("_warnings", None) or []
+        for warning_msg in warnings_to_user:
+            yield ("warning", {"message": warning_msg})
+
         if action == "submit":
             logger.info("wizard_chat → submit elapsed_ms=%d", elapsed)
             yield ("step", {"step": 1, "label": "✓ 已确认提交", "status": "done"})
