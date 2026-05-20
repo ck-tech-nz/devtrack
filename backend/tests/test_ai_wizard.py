@@ -1082,3 +1082,348 @@ def test_ai_draft_endpoint_passes_project_and_attachments_to_service(api_client,
     assert captured["project_id"] == project.id
     assert captured["attachment_ids"] == []
     assert "event: draft" in body
+
+
+# ============================================================================
+# Multi-turn revise (wizard_revise prompt + /ai-draft/revise/ endpoint)
+# ============================================================================
+
+VALID_CURRENT_DRAFT = {
+    "title": "通知中心乱码",
+    "priority": "P2",
+    "module": "通知中心",
+    "repro_steps": "1. 进入首页\n2. 查看通知",
+    "expected_behavior": "应显示正常内容",
+    "labels": ["Bug"],
+    "follow_up_questions": [],
+    "inferred_env": "环境: prod | 角色: 普通用户 | 页面: 首页",
+}
+
+
+@pytest.mark.django_db
+def test_oneshot_revise_returns_updated_draft(site_settings):
+    """Happy path: LLM 返回完整更新后的草稿, sanitize 不破坏字段。"""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(
+        modules=["通知中心", "其他"],
+        labels={
+            "Bug": {"foreground": "#fff", "background": "#d00", "description": ""},
+            "前端": {"foreground": "#fff", "background": "#000", "description": ""},
+        },
+    )
+
+    fake = (
+        '{"title": "通知中心乱码", "priority": "P1", "module": "通知中心", '
+        '"repro_steps": "1. 进入首页\\n2. 查看通知\\n3. 切换深色模式 (新增)", '
+        '"expected_behavior": "应显示正常内容", '
+        '"labels": ["Bug", "前端"], '
+        '"follow_up_questions": [], '
+        '"inferred_env": "环境: prod | 角色: 普通用户 | 页面: 首页"}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_revise(
+            current_draft=VALID_CURRENT_DRAFT,
+            instruction="复现步骤增加第三条:切换深色模式后乱码;优先级提到 P1",
+            images=[],
+        )
+
+    assert result["priority"] == "P1"  # changed
+    assert result["title"] == "通知中心乱码"  # unchanged
+    assert "切换深色模式" in result["repro_steps"]  # appended
+    assert set(result["labels"]) >= {"Bug"}
+
+
+@pytest.mark.django_db
+def test_oneshot_revise_raises_on_missing_prompt(site_settings):
+    from apps.issues.services_ai_wizard import AiWizardService, AiWizardError
+    Prompt.objects.filter(slug="wizard_revise").update(is_active=False)
+    svc = AiWizardService()
+    with pytest.raises(AiWizardError) as exc:
+        svc.oneshot_revise(current_draft=VALID_CURRENT_DRAFT, instruction="x", images=[])
+    assert exc.value.code == "missing_prompt"
+
+
+@pytest.mark.django_db
+def test_oneshot_revise_retries_on_bad_json(site_settings):
+    """First JSON is malformed → retried once; second succeeds."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    responses = iter([
+        "not json at all",
+        '{"title":"通知中心乱码","priority":"P2","module":"通知中心","repro_steps":"1. x","expected_behavior":"y","labels":[],"follow_up_questions":[],"inferred_env":""}',
+    ])
+
+    def fake(self, **kwargs):
+        return next(responses)
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete_multimodal", new=fake):
+        svc = AiWizardService()
+        result = svc.oneshot_revise(VALID_CURRENT_DRAFT, "改", images=[])
+    assert result["module"] == "通知中心"
+
+
+@pytest.mark.django_db
+def test_stream_revise_emits_step_running_done_then_draft_and_done(site_settings):
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    fake = (
+        '{"title": "通知中心乱码", "priority": "P0", "module": "通知中心", '
+        '"repro_steps": "1. x", "expected_behavior": "y", "labels": [], '
+        '"follow_up_questions": [], "inferred_env": ""}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        svc = AiWizardService()
+        events = list(svc.stream_revise(
+            current_draft=VALID_CURRENT_DRAFT,
+            instruction="改 P0",
+        ))
+
+    names = [e[0] for e in events]
+    assert names == ["step", "step", "draft", "done"]
+    assert events[0][1]["status"] == "running"
+    assert events[1][1]["status"] == "done"
+    assert events[2][1]["priority"] == "P0"
+
+
+@pytest.mark.django_db
+def test_stream_revise_yields_error_event_on_llm_failure(site_settings):
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    def boom(self, **kwargs):
+        raise RuntimeError("upstream timeout")
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.complete_multimodal", new=boom):
+        svc = AiWizardService()
+        events = list(svc.stream_revise(VALID_CURRENT_DRAFT, "改", attachment_ids=[]))
+
+    names = [e[0] for e in events]
+    assert "error" in names
+    err = [e for e in events if e[0] == "error"][0][1]
+    assert err["code"] == "llm_call_failed"
+
+
+@pytest.mark.django_db
+def test_revise_endpoint_requires_authentication(api_client):
+    resp = api_client.post(
+        "/api/issues/ai-draft/revise/",
+        {"current_draft": VALID_CURRENT_DRAFT, "instruction": "改", "project": 1},
+        format="json",
+    )
+    assert resp.status_code == 401
+
+
+@pytest.mark.django_db
+def test_revise_endpoint_requires_add_issue_permission(api_client):
+    from tests.factories import UserFactory
+    user = UserFactory()
+    api_client.force_authenticate(user)
+    resp = api_client.post(
+        "/api/issues/ai-draft/revise/",
+        {"current_draft": VALID_CURRENT_DRAFT, "instruction": "改", "project": 1},
+        format="json",
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.django_db
+def test_revise_endpoint_validates_instruction(api_client):
+    from django.contrib.auth.models import Permission
+    from tests.factories import UserFactory
+    user = UserFactory()
+    user.user_permissions.add(Permission.objects.get(codename="add_issue"))
+    api_client.force_authenticate(user)
+    resp = api_client.post(
+        "/api/issues/ai-draft/revise/",
+        {"current_draft": VALID_CURRENT_DRAFT, "instruction": "", "project": 1},
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "instruction" in resp.data
+
+
+@pytest.mark.django_db
+def test_revise_endpoint_streams_sse_events(api_client, site_settings):
+    from django.contrib.auth.models import Permission
+    from tests.factories import LLMConfigFactory, ProjectFactory, UserFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    project = ProjectFactory()
+    user = UserFactory()
+    user.user_permissions.add(Permission.objects.get(codename="add_issue"))
+    api_client.force_authenticate(user)
+
+    fake = (
+        '{"title": "通知中心乱码", "priority": "P0", "module": "通知中心", '
+        '"repro_steps": "1. x", "expected_behavior": "y", "labels": [], '
+        '"follow_up_questions": [], "inferred_env": ""}'
+    )
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        resp = api_client.post(
+            "/api/issues/ai-draft/revise/",
+            {
+                "current_draft": VALID_CURRENT_DRAFT,
+                "instruction": "改 P0",
+                "project": str(project.id),
+            },
+            format="json",
+        )
+        body = b"".join(resp.streaming_content).decode()
+
+    assert resp.status_code == 200
+    assert resp["Content-Type"].startswith("text/event-stream")
+    assert "event: step" in body
+    assert "event: draft" in body
+    assert "event: done" in body
+    assert '"priority": "P0"' in body
+
+
+# ----- LLM-driven action classifier (submit vs update) -----
+
+@pytest.mark.django_db
+def test_oneshot_revise_returns_submit_action_when_llm_classifies_confirm(site_settings):
+    """LLM 输出 {action: submit} 时, oneshot_revise 短路返回 — 不走 draft 校验."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value='{"action": "submit"}',
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_revise(VALID_CURRENT_DRAFT, "OK 了", images=[])
+
+    assert result == {"action": "submit"}
+
+
+@pytest.mark.django_db
+def test_oneshot_revise_tags_update_action_for_backward_compat(site_settings):
+    """LLM 输出标准 draft 字段时, oneshot_revise 也会贴 action=update 标记,
+    方便 stream_revise 统一分支."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(
+        modules=["通知中心", "其他"],
+        labels={"Bug": {"foreground": "#fff", "background": "#d00", "description": ""}},
+    )
+
+    fake = (
+        '{"action": "update", "title": "通知中心乱码", "priority": "P0", "module": "通知中心", '
+        '"repro_steps": "1. x", "expected_behavior": "y", "labels": ["Bug"], '
+        '"follow_up_questions": [], "inferred_env": ""}'
+    )
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_revise(VALID_CURRENT_DRAFT, "改 P0", images=[])
+
+    assert result["action"] == "update"
+    assert result["priority"] == "P0"
+
+
+@pytest.mark.django_db
+def test_oneshot_revise_handles_missing_action_field_as_update(site_settings):
+    """老 prompt 没要求输出 action 字段时, 缺失应视为 update (backward compat)."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(
+        modules=["通知中心"],
+        labels={"Bug": {"foreground": "#fff", "background": "#d00", "description": ""}},
+    )
+
+    fake = (
+        '{"title": "通知中心乱码", "priority": "P0", "module": "通知中心", '
+        '"repro_steps": "1. x", "expected_behavior": "y", "labels": [], '
+        '"follow_up_questions": [], "inferred_env": ""}'
+    )
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value=fake,
+    ):
+        svc = AiWizardService()
+        result = svc.oneshot_revise(VALID_CURRENT_DRAFT, "改 P0", images=[])
+
+    assert result["action"] == "update"
+    assert result["priority"] == "P0"
+
+
+@pytest.mark.django_db
+def test_stream_revise_emits_submit_event_when_llm_classifies_confirm(site_settings):
+    """submit 路径下 SSE 序列是 step(running) → step(done) → submit → done, 不发 draft."""
+    from apps.issues.services_ai_wizard import AiWizardService
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value='{"action": "submit"}',
+    ):
+        svc = AiWizardService()
+        events = list(svc.stream_revise(
+            current_draft=VALID_CURRENT_DRAFT,
+            instruction="OK 了",
+        ))
+
+    names = [e[0] for e in events]
+    assert names == ["step", "step", "submit", "done"]
+    # 没有 draft 事件
+    assert "draft" not in names
+
+
+@pytest.mark.django_db
+def test_revise_endpoint_streams_submit_event_through_sse(api_client, site_settings):
+    """端到端: 客户端拿到 SSE 流应包含 event: submit, 不含 event: draft."""
+    from django.contrib.auth.models import Permission
+    from tests.factories import LLMConfigFactory, ProjectFactory, UserFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    project = ProjectFactory()
+    user = UserFactory()
+    user.user_permissions.add(Permission.objects.get(codename="add_issue"))
+    api_client.force_authenticate(user)
+
+    with patch(
+        "apps.issues.services_ai_wizard.LLMClient.complete_multimodal",
+        return_value='{"action": "submit"}',
+    ):
+        resp = api_client.post(
+            "/api/issues/ai-draft/revise/",
+            {
+                "current_draft": VALID_CURRENT_DRAFT,
+                "instruction": "OK 了",
+                "project": str(project.id),
+            },
+            format="json",
+        )
+        body = b"".join(resp.streaming_content).decode()
+
+    assert resp.status_code == 200
+    assert "event: submit" in body
+    assert "event: draft" not in body
+    assert "event: done" in body

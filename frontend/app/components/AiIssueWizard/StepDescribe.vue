@@ -39,7 +39,7 @@
       <UTextarea
         v-model="description"
         :rows="3"
-        :placeholder="analyzing ? 'AI 正在生成草稿，可点击 ■ 取消…' : '描述问题：哪个页面/角色，做了什么，看到什么。可以贴截图——AI 会读取截图内容。'"
+        :placeholder="placeholderText"
         autoresize
         variant="none"
         :disabled="analyzing"
@@ -130,7 +130,9 @@ const props = defineProps<{
   projects: Project[]
   defaultProjectId: string | null
   analyzing?: boolean
-  /** 父级可清空已编辑内容 (例如取消后想重置一切而不是恢复 snapshot) */
+  /** thread 内已有 draft 时, composer 进入"修订模式" - 改 placeholder/最短长度 */
+  reviseMode?: boolean
+  /** 父级可清空已编辑内容 */
   resetSignal?: number
 }>()
 
@@ -159,8 +161,16 @@ const projectOptions = computed(() =>
 )
 
 const MIN_DESC_LEN = 5
+const MIN_REVISE_LEN = 2  // 修订指令可以很短, 例如 "P0"
+const minLen = computed(() => (props.reviseMode ? MIN_REVISE_LEN : MIN_DESC_LEN))
 const trimmedLen = computed(() => description.value.trim().length)
-const canAnalyze = computed(() => trimmedLen.value >= MIN_DESC_LEN && !!projectId.value && !props.analyzing)
+const canAnalyze = computed(() => trimmedLen.value >= minLen.value && !!projectId.value && !props.analyzing)
+
+const placeholderText = computed(() => {
+  if (props.analyzing) return 'AI 正在生成草稿，可点击 ■ 取消…'
+  if (props.reviseMode) return '告诉 AI 怎么改这份草稿，例如「复现步骤加一条 xxx」「优先级提到 P0」'
+  return '描述问题：哪个页面/角色，做了什么，看到什么。可以贴截图——AI 会读取截图内容。'
+})
 
 const isMac = computed(() => {
   if (typeof navigator === 'undefined') return false
@@ -169,10 +179,10 @@ const isMac = computed(() => {
 const sendShortcutHint = computed(() => `${isMac.value ? '⌘' : 'Ctrl'} + Enter 发送`)
 
 const hintMessage = computed(() => {
-  if (trimmedLen.value > 0 && trimmedLen.value < MIN_DESC_LEN) {
-    return `至少 ${MIN_DESC_LEN} 个字（当前 ${trimmedLen.value}）`
+  if (trimmedLen.value > 0 && trimmedLen.value < minLen.value) {
+    return `至少 ${minLen.value} 个字（当前 ${trimmedLen.value}）`
   }
-  if (trimmedLen.value >= MIN_DESC_LEN && !projectId.value) return '请选择项目'
+  if (trimmedLen.value >= minLen.value && !projectId.value) return '请选择项目'
   return sendShortcutHint.value
 })
 

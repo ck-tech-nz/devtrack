@@ -374,6 +374,20 @@ class AiDraftInputSerializer(serializers.Serializer):
     )
 
 
+class AiDraftReviseInputSerializer(serializers.Serializer):
+    """多轮草稿修订入参 — 客户端传当前草稿全貌 + 一句修订意见。
+
+    current_draft 接收 8 个白名单字段, 多传的字段会被 sanitize 步骤丢弃。
+    project 仍需传, 主要用于权限校验和 attachment owner 检查; LLM 不直接读项目。
+    """
+    current_draft = serializers.DictField(child=serializers.JSONField(), allow_empty=False)
+    instruction = serializers.CharField(min_length=1, max_length=2000)
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
+    attachment_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list,
+    )
+
+
 class IssueTransferInputSerializer(serializers.Serializer):
     to_user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     reason = serializers.CharField(max_length=500)

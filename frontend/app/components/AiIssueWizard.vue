@@ -8,118 +8,139 @@
   >
     <h2 v-if="!inChatMode" class="hero-title">有什么我可以帮你的？</h2>
 
-    <!-- 对话 thread — chat 模式撑满上方空间, composer 自然贴底 -->
+    <!-- 对话 thread -->
     <div v-if="inChatMode" ref="threadEl" class="thread">
-      <!-- 用户消息 -->
-      <div class="msg msg--user">
-        <div v-if="sentAttachments.length" class="msg-attach-row">
-          <button
-            v-for="att in sentAttachments"
-            :key="att.id"
-            type="button"
-            class="msg-attach"
-            :class="{ 'msg-attach--image': isImage(att.file_name) }"
-            :title="isImage(att.file_name) ? `预览 ${att.file_name}` : att.file_name"
-            :disabled="!isImage(att.file_name)"
-            @click="isImage(att.file_name) && openPreview(att)"
-          >
-            <img v-if="isImage(att.file_name)" :src="att.file_url" :alt="att.file_name" />
-            <template v-else>
-              <UIcon name="i-heroicons-document" class="w-3.5 h-3.5" />
-              <span class="msg-attach-name">{{ att.file_name }}</span>
-            </template>
-          </button>
-        </div>
-        <div v-if="sentDescription" class="msg-bubble">{{ sentDescription }}</div>
-      </div>
-
-      <!-- AI 第一条回复: 思考过程 (始终显示, draft 出来后变 done) -->
-      <div class="msg msg--ai">
-        <div class="msg-brand">
-          <span class="msg-brand-mark">
-            <UIcon name="i-heroicons-sparkles" class="w-3 h-3" />
-          </span>
-          <span class="msg-brand-name">DevTrakr</span>
-          <span v-if="isThinking" class="msg-brand-status">
-            <span class="brand-pulse" /> 正在思考
-          </span>
-          <span v-else-if="thinkingDone" class="msg-brand-status msg-brand-status--done">
-            已分析
-          </span>
+      <template v-for="turn in wizard.turns.value" :key="turn.id">
+        <!-- 用户消息 -->
+        <div v-if="turn.role === 'user'" class="msg msg--user">
+          <div v-if="turn.attachments.length" class="msg-attach-row">
+            <button
+              v-for="att in turn.attachments"
+              :key="att.id"
+              type="button"
+              class="msg-attach"
+              :class="{ 'msg-attach--image': isImage(att.file_name) }"
+              :title="isImage(att.file_name) ? `预览 ${att.file_name}` : att.file_name"
+              :disabled="!isImage(att.file_name)"
+              @click="isImage(att.file_name) && openPreview(att)"
+            >
+              <img v-if="isImage(att.file_name)" :src="att.file_url" :alt="att.file_name" />
+              <template v-else>
+                <UIcon name="i-heroicons-document" class="w-3.5 h-3.5" />
+                <span class="msg-attach-name">{{ att.file_name }}</span>
+              </template>
+            </button>
+          </div>
+          <div v-if="turn.text" class="msg-bubble">{{ turn.text }}</div>
         </div>
 
-        <div class="msg-thinking">
-          <div
-            v-for="s in wizard.steps.value"
-            :key="s.step"
-            class="think-line"
-            :class="`think-line--${s.status}`"
-          >
-            <UIcon v-if="s.status === 'done'" name="i-heroicons-check-circle" class="w-3.5 h-3.5 think-icon think-icon--done" />
-            <UIcon v-else-if="s.status === 'error'" name="i-heroicons-exclamation-circle" class="w-3.5 h-3.5 think-icon think-icon--error" />
-            <span v-else class="think-dot" />
-            <span class="think-label">{{ s.label }}</span>
-            <span v-if="s.status === 'running'" class="think-caret" aria-hidden="true">▍</span>
+        <!-- AI 思考过程 -->
+        <div v-else-if="turn.role === 'ai-thinking'" class="msg msg--ai">
+          <div class="msg-brand">
+            <span class="msg-brand-mark">
+              <UIcon name="i-heroicons-sparkles" class="w-3 h-3" />
+            </span>
+            <span class="msg-brand-name">DevTrakr</span>
+            <span
+              v-if="isThinkingTurnRunning(turn)"
+              class="msg-brand-status"
+            >
+              <span class="brand-pulse" /> {{ turn.kind === 'revise' ? '正在更新' : '正在思考' }}
+            </span>
+            <span
+              v-else-if="turn.intent === 'submit'"
+              class="msg-brand-status msg-brand-status--draft"
+            >
+              ✓ 已确认,正在提交
+            </span>
+            <span
+              v-else-if="!turn.errorMessage"
+              class="msg-brand-status msg-brand-status--done"
+            >
+              {{ turn.kind === 'revise' ? '已更新' : '已分析' }}
+            </span>
+          </div>
+
+          <div class="msg-thinking">
+            <div
+              v-for="s in turn.steps"
+              :key="s.step"
+              class="think-line"
+              :class="`think-line--${s.status}`"
+            >
+              <UIcon v-if="s.status === 'done'" name="i-heroicons-check-circle" class="w-3.5 h-3.5 think-icon think-icon--done" />
+              <UIcon v-else-if="s.status === 'error'" name="i-heroicons-exclamation-circle" class="w-3.5 h-3.5 think-icon think-icon--error" />
+              <span v-else class="think-dot" />
+              <span class="think-label">{{ s.label }}</span>
+              <span v-if="s.status === 'running'" class="think-caret" aria-hidden="true">▍</span>
+            </div>
+          </div>
+
+          <div v-if="turn.errorMessage" class="msg-error">
+            <UIcon name="i-heroicons-exclamation-triangle" class="w-3.5 h-3.5" />
+            <span>{{ turn.errorMessage }}</span>
+          </div>
+
+          <div v-if="turn.errorMessage" class="msg-actions">
+            <button type="button" class="msg-action msg-action--primary" @click="onRetry">重试</button>
+            <button type="button" class="msg-action" @click="onBackToDescribe">重新描述</button>
           </div>
         </div>
 
-        <div v-if="wizard.errorMessage.value" class="msg-error">
-          <UIcon name="i-heroicons-exclamation-triangle" class="w-3.5 h-3.5" />
-          <span>{{ wizard.errorMessage.value }}</span>
+        <!-- AI 草稿 (可能有多张, 最新可编辑) -->
+        <div v-else-if="turn.role === 'ai-draft'" class="msg msg--ai msg--ai-draft">
+          <div class="msg-brand">
+            <span class="msg-brand-mark">
+              <UIcon name="i-heroicons-sparkles" class="w-3 h-3" />
+            </span>
+            <span class="msg-brand-name">DevTrakr</span>
+            <span class="msg-brand-status msg-brand-status--draft">
+              {{ turn.version > 1 ? `草稿 v${turn.version} 已就绪` : '草稿已就绪' }}
+            </span>
+            <span v-if="!isTurnEditable(turn)" class="msg-brand-status msg-brand-status--stale">
+              · 已被新版替代
+            </span>
+          </div>
+          <div class="msg-draft-card" :class="{ 'msg-draft-card--stale': !isTurnEditable(turn) }">
+            <StepDraft
+              :ref="(el) => captureEditableDraftRef(el, turn.id)"
+              :draft="turn.draft"
+              :projects="projects"
+              :initial-project-id="lastAnalyzedProject"
+              :modules="modules"
+              :users="users"
+              :valid-labels="validLabels"
+              :attachment-ids="turn.attachmentIds"
+              :original-input="lastOriginalInput"
+              :submitting="submitting && isTurnEditable(turn)"
+              :submit-error="isTurnEditable(turn) ? submitError : ''"
+              :success-issue-id="isTurnEditable(turn) ? successIssueId : null"
+              :success-assignee="successAssignee"
+              :editable="isTurnEditable(turn)"
+              :version="turn.version"
+              @submit="onSubmit"
+              @back="onBackToDescribe"
+              @reset="onReset"
+            />
+          </div>
         </div>
-
-        <div v-if="wizard.errorMessage.value" class="msg-actions">
-          <button type="button" class="msg-action msg-action--primary" @click="onRetry">重试</button>
-          <button type="button" class="msg-action" @click="onBackToDescribe">重新描述</button>
-        </div>
-      </div>
-
-      <!-- AI 第二条回复: 草稿 (左对齐, 作为对话延续) -->
-      <div v-if="currentStep === 3 && wizard.draft.value" class="msg msg--ai msg--ai-draft">
-        <div class="msg-brand">
-          <span class="msg-brand-mark">
-            <UIcon name="i-heroicons-sparkles" class="w-3 h-3" />
-          </span>
-          <span class="msg-brand-name">DevTrakr</span>
-          <span class="msg-brand-status msg-brand-status--draft">
-            草稿已就绪
-          </span>
-        </div>
-        <div class="msg-draft-card">
-          <StepDraft
-            :draft="wizard.draft.value"
-            :projects="projects"
-            :initial-project-id="lastAnalyzedProject"
-            :modules="modules"
-            :users="users"
-            :valid-labels="validLabels"
-            :attachment-ids="lastAttachmentIds"
-            :original-input="lastOriginalInput"
-            :submitting="submitting"
-            :submit-error="submitError"
-            :success-issue-id="successIssueId"
-            :success-assignee="successAssignee"
-            @submit="onSubmit"
-            @back="onBackToDescribe"
-            @reset="onReset"
-          />
-        </div>
-      </div>
+      </template>
     </div>
 
-    <!-- Composer (始终渲染, chat 模式下钉在 wizard 底部) -->
+    <!-- Composer -->
     <div class="composer-slot">
       <StepDescribe
         ref="describeRef"
         :projects="projects"
         :default-project-id="defaultProjectId"
-        :analyzing="currentStep === 2"
+        :analyzing="wizard.state.value === 'analyzing'"
+        :revise-mode="hasDraft && !successIssueId"
         @analyze="onAnalyze"
         @cancel="onBackToDescribe"
       />
     </div>
 
-    <!-- thread 内图片缩略图的预览弹窗 -->
+    <!-- 缩略图预览弹窗 -->
     <UModal v-model:open="previewOpen" :ui="{ content: 'sm:max-w-4xl' }">
       <template #content>
         <div class="preview-modal">
@@ -137,8 +158,9 @@
 </template>
 
 <script setup lang="ts">
-import StepDescribe, { type AttachmentRef } from './AiIssueWizard/StepDescribe.vue'
+import StepDescribe from './AiIssueWizard/StepDescribe.vue'
 import StepDraft from './AiIssueWizard/StepDraft.vue'
+import type { Turn, AttachmentRef } from '~/composables/useAiWizard'
 
 const emit = defineEmits<{ created: [issueId: number] }>()
 
@@ -152,23 +174,15 @@ const modules = ref<string[]>([])
 const users = ref<{ id: string; name: string }[]>([])
 const validLabels = ref<string[]>([])
 const lastAnalyzedProject = ref<string>('')
-const lastAttachmentIds = ref<string[]>([])
 const lastOriginalInput = ref<string>('')
-
-// thread 中渲染的用户消息快照
-const sentDescription = ref<string>('')
-const sentAttachments = ref<AttachmentRef[]>([])
-
-// 缩略图点击预览
-const previewOpen = ref(false)
-const previewAttachment = ref<AttachmentRef | null>(null)
-function openPreview(att: AttachmentRef) {
-  previewAttachment.value = att
-  previewOpen.value = true
-}
 
 const describeRef = ref<InstanceType<typeof StepDescribe> | null>(null)
 const threadEl = ref<HTMLElement | null>(null)
+// 最新可编辑的 StepDraft 实例 - affirmative auto-submit 用
+const editableDraftRef = ref<{ triggerSubmit: () => void } | null>(null)
+function captureEditableDraftRef(el: any, turnId: string) {
+  if (turnId === latestDraftId.value) editableDraftRef.value = el
+}
 
 const wizard = useAiWizard()
 const submitting = ref(false)
@@ -176,27 +190,30 @@ const submitError = ref('')
 const successIssueId = ref<number | null>(null)
 const successAssignee = ref<string | null>(null)
 
-const currentStep = computed(() => {
-  if (successIssueId.value) return 3
-  if (wizard.state.value === 'idle') return 1
-  if (wizard.state.value === 'analyzing' || wizard.state.value === 'error') return 2
-  if (wizard.state.value === 'drafting') return 3
-  return 1
-})
-
-// chat 模式: 用户已发出过描述, 应该把上方空间留给 thread
-const inChatMode = computed(() => currentStep.value >= 2 || !!sentDescription.value)
-
-// 草稿待定 (尚未点"提交 Issue") 期间, composer 钉在视口底端,
-// 让用户一边滚动浏览 thread, 一边随时能继续对话/取消
+// thread 内是否有任意 turn
+const inChatMode = computed(() => wizard.turns.value.length > 0)
+// 是否已经至少有一张 draft (决定 composer 走 start 还是 revise)
+const hasDraft = computed(() => !!wizard.latestDraft.value)
+// 草稿待提交 (sticky composer 触发条件)
 const draftPending = computed(() => inChatMode.value && !successIssueId.value)
 
-const isThinking = computed(() => wizard.state.value === 'analyzing')
-const thinkingDone = computed(() =>
-  !wizard.errorMessage.value
-  && wizard.state.value !== 'analyzing'
-  && wizard.steps.value.some(s => s.status === 'done'),
-)
+// 最新 ai-draft turn 的 id — 只有它可编辑/提交
+const latestDraftId = computed(() => wizard.latestDraft.value?.turn.id || null)
+function isTurnEditable(turn: Turn): boolean {
+  return turn.role === 'ai-draft' && turn.id === latestDraftId.value && !successIssueId.value
+}
+
+function isThinkingTurnRunning(turn: Turn & { role: 'ai-thinking' }): boolean {
+  return turn.steps.some(s => s.status === 'running' || s.status === 'pending') && !turn.errorMessage
+}
+
+// 缩略图预览
+const previewOpen = ref(false)
+const previewAttachment = ref<AttachmentRef | null>(null)
+function openPreview(att: AttachmentRef) {
+  previewAttachment.value = att
+  previewOpen.value = true
+}
 
 function isImage(name: string): boolean {
   return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name || '')
@@ -215,36 +232,68 @@ onMounted(async () => {
 })
 
 function onAnalyze(payload: { description: string; project: string; attachments: AttachmentRef[] }) {
-  sentDescription.value = payload.description
-  sentAttachments.value = payload.attachments
   lastAnalyzedProject.value = payload.project
-  lastAttachmentIds.value = payload.attachments.map(a => a.id)
   lastOriginalInput.value = payload.description
-  wizard.start({
-    description: payload.description,
-    project: payload.project,
-    attachment_ids: lastAttachmentIds.value,
-  })
+  const attachment_ids = payload.attachments.map(a => a.id)
+  // 已有 draft → revise (LLM 内部分类 submit | update, 命中 submit 通过 SSE 信号触发提交);
+  // 没 draft → start (首发)
+  if (hasDraft.value && !successIssueId.value) {
+    wizard.revise({
+      instruction: payload.description,
+      project: payload.project,
+      attachment_ids,
+      attachments: payload.attachments,
+    })
+  } else {
+    wizard.start({
+      description: payload.description,
+      project: payload.project,
+      attachment_ids,
+      attachments: payload.attachments,
+    })
+  }
 }
 
+// LLM 在 revise 路径中判定为"submit"意图时, useAiWizard 递增 submitIntentCounter,
+// 这里 watch 它 → 模拟点击最新草稿卡的"提交 Issue"按钮
+watch(() => wizard.submitIntentCounter.value, (n, prev) => {
+  if (n > (prev ?? 0)) {
+    nextTick(() => editableDraftRef.value?.triggerSubmit())
+  }
+})
+
 function onRetry() {
-  // 把用户当前消息再发一次 (不清空 thread, 也不让 composer 失焦)
-  if (!sentDescription.value || !lastAnalyzedProject.value) return
-  wizard.start({
-    description: sentDescription.value,
+  // 错误恢复: 把最后一条 user turn 的内容再发一次
+  const lastUser = [...wizard.turns.value].reverse().find(t => t.role === 'user') as
+    | (Turn & { role: 'user' })
+    | undefined
+  if (!lastUser || !lastAnalyzedProject.value) return
+
+  // 删除上一条出错的 ai-thinking turn, 让 retry 看起来干净 (不堆砌错误)
+  const last = wizard.turns.value[wizard.turns.value.length - 1]
+  if (last && last.role === 'ai-thinking' && last.errorMessage) {
+    wizard.turns.value.pop()
+    // 还要去掉对应的 user turn (它会被 start/revise 重新追加)
+    const newLast = wizard.turns.value[wizard.turns.value.length - 1]
+    if (newLast && newLast.role === 'user') wizard.turns.value.pop()
+  }
+
+  onAnalyze({
+    description: lastUser.text,
     project: lastAnalyzedProject.value,
-    attachment_ids: lastAttachmentIds.value,
+    attachments: lastUser.attachments,
   })
 }
 
 function onBackToDescribe() {
-  // 把已发出的内容还原到 composer, 让用户继续编辑; 然后清空 thread
-  if (describeRef.value) {
-    describeRef.value.setText(sentDescription.value)
-    describeRef.value.setAttachments(sentAttachments.value)
+  // 还原最后一条 user 内容到 composer, 清掉 thread
+  const lastUser = [...wizard.turns.value].reverse().find(t => t.role === 'user') as
+    | (Turn & { role: 'user' })
+    | undefined
+  if (describeRef.value && lastUser) {
+    describeRef.value.setText(lastUser.text)
+    describeRef.value.setAttachments(lastUser.attachments)
   }
-  sentDescription.value = ''
-  sentAttachments.value = []
   wizard.reset()
   successIssueId.value = null
   successAssignee.value = null
@@ -252,8 +301,6 @@ function onBackToDescribe() {
 }
 
 function onReset() {
-  sentDescription.value = ''
-  sentAttachments.value = []
   wizard.reset()
   successIssueId.value = null
   successAssignee.value = null
@@ -276,12 +323,8 @@ async function onSubmit(body: any) {
   }
 }
 
-// 每次有新消息追加, 把 thread 滚到底部 (草稿出现时一定要让用户看到)
-watch([
-  () => currentStep.value,
-  () => wizard.steps.value.map(s => s.status).join(','),
-  () => wizard.errorMessage.value,
-], async () => {
+// 新消息进来时滚到底
+watch(() => wizard.turns.value.length, async () => {
   await nextTick()
   if (threadEl.value) threadEl.value.scrollTop = threadEl.value.scrollHeight
 })
@@ -299,9 +342,12 @@ onBeforeUnmount(() => {
   padding: 1rem 0;
 }
 
-/* chat 模式: 上方留对话区, composer 在 draft-pending 期间 sticky 钉视口底端 */
+/* chat 模式: wizard 占据视口可用高度, 内部 flex column 让 thread 滚动而 composer 钉底.
+   高度按 100dvh 减去 top navbar (≈4rem) + 页面 padding (≈2rem) + 缓冲 (≈3rem) = 9rem */
 .ai-wizard--chat {
   gap: 1rem;
+  height: calc(100dvh - 9rem);
+  min-height: 32rem;   /* 极矮窗口下兜底, 避免对话区被挤没 */
 }
 
 .hero-title {
@@ -314,12 +360,26 @@ onBeforeUnmount(() => {
 :root.dark .hero-title { color: #f3f4f6; }
 
 /* ---------- Thread ---------- */
-/* thread 自然增高, 跟 page 一起 scroll; composer 用 sticky 钉视口底端 */
+/* chat 模式下: 占据 wizard 内剩余高度, 内部独立 scroll */
 .thread {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.5rem 0.25rem 1rem;
+}
+.ai-wizard--chat .thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 自定义滚动条更轻量 */
+  scrollbar-width: thin;
+}
+.ai-wizard--chat .thread::-webkit-scrollbar { width: 6px; }
+.ai-wizard--chat .thread::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12); border-radius: 3px;
+}
+:root.dark .ai-wizard--chat .thread::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .msg { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -335,7 +395,6 @@ onBeforeUnmount(() => {
 }
 .msg--ai-draft {
   animation-delay: 0ms;
-  /* 草稿是延后出现的, 自然进入即可 */
 }
 @keyframes msg-rise {
   from { opacity: 0; transform: translateY(8px); }
@@ -435,6 +494,11 @@ onBeforeUnmount(() => {
 :root.dark .msg-brand-status--done { color: #34d399; }
 .msg-brand-status--draft { color: #7c3aed; }
 :root.dark .msg-brand-status--draft { color: #c4b5fd; }
+.msg-brand-status--stale {
+  color: #9ca3af;
+  padding-left: 0.25rem;
+  border-left: 0;
+}
 
 .brand-pulse {
   width: 0.4375rem; height: 0.4375rem;
@@ -539,12 +603,16 @@ onBeforeUnmount(() => {
 }
 
 /* ---------- 草稿卡片容器 ---------- */
-/* StepDraft 在 thread 内只是预览, 用 :deep() 把内部尺寸全面紧凑化,
-   宽度限制在 72% 且最大 44rem (~704px), 左对齐 */
 .msg-draft-card {
   width: min(72%, 44rem);
   margin-left: 0;
   animation: draft-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+.msg-draft-card--stale {
+  opacity: 0.55;
+  filter: saturate(0.7);
+  pointer-events: none;
 }
 @keyframes draft-rise {
   from { opacity: 0; transform: translateY(12px); }
@@ -567,13 +635,13 @@ onBeforeUnmount(() => {
 .msg-draft-card :deep(.header-title) { font-size: 0.8125rem; }
 .msg-draft-card :deep(.header-sub) { font-size: 0.6875rem; margin-top: 0.0625rem; }
 
-/* 两栏布局: 收窄 sidebar, 整体 gap 压小 */
+/* 两栏布局 */
 .msg-draft-card :deep(.draft-body) {
   grid-template-columns: minmax(0, 1fr) 12rem;
   gap: 1rem;
 }
 
-/* 左侧内容列 */
+/* 左侧 */
 .msg-draft-card :deep(.content-col) { gap: 0.625rem; }
 .msg-draft-card :deep(.issue-title-input) {
   font-size: 0.9375rem !important;
@@ -587,10 +655,8 @@ onBeforeUnmount(() => {
 .msg-draft-card :deep(.section) { gap: 0.25rem; padding-top: 0.125rem; }
 .msg-draft-card :deep(.section-label) { font-size: 0.6875rem; }
 
-/* MarkdownEditor 内嵌时压扁 */
-.msg-draft-card :deep(.markdown-editor) {
-  border-radius: 0.5rem;
-}
+/* MarkdownEditor */
+.msg-draft-card :deep(.markdown-editor) { border-radius: 0.5rem; }
 .msg-draft-card :deep(.markdown-editor textarea) {
   min-height: 6.5rem !important;
   font-size: 0.75rem !important;
@@ -606,7 +672,7 @@ onBeforeUnmount(() => {
   width: auto;
 }
 
-/* 右侧 meta sidebar */
+/* 右侧 meta */
 .msg-draft-card :deep(.meta-col) {
   padding-left: 0.875rem;
   gap: 0.625rem;
@@ -617,40 +683,19 @@ onBeforeUnmount(() => {
 }
 .msg-draft-card :deep(.meta-label) { font-size: 0.6875rem; }
 
-/* 底部 footer */
 .msg-draft-card :deep(.footer) { padding-top: 0.625rem; }
-
-/* AI 建议补充 callout */
 .msg-draft-card :deep(.ai-suggest) { padding: 0.5rem 0.625rem; font-size: 0.6875rem; }
 
-/* 窄屏: 单列堆叠时让 sidebar 不再固定宽度 */
 @media (max-width: 768px) {
   .msg-draft-card { width: 100%; }
   .msg-draft-card :deep(.draft-body) { grid-template-columns: 1fr; }
 }
 
 /* ---------- Composer slot ---------- */
+/* chat 模式下 composer 是 wizard flex 的末项, 自然贴底, 无需 sticky.
+   非 chat 模式 (首屏 idle) 时 composer 也只在自然流位置, 不做特殊处理 */
 .composer-slot {
   flex-shrink: 0;
-}
-
-/* draft 未提交 (草稿待定) 期间, composer 钉在视口底端;
-   page 自然 scroll, thread 在它之下滑过, 上沿渐变让 thread 视觉"消失"到 composer 后 */
-.ai-wizard--draft-pending .composer-slot {
-  position: sticky;
-  bottom: 1rem;
-  z-index: 10;
-}
-.ai-wizard--draft-pending .composer-slot::before {
-  content: '';
-  position: absolute;
-  left: -0.25rem; right: -0.25rem;
-  top: -1.25rem; height: 1.25rem;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.95));
-  pointer-events: none;
-}
-:root.dark .ai-wizard--draft-pending .composer-slot::before {
-  background: linear-gradient(to bottom, rgba(17, 24, 39, 0), rgba(17, 24, 39, 0.95));
 }
 
 /* ---------- 图片预览弹窗 ---------- */

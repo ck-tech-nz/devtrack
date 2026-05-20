@@ -179,6 +179,114 @@ class AiWizardService:
         result["expected_behavior"] = (result.get("expected_behavior") or "")[:500]
         return result
 
+    def oneshot_revise(
+        self,
+        current_draft: dict,
+        instruction: str,
+        images: list[tuple[str, bytes]],
+    ) -> dict:
+        """Single multimodal LLM call that either (a) returns an updated draft
+        based on the user instruction, or (b) signals 'submit' when the user
+        is just confirming the existing draft (e.g. "OK"/"好的"/"提交吧")。
+
+        Return shape:
+          - {"action": "submit"}                        when LLM classifies as confirm
+          - {"action": "update", ...draft fields}       when LLM revised the draft
+
+        Caller (stream_revise) decides which SSE event to emit based on action.
+        Frontend's existing 'draft' event handler still works since the update
+        case carries all standard draft fields alongside the action tag.
+
+        Retries once on bad JSON; on vision failure falls back to text-only.
+        """
+        from apps.ai.services import parse_json_response
+        from apps.settings.models import SiteSettings
+
+        prompt = Prompt.objects.filter(slug="wizard_revise", is_active=True).first()
+        if prompt is None:
+            raise AiWizardError(step=1, code="missing_prompt", message="未配置 Prompt: wizard_revise")
+
+        config = prompt.llm_config
+
+        site = SiteSettings.get_solo()
+        modules = list(site.modules or [])
+        labels_dict = site.labels or {}
+        labels_list = list(labels_dict.keys()) if isinstance(labels_dict, dict) else list(labels_dict)
+
+        # 只把白名单字段送给 LLM, 避免前端塞额外噪声 (例如 v 号/版本元数据)
+        sanitized = {
+            "title": (current_draft.get("title") or "")[:200],
+            "priority": current_draft.get("priority") or "P2",
+            "module": current_draft.get("module") or "",
+            "repro_steps": (current_draft.get("repro_steps") or "")[:2000],
+            "expected_behavior": (current_draft.get("expected_behavior") or "")[:500],
+            "labels": [l for l in (current_draft.get("labels") or []) if isinstance(l, str)][:10],
+            "follow_up_questions": [
+                str(q)[:200] for q in (current_draft.get("follow_up_questions") or []) if q
+            ][:5],
+            "inferred_env": (current_draft.get("inferred_env") or "")[:200],
+        }
+
+        try:
+            user_prompt = prompt.user_prompt_template.format(
+                current_draft_json=json.dumps(sanitized, ensure_ascii=False),
+                instruction=instruction,
+                modules_json=json.dumps(modules, ensure_ascii=False),
+                labels_json=json.dumps(labels_list, ensure_ascii=False),
+            )
+        except KeyError as e:
+            raise AiWizardError(step=1, code="prompt_format_error", message=f"模板缺失变量 {e}")
+
+        client = LLMClient(config)
+        vision_warning = None
+        attempts_left = ONESHOT_RETRY_COUNT + 1
+        current_images = list(images)
+        parsed = None
+
+        while attempts_left > 0:
+            attempts_left -= 1
+            try:
+                raw = client.complete_multimodal(
+                    model=prompt.llm_model,
+                    system_prompt=prompt.system_prompt,
+                    user_prompt=user_prompt,
+                    images=current_images,
+                    temperature=prompt.temperature,
+                    timeout=ONESHOT_TIMEOUT_SECONDS,
+                )
+            except Exception as e:
+                if current_images:
+                    logger.warning("wizard_revise vision call failed, falling back to text-only: %s", e)
+                    vision_warning = "AI 未能读取截图,已基于文字修订"
+                    current_images = []
+                    attempts_left += 1
+                    continue
+                logger.warning("wizard_revise LLM call failed: %s", e, exc_info=True)
+                raise AiWizardError(step=1, code="llm_call_failed", message="AI 调用失败,请重试")
+
+            try:
+                parsed = parse_json_response(raw)
+                break
+            except (json.JSONDecodeError, ValueError):
+                if attempts_left == 0:
+                    logger.warning("wizard_revise bad JSON after retries: %r", raw)
+                    raise AiWizardError(step=1, code="llm_bad_json", message="AI 返回格式异常,请重试")
+
+        # action 分类: submit 路径直接短路返回, 不走 draft schema 校验
+        if isinstance(parsed, dict) and parsed.get("action") == "submit":
+            return {"action": "submit"}
+
+        # update 路径 (action 缺失也视为 update, 兼容老 prompt) - 走标准 draft 校验
+        if isinstance(parsed, dict):
+            parsed.pop("action", None)
+        parsed = _validate_shape(1, "wizard_revise", parsed, SCHEMA_ONESHOT)
+        self._sanitize_oneshot(parsed, modules, labels_list)
+        if vision_warning:
+            parsed["follow_up_questions"] = [vision_warning] + list(parsed.get("follow_up_questions") or [])
+            parsed["follow_up_questions"] = parsed["follow_up_questions"][:3]
+        parsed["action"] = "update"
+        return parsed
+
     def oneshot_draft(self, description: str, images: list[tuple[str, bytes]]) -> dict:
         """Single multimodal LLM call that produces a complete draft.
 
@@ -338,6 +446,80 @@ class AiWizardService:
                 attachment_ids=attachment_ids or [],
                 user=user,
             )
+
+    def stream_revise(self, current_draft: dict, instruction: str, attachment_ids=None, user=None):
+        """SSE 流式 wrap oneshot_revise - 同步处理两种 action:
+          - update: emit ('draft', {...})  与 stream_draft 一致, 前端追加新 draft turn
+          - submit: emit ('submit', {})    前端跳过 draft 渲染, 直接触发"提交" 动作
+
+        Events: step(running) → step(done) → draft | submit → done.
+                On failure: step(error) + error.
+        """
+        import time
+        t0 = time.monotonic()
+
+        STEP_LABEL = "AI 正在更新草稿"
+        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "running"})
+
+        images = self._load_image_attachments(attachment_ids or [], user)
+
+        try:
+            result = self.oneshot_revise(current_draft, instruction, images)
+        except AiWizardError as e:
+            logger.warning(
+                "wizard revise AiWizardError code=%s elapsed_ms=%d",
+                e.code, int((time.monotonic() - t0) * 1000),
+            )
+            yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
+            yield ("error", {"code": e.code, "message": e.message})
+            yield ("done", {})
+            return
+        except BaseException:
+            logger.exception(
+                "wizard revise unexpected failure elapsed_ms=%d",
+                int((time.monotonic() - t0) * 1000),
+            )
+            yield ("step", {"step": 1, "label": STEP_LABEL, "status": "error"})
+            yield ("error", {"code": "llm_call_failed", "message": "AI 调用失败,请重试"})
+            yield ("done", {})
+            return
+
+        # action=submit 短路: AI 判定用户在确认, 直接发 submit 信号
+        if result.get("action") == "submit":
+            logger.info("wizard revise → submit elapsed_ms=%d", int((time.monotonic() - t0) * 1000))
+            yield ("step", {"step": 1, "label": "✓ 已确认提交", "status": "done"})
+            yield ("submit", {})
+            yield ("done", {})
+            return
+
+        # action=update: 走 draft 路径 (这一段是纯 dict 操作, 不会抛 AiWizardError)
+        image_meta = self._load_image_metadata(attachment_ids or [], user)
+        draft = dict(result)
+        draft.pop("action", None)
+        draft["description"] = self._assemble_revise_description(
+            current_draft.get("description", ""), draft.get("inferred_env", ""), image_meta,
+        )
+
+        logger.info("wizard revise ok elapsed_ms=%d", int((time.monotonic() - t0) * 1000))
+        yield ("step", {"step": 1, "label": STEP_LABEL, "status": "done"})
+        yield ("draft", draft)
+        yield ("done", {})
+
+    @staticmethod
+    def _assemble_revise_description(prev_description: str, inferred_env: str, image_meta: list | None = None) -> str:
+        """修订路径: 保留上一份 description 的主体, 仅追加用户本轮上传的新图片链接。
+
+        若 prev_description 已经含同 URL 的图片标记, 不再重复追加 (用 URL 子串判断,
+        简单粗暴但够用; 真正去重还得解析 markdown, 不值)。
+        """
+        base = (prev_description or "").rstrip()
+        parts: list[str] = [base] if base else []
+        for att in image_meta or []:
+            name = att.get("file_name") or "image"
+            url = att.get("file_url") or ""
+            if url and url not in base:
+                parts.append(f"![{name}]({url})")
+        return "\n\n".join(parts)
 
     def _stream_draft_v2(self, description: str, project_id, attachment_ids: list | None = None, user=None):
         """v2 generator yielding (event_name, payload) for the SSE layer.

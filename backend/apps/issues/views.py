@@ -574,6 +574,57 @@ class IssueCloseWithGitHubView(APIView):
         return Response(result)
 
 
+class IssueAiDraftReviseView(APIView):
+    """POST /api/issues/ai-draft/revise/ — SSE stream that revises an existing
+    draft per user instruction. 复用与 ai-draft 完全一致的事件 schema, 客户端
+    解析器零修改即可同时处理两条端点。
+    """
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [AiWizardThrottle]
+
+    def perform_content_negotiation(self, request, force=False):
+        from rest_framework.renderers import JSONRenderer
+        return (JSONRenderer(), "application/json")
+
+    def post(self, request):
+        from django.http import StreamingHttpResponse
+        import json as _json
+        from rest_framework.exceptions import PermissionDenied
+        from .serializers import AiDraftReviseInputSerializer
+        from .services_ai_wizard import AiWizardService
+
+        if not request.user.has_perm("issues.add_issue"):
+            raise PermissionDenied("无权创建问题")
+
+        serializer = AiDraftReviseInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        request_user = request.user
+        def event_stream():
+            svc = AiWizardService()
+            try:
+                for event_name, payload in svc.stream_revise(
+                    current_draft=data["current_draft"],
+                    instruction=data["instruction"],
+                    attachment_ids=[str(x) for x in (data.get("attachment_ids") or [])],
+                    user=request_user,
+                ):
+                    if event_name == "_heartbeat":
+                        yield ": heartbeat\n\n"
+                    else:
+                        yield f"event: {event_name}\ndata: {_json.dumps(payload, ensure_ascii=False)}\n\n"
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                import logging
+                logging.getLogger(__name__).info("SSE client disconnected; stopping revise stream")
+                return
+
+        resp = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+        resp["X-Accel-Buffering"] = "no"
+        resp["Cache-Control"] = "no-cache"
+        return resp
+
+
 class IssueAiDraftView(APIView):
     """POST /api/issues/ai-draft/ — SSE stream that drafts an Issue from
     a free-form bug description via the 3-stage AI wizard pipeline.

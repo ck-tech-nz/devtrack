@@ -23,8 +23,11 @@
       <div class="draft-header">
         <div class="header-icon"><UIcon name="i-heroicons-sparkles" class="w-4 h-4 text-white" /></div>
         <div class="header-text">
-          <div class="header-title">Issue 草稿</div>
-          <div class="header-sub">AI 已自动分析 · 确认或修改后一键提交</div>
+          <div class="header-title">
+            Issue 草稿
+            <span v-if="(version || 0) > 1" class="header-version">v{{ version }}</span>
+          </div>
+          <div class="header-sub">{{ isEditable ? 'AI 已自动分析 · 确认或修改后一键提交' : '该版本已被新版替代,仅供查看' }}</div>
         </div>
         <AiBadge kind="generated" class="header-badge" />
       </div>
@@ -37,6 +40,7 @@
             v-model="form.title"
             placeholder="问题标题"
             :ui="{ base: 'issue-title-input' }"
+            :disabled="!isEditable"
           />
 
           <!-- AI 生成的描述里会带 ![image](url) 之类的 markdown, 默认进入预览模式让图片直接渲染;
@@ -56,6 +60,7 @@
               autoresize
               placeholder="1. ...&#10;2. ...&#10;3. ..."
               :ui="{ base: 'issue-body-input' }"
+              :disabled="!isEditable"
             />
           </div>
 
@@ -65,6 +70,7 @@
               v-model="form.expected_behavior"
               placeholder="应该发生什么？"
               :ui="{ base: 'issue-body-input' }"
+              :disabled="!isEditable"
             />
           </div>
         </div>
@@ -80,6 +86,7 @@
                 value-key="value"
                 size="xs"
                 class="meta-select"
+                :disabled="!isEditable"
               />
             </div>
             <div class="meta-row">
@@ -90,6 +97,7 @@
                 value-key="value"
                 size="xs"
                 class="meta-select"
+                :disabled="!isEditable"
               />
             </div>
             <div class="meta-row">
@@ -99,6 +107,7 @@
                 :items="moduleOptions"
                 size="xs"
                 class="meta-select"
+                :disabled="!isEditable"
               />
             </div>
             <div class="meta-row">
@@ -110,6 +119,7 @@
                 size="xs"
                 placeholder="AI 自动分派"
                 class="meta-select"
+                :disabled="!isEditable"
               />
             </div>
           </div>
@@ -129,8 +139,8 @@
 
       <p v-if="submitError" class="submit-error">{{ submitError }}</p>
 
-      <!-- Footer -->
-      <div class="footer">
+      <!-- Footer (历史 draft 不展示, 只有可编辑卡才显示操作区) -->
+      <div v-if="isEditable" class="footer">
         <UButton variant="ghost" color="neutral" size="sm" icon="i-heroicons-arrow-uturn-left" @click="emit('back')">
           重新描述
         </UButton>
@@ -170,6 +180,10 @@ const props = defineProps<{
   // 后端创建 Issue 后返回的 assignee — 同步路径下一般为 null(分派走 Celery),
   // 留空时 UI 提示"暂未分派,AI 后台正在自动分派"
   successAssignee: string | null
+  /** false 时整张卡只读 — 用于多轮修订后的历史 draft */
+  editable?: boolean
+  /** 草稿版本号; >1 时 header 显示 v2/v3 徽标 */
+  version?: number
 }>()
 
 const emit = defineEmits<{
@@ -181,6 +195,17 @@ const emit = defineEmits<{
 // 强制 description 编辑器进入预览态 — 避免某些环境下 default-mode prop 时序不稳
 const descEditorRef = ref<{ setMode: (m: 'edit' | 'preview') => void } | null>(null)
 onMounted(() => { descEditorRef.value?.setMode('preview') })
+
+// editable 默认为 true (向后兼容旧调用方); false 时整张卡只读 — 多轮修订下的历史 draft 用
+const isEditable = computed(() => props.editable !== false)
+
+// 父级通过 ref 调用, 在 affirmative auto-submit 路径下直接走与"提交 Issue"按钮相同的逻辑
+defineExpose({
+  triggerSubmit() {
+    if (!isEditable.value || !canSubmit.value) return
+    onSubmit()
+  },
+})
 
 const form = ref({
   title: props.draft.title,
@@ -279,7 +304,20 @@ function onSubmit() {
   box-shadow: 0 2px 8px -2px rgba(124, 58, 237, 0.4);
 }
 .header-text { display: flex; flex-direction: column; line-height: 1.2; }
-.header-title { font-size: 0.9375rem; font-weight: 600; color: #111827; }
+.header-title {
+  font-size: 0.9375rem; font-weight: 600; color: #111827;
+  display: inline-flex; align-items: center; gap: 0.375rem;
+}
+.header-version {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  background: linear-gradient(135deg, #7c3aed, #9333ea);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  text-transform: lowercase;
+}
 :root.dark .header-title { color: #f3f4f6; }
 .header-sub { font-size: 0.75rem; color: #9ca3af; margin-top: 0.125rem; }
 .header-badge { margin-left: auto; }
