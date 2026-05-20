@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: registry.cktech.hk
   REGISTRY_USERNAME: ck
-  PROJECT_NAME: devtrack
+  PROJECT_NAME: devtrakr
 
 jobs:
   set-env:
