@@ -648,6 +648,17 @@ class TestUrlSafety:
         safe, _ = check_url_safety("file:///etc/passwd")
         assert not safe
 
+    def test_proxy_fake_ip_198_18_accepted(self, monkeypatch):
+        # Local proxies (Clash etc.) hand out 198.18.0.0/15 fake IPs for public
+        # hostnames they tunnel — must not be confused with internal networks.
+        def fake_getaddrinfo(host, port, *args, **kwargs):
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.18.0.197", port or 0))]
+        monkeypatch.setattr(
+            "apps.uptime.url_safety.socket.getaddrinfo", fake_getaddrinfo,
+        )
+        safe, _ = check_url_safety("https://163.com")
+        assert safe
+
     def test_serializer_rejects_loopback(self, site_settings):
         data = {
             "name": "internal",

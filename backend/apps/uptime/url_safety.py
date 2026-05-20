@@ -18,20 +18,36 @@ from urllib.parse import urlparse
 # Hostnames we always reject regardless of resolution.
 BLOCKED_HOSTNAMES = {"localhost", "ip6-localhost", "ip6-loopback"}
 
+# Explicit SSRF-relevant networks instead of Python's `is_private`/`is_reserved`,
+# which also cover benchmark (198.18.0.0/15) and documentation ranges. Local
+# proxies (Clash, Surge, etc.) hand out 198.18.0.0/15 fake IPs for public
+# hostnames they tunnel — treating those as "internal" produces false positives
+# against legitimate public sites.
+_BLOCKED_NETWORKS = tuple(
+    ipaddress.ip_network(cidr)
+    for cidr in (
+        "0.0.0.0/8",       # this network
+        "10.0.0.0/8",      # RFC 1918
+        "127.0.0.0/8",     # loopback
+        "169.254.0.0/16",  # link-local (incl. cloud metadata)
+        "172.16.0.0/12",   # RFC 1918
+        "192.168.0.0/16",  # RFC 1918
+        "224.0.0.0/4",     # multicast
+        "::/128",          # IPv6 unspecified
+        "::1/128",         # IPv6 loopback
+        "fc00::/7",        # IPv6 ULA
+        "fe80::/10",       # IPv6 link-local
+        "ff00::/8",        # IPv6 multicast
+    )
+)
+
 
 def _ip_is_blocked(addr: str) -> bool:
     try:
         ip = ipaddress.ip_address(addr)
     except ValueError:
         return False
-    return (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_multicast
-        or ip.is_unspecified
-        or ip.is_reserved
-    )
+    return any(ip in net for net in _BLOCKED_NETWORKS)
 
 
 def check_url_safety(url: str) -> Tuple[bool, str]:
