@@ -380,43 +380,53 @@ onBeforeUnmount(() => {
   position: relative;  /* 锚 .clear-btn 的 absolute */
 }
 
-/* 清空对话: 右上角 floating, 半透明胶囊 + 模糊背景, 永远可见 */
+/* 清空对话: viewport-fixed 右上角胶囊, 页面/thread 怎么滚都不会消失.
+   做得稍大些 — 11px 字号在 1.5K 屏太隐形 */
 .clear-btn {
-  position: absolute;
-  top: 0.5rem;
-  right: 0;
-  z-index: 5;
+  position: fixed;
+  top: 5rem;          /* 顶 navbar 之下 */
+  right: 1.5rem;
+  z-index: 50;
   display: inline-flex;
   align-items: center;
-  gap: 0.3125rem;
-  padding: 0.3125rem 0.625rem;
-  background-color: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid #e5e7eb;
+  gap: 0.4375rem;
+  padding: 0.5rem 0.875rem;
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid #d1d5db;
   border-radius: 9999px;
-  font-size: 0.6875rem;
-  color: #6b7280;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #4b5563;
   cursor: pointer;
-  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s, transform 0.15s;
 }
 .clear-btn:hover {
   color: #dc2626;
   border-color: #fca5a5;
   background-color: #fef2f2;
+  transform: translateY(-1px);
 }
 :root.dark .clear-btn {
-  background-color: rgba(31, 41, 55, 0.78);
-  border-color: #374151;
-  color: #9ca3af;
+  background-color: rgba(31, 41, 55, 0.92);
+  border-color: #4b5563;
+  color: #d1d5db;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 :root.dark .clear-btn:hover {
   color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.4);
-  background-color: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.5);
+  background-color: rgba(239, 68, 68, 0.14);
 }
-.clear-btn-label { font-weight: 500; letter-spacing: 0.01em; }
+.clear-btn-label { letter-spacing: 0.01em; }
 @media (max-width: 480px) {
+  .clear-btn {
+    top: 4.25rem;
+    right: 0.75rem;
+    padding: 0.4375rem 0.5rem;
+  }
   .clear-btn-label { display: none; }  /* 窄屏只剩 × 图标 */
 }
 
