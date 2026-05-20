@@ -146,6 +146,23 @@
           </div>
         </div>
 
+        <!-- 会话分隔: 上一个 issue 已落地, 下面是新会话.
+             视觉上像 iMessage 的 "Read" 时间戳 - 安静但明确告诉用户 "翻篇了" -->
+        <div v-else-if="turn.role === 'session-divider'" class="session-divider">
+          <span class="session-divider-line" aria-hidden="true" />
+          <NuxtLink
+            :to="`/app/issues/${turn.issueId}`"
+            target="_blank"
+            class="session-divider-pill"
+            :title="`查看 ISS-${String(turn.issueId).padStart(3, '0')}`"
+          >
+            <UIcon name="i-heroicons-check-circle" class="w-3.5 h-3.5" />
+            <span class="session-divider-id">ISS-{{ String(turn.issueId).padStart(3, '0') }} 已创建</span>
+            <span class="session-divider-hint">· 以上仅供查阅, 继续输入开启新对话</span>
+          </NuxtLink>
+          <span class="session-divider-line" aria-hidden="true" />
+        </div>
+
         <!-- AI 草稿 (可能有多张, 最新可编辑) -->
         <div v-else-if="turn.role === 'ai-draft'" class="msg msg--ai msg--ai-draft">
           <div class="msg-brand">
@@ -374,11 +391,13 @@ function onClearConversation() {
 async function onSubmit(body: any) {
   submitting.value = true
   submitError.value = ''
-  // 把 thread 里 AI 提示过的查重候选记到 issue 上 (kind=ai_dup).
-  // 用户即使无视提示直接提交, 这些信号仍保留为关联线索, detail 页能看到 "AI 创建时认为可能与 ISS-X 相关"
+  // 把本会话 AI 提示过的查重候选记到 issue 上 (kind=ai_dup).
+  // 必须从 sessionStartIndex 起算, 否则上一个已 checkpoint issue 的 dup hint 会被串到这个新 issue 上.
   const aiDupCandidates: Array<{ id: number; reason: string }> = []
-  for (const t of wizard.turns.value) {
-    if (t.role === 'ai-dup-hint') {
+  const sessionStart = wizard.sessionStartIndex()
+  for (let i = sessionStart; i < wizard.turns.value.length; i++) {
+    const t = wizard.turns.value[i]
+    if (t && t.role === 'ai-dup-hint') {
       for (const c of t.candidates) {
         aiDupCandidates.push({ id: c.id, reason: c.reason || '' })
       }
@@ -742,6 +761,73 @@ onBeforeUnmount(() => {
   border-top: 1px solid rgba(14, 165, 233, 0.18);
 }
 :root.dark .dup-hint { color: #7dd3fc; }
+
+/* ---------- 会话分隔 ---------- */
+/* 不是 .msg, 因为它不属于 user 或 AI, 而是会话流的"系统标记".
+   留白比 .msg 之间的 1.25rem gap 更大, 让分段感更强 */
+.session-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+  animation: msg-rise 0.4s ease both;
+}
+.session-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(16, 185, 129, 0.28) 50%,
+    transparent 100%
+  );
+}
+.session-divider-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.6875rem;
+  color: #047857;
+  background-color: #ecfdf5;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 9999px;
+  text-decoration: none;
+  white-space: nowrap;
+  letter-spacing: 0.005em;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.session-divider-pill:hover {
+  background-color: #d1fae5;
+  border-color: rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+}
+.session-divider-id { font-weight: 600; }
+.session-divider-hint {
+  color: #6b7280;
+  font-weight: 400;
+}
+:root.dark .session-divider-pill {
+  color: #6ee7b7;
+  background-color: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+:root.dark .session-divider-pill:hover {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+:root.dark .session-divider-hint { color: #9ca3af; }
+:root.dark .session-divider-line {
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(16, 185, 129, 0.35) 50%,
+    transparent 100%
+  );
+}
+@media (max-width: 600px) {
+  .session-divider-hint { display: none; }
+}
 
 /* AI 反问气泡 - 跟用户气泡视觉成对, 但左对齐 + 暖色边框透露"求确认"语气 */
 .msg-ask-bubble {

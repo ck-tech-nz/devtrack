@@ -54,6 +54,12 @@ export type Turn =
       role: 'ai-dup-hint'
       candidates: Array<{ id: number; title: string; status: string; reason: string }>
     }
+  | {
+      /** Hard session boundary: rendered as a pill in thread, also resets attachment scope + draft version */
+      id: string
+      role: 'session-divider'
+      issueId: number
+    }
 
 /** 发送给后端 /ai-draft/chat/ 的对话历史; system 由服务端控制不能从这里送 */
 export type ChatMessage = {
@@ -239,6 +245,15 @@ export function useAiWizard() {
   function abort() {
     abortController?.abort()
     abortController = null
+  }
+
+  // ---------- 会话边界 ----------
+  /** 上一条 session-divider 之后的 index, 没有就是 0. checkpoint 后再发的消息都在新 session 内. */
+  function sessionStartIndex(): number {
+    for (let i = turns.value.length - 1; i >= 0; i--) {
+      if (turns.value[i]!.role === 'session-divider') return i + 1
+    }
+    return 0
   }
 
   // ---------- 派生 ----------
@@ -518,10 +533,12 @@ export function useAiWizard() {
     appendTurn(thinking)
 
     // 3. 调 /ai-draft/chat/, 把完整 messages 历史送过去
-    // 累计 attachment_ids: 全对话所有 user turn 上传过的图片 (本轮 user 已 appendTurn).
-    // 用 Set 去重 - 用户可能重复上传同一张
+    // 累计 attachment_ids: 仅本会话 (最近一次 session-divider 之后) 所有 user turn 的图片.
+    // 跨 checkpoint 不带 - 上个 issue 的截图不应该污染下一个 issue 的草稿.
+    const start = sessionStartIndex()
     const cumulativeIds = Array.from(new Set(
       turns.value
+        .slice(start)
         .filter(t => t.role === 'user')
         .flatMap(t => (t as Turn & { role: 'user' }).attachments.map(a => a.id))
     ))
@@ -615,7 +632,13 @@ export function useAiWizard() {
           } else if (event === 'draft') {
             gotTerminal = true
             thinking.intent = 'update'
-            const prevVersion = latestDraft.value?.turn.version || 0
+            // 版本号按本会话独立递增 - 跨 checkpoint 重新从 v1 开始, 而非接着上个 issue 的 v2/v3
+            const sessionStart = sessionStartIndex()
+            let prevVersion = 0
+            for (let i = turns.value.length - 1; i >= sessionStart; i--) {
+              const t = turns.value[i]
+              if (t && t.role === 'ai-draft') { prevVersion = t.version; break }
+            }
             const newDraft = payload as WizardDraft
             appendTurn({
               id: genId(),
@@ -721,6 +744,13 @@ export function useAiWizard() {
       t.submittedIssueId = issueId
       t.submittedAssignee = assignee ?? null
     }
+    // 视觉上插入一条 session-divider, 同时也是 sessionStartIndex() 用来切分本会话的标记 -
+    // 让"图片归属本轮"、"版本号本会话独立"两件事都建立在这条 turn 上.
+    turns.value.push({
+      id: genId(),
+      role: 'session-divider',
+      issueId,
+    })
     // 关键: 清空 messages, 下次 chat() 调用时 LLM 看到的是空历史 + 新一条 user 消息
     messages.value = []
     state.value = 'idle'
@@ -745,6 +775,7 @@ export function useAiWizard() {
     updateDraftInPlace,
     appendUserTurn,
     checkpoint,
+    sessionStartIndex,
     submitIntentCounter,
   }
 }
