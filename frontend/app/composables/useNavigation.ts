@@ -1,3 +1,5 @@
+import type { PageRouteConfig } from './usePagePerms'
+
 export interface NavItem {
   label: string
   icon: string
@@ -23,6 +25,14 @@ export const useNavigation = () => {
   const { routes, loaded } = usePagePerms()
   const isAdmin = computed(() => user.value?.is_superuser || hasGroup('管理员'))
 
+  // 用户级可见性：superuserOnly / adminOnly / permission
+  function canShowForUser(item: { meta?: Record<string, any>; permission?: string }) {
+    if (item.meta?.superuserOnly && !user.value?.is_superuser) return false
+    if (item.meta?.adminOnly && !isAdmin.value) return false
+    if (item.permission && !can(item.permission)) return false
+    return true
+  }
+
   const homeItem: NavItem = { label: '工作台', icon: 'i-heroicons-home', to: '/app/home' }
 
   // navItems: 所有可见叶子，仅按 show_in_nav / is_active 过滤
@@ -43,13 +53,7 @@ export const useNavigation = () => {
   // filteredNavItems: navItems + 用户级 filter —— AppBottomTabBar / forbidden 在用
   const filteredNavItems = computed(() => {
     if (!user.value) return []
-    const items = navItems.value.filter(item => {
-      if (item.meta?.superuserOnly && !user.value?.is_superuser) return false
-      if (item.meta?.adminOnly && !isAdmin.value) return false
-      if (item.permission && !can(item.permission)) return false
-      return true
-    })
-    return [homeItem, ...items]
+    return [homeItem, ...navItems.value.filter(canShowForUser)]
   })
 
   // 按 DB 里 parent 字段建两级树
@@ -59,16 +63,10 @@ export const useNavigation = () => {
     const visibleLeavesByParent = new Map<string, NavItem[]>()
 
     // 用同样的可见性规则过滤叶子
-    const canShowLeaf = (r: typeof routes.value[number]) => {
-      if (r.is_group) return false
-      if (!r.show_in_nav || !r.is_active) return false
-      if (r.meta?.superuserOnly && !user.value?.is_superuser) return false
-      if (r.meta?.adminOnly && !isAdmin.value) return false
-      if (r.permission && !can(r.permission)) return false
-      return true
-    }
+    const canShowLeaf = (r: PageRouteConfig) =>
+      !r.is_group && r.show_in_nav && r.is_active && canShowForUser({ meta: r.meta, permission: r.permission ?? undefined })
 
-    const toNavItem = (r: typeof routes.value[number]): NavItem => ({
+    const toNavItem = (r: PageRouteConfig): NavItem => ({
       label: r.label,
       icon: r.icon,
       to: r.path,
