@@ -9,7 +9,7 @@ User = get_user_model()
 class RecipientInline(TabularInline):
     model = NotificationRecipient
     extra = 0
-    readonly_fields = ("user", "is_read", "read_at")
+    readonly_fields = ("user",  "read_at")
 
 
 @admin.register(Notification)
