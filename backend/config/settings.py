@@ -312,6 +312,18 @@ UNFOLD = {
                 ],
             },
             {
+                "title": "页面权限",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "页面路由",
+                        "icon": "menu",
+                        "link": reverse_lazy("admin:page_perms_pageroute_changelist"),
+                    },
+                ],
+            },
+            {
                 "title": "定时任务",
                 "separator": True,
                 "collapsible": True,
