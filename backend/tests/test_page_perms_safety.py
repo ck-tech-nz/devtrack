@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 
 from page_perms.models import PageRoute
 pytestmark = pytest.mark.django_db
@@ -34,3 +35,26 @@ class TestLockoutProtection:
             format="json",
         )
         assert response.status_code == 200
+
+
+class TestHierarchyDepthGuard:
+    def test_parent_cannot_have_parent(self):
+        a = PageRoute.objects.create(path="#group:a", label="A", is_group=True)
+        b = PageRoute.objects.create(path="#group:b", label="B", is_group=True, parent=a)
+        # b 已挂在 a 下面 —— 不允许再当某个 c 的 parent
+        c = PageRoute(path="/app/c", label="C", parent=b)
+        with pytest.raises(ValidationError):
+            c.full_clean()
+
+    def test_leaf_cannot_become_parent(self):
+        leaf = PageRoute.objects.create(path="/app/leaf", label="Leaf")
+        # 叶子不能当父
+        c = PageRoute(path="/app/c", label="C", parent=leaf)
+        with pytest.raises(ValidationError):
+            c.full_clean()
+
+    def test_route_cannot_be_its_own_parent(self):
+        g = PageRoute.objects.create(path="#group:g", label="G", is_group=True)
+        g.parent = g
+        with pytest.raises(ValidationError):
+            g.full_clean()

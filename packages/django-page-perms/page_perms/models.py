@@ -41,3 +41,14 @@ class PageRoute(models.Model):
         if self.is_group:
             return f"[分组] {self.label}"
         return f"{self.path} → {self.permission or '(无权限要求)'}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        super().clean()
+        if self.parent_id and self.parent_id == self.pk:
+            raise ValidationError({"parent": "Route cannot be its own parent."})
+        if self.parent:
+            if not self.parent.is_group:
+                raise ValidationError({"parent": "Parent must be a group row (is_group=True)."})
+            if self.parent.parent_id:
+                raise ValidationError({"parent": "Only one level of nesting is supported."})
