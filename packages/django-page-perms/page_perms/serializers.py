@@ -27,11 +27,13 @@ def resolve_permission(perm_string):
 
 class PageRouteSerializer(serializers.ModelSerializer):
     permission = serializers.CharField(allow_null=True, required=False, default=None)
+    parent = serializers.CharField(allow_null=True, required=False, default=None)
 
     class Meta:
         model = PageRoute
         fields = [
             "id", "path", "label", "icon", "permission",
+            "parent", "is_group",
             "show_in_nav", "sort_order", "is_active", "meta", "source",
         ]
         read_only_fields = ["source"]
@@ -43,11 +45,22 @@ class PageRouteSerializer(serializers.ModelSerializer):
             data["permission"] = f"{ct.app_label}.{instance.permission.codename}"
         else:
             data["permission"] = None
+        data["parent"] = instance.parent.path if instance.parent_id else None
         return data
 
     def validate_permission(self, value):
         """Validate and resolve the permission string to a Permission instance."""
         return resolve_permission(value)
+
+    def validate_parent(self, value):
+        if not value:
+            return None
+        try:
+            return PageRoute.objects.get(path=value)
+        except PageRoute.DoesNotExist:
+            raise serializers.ValidationError(
+                f"Parent route '{value}' does not exist."
+            )
 
     def create(self, validated_data):
         return super().create(validated_data)

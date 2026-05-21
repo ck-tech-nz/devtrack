@@ -87,3 +87,48 @@ class TestPageRouteCRUD:
         response = superuser_client.delete(f"/api/page-perms/routes/{route.pk}/")
         assert response.status_code == 204
         assert not PageRoute.objects.filter(pk=route.pk).exists()
+
+
+class TestRoutesAPIHierarchy:
+    def test_list_returns_parent_path_and_is_group(self, regular_client):
+        group = PageRoute.objects.create(
+            path="#group:proj", label="项目管理", is_group=True, source="manual",
+        )
+        PageRoute.objects.create(
+            path="/app/projects", label="项目", parent=group, source="manual",
+        )
+        resp = regular_client.get("/api/page-perms/routes/")
+        assert resp.status_code == 200
+        data = resp.json()
+        rows = data if isinstance(data, list) else data["results"]
+        by_path = {r["path"]: r for r in rows}
+        assert by_path["#group:proj"]["is_group"] is True
+        assert by_path["#group:proj"]["parent"] is None
+        assert by_path["/app/projects"]["is_group"] is False
+        assert by_path["/app/projects"]["parent"] == "#group:proj"
+
+    def test_create_leaf_with_parent_path(self, superuser_client):
+        PageRoute.objects.create(
+            path="#group:proj", label="项目管理", is_group=True, source="manual",
+        )
+        resp = superuser_client.post(
+            "/api/page-perms/routes/",
+            {
+                "path": "/app/repos",
+                "label": "仓库",
+                "parent": "#group:proj",
+            },
+            format="json",
+        )
+        assert resp.status_code == 201, resp.content
+        leaf = PageRoute.objects.get(path="/app/repos")
+        assert leaf.parent and leaf.parent.path == "#group:proj"
+
+    def test_create_with_missing_parent_returns_400(self, superuser_client):
+        resp = superuser_client.post(
+            "/api/page-perms/routes/",
+            {"path": "/app/x", "label": "X", "parent": "#group:nope"},
+            format="json",
+        )
+        assert resp.status_code == 400
+        assert "parent" in resp.json()
