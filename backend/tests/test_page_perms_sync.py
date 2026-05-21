@@ -165,3 +165,28 @@ class TestSyncHierarchy:
         call_command("sync_page_perms")
         leaf = PageRoute.objects.get(path="/app/projects")
         assert leaf.parent is None
+
+    def test_sync_preserves_parent_when_key_absent(self, settings):
+        # First sync sets parent explicitly
+        settings.PAGE_PERMS = {
+            "SEED_ROUTES": [
+                {"path": "#group:proj", "label": "项目管理",
+                 "is_group": True, "sort_order": 10},
+                {"path": "/app/projects", "label": "项目列表",
+                 "parent": "#group:proj", "sort_order": 11},
+            ],
+            "SEED_GROUPS": {},
+        }
+        call_command("sync_page_perms")
+        # Second sync OMITS the parent key entirely (legacy JSON shape)
+        settings.PAGE_PERMS = {
+            "SEED_ROUTES": [
+                {"path": "#group:proj", "label": "项目管理",
+                 "is_group": True, "sort_order": 10},
+                {"path": "/app/projects", "label": "项目列表", "sort_order": 11},
+            ],
+            "SEED_GROUPS": {},
+        }
+        call_command("sync_page_perms")
+        leaf = PageRoute.objects.get(path="/app/projects")
+        assert leaf.parent and leaf.parent.path == "#group:proj"
