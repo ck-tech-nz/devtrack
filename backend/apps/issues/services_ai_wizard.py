@@ -3,6 +3,7 @@ free-form bug description. Used by the SSE endpoint POST /api/issues/ai-draft/.
 """
 import json
 import logging
+import re
 from dataclasses import dataclass
 
 from apps.ai.client import LLMClient
@@ -37,6 +38,9 @@ SCHEMA_GENERATE = [
 
 SCHEMA_ONESHOT = [
     ("title", str, False),
+    # description 在 chat 路径下用作"用户原话/可改写的描述文本", 服务端再拼接环境提示 + 截图.
+    # 旧 oneshot/revise 路径未让 LLM 输出该字段, 缺失时 _validate_shape 会回落为空串.
+    ("description", str, True),
     ("priority", str, False),
     ("module", str, False),
     ("repro_steps", str, True),
@@ -60,6 +64,53 @@ def _read_attachment_bytes(file_key: str) -> bytes:
     """Module-level indirection so tests can patch the storage read."""
     from apps.tools.storage import read_object
     return read_object(file_key)
+
+
+# 与 AiWizardService._assemble_description 配对: 那边以 "\n\n" 拼接, 这里按 "\n\n"
+# 切回去剥离 env blockquote + 图片 markdown. 不能改 raw 用户文本的 "\n\n" 段落分隔.
+_ENV_BLOCK_PREFIX = "> 🤖 *AI 推断环境*:"
+_IMG_LINE_RE = re.compile(r"^!\[[^\]]*\]\([^)]+\)\s*$")
+
+
+def _strip_assembled_blocks(desc: str) -> str:
+    """Drop the server-appended `> 🤖 AI 推断环境` 和 `![](url)` 块, 还原成纯文本.
+
+    服务端在 description 末尾追加这些块仅是渲染所需; LLM 在下一轮的 history 里
+    若看到这些块, 会照搬进自己的 description 输出, 拼装时会被再追加一次 (双图 #bug).
+    """
+    if not desc:
+        return ""
+    blocks = desc.split("\n\n")
+    kept = [
+        b for b in blocks
+        if not (b.startswith(_ENV_BLOCK_PREFIX) or _IMG_LINE_RE.match(b.strip()))
+    ]
+    return "\n\n".join(kept).rstrip()
+
+
+def _sanitize_messages_for_llm(messages: list[dict]) -> list[dict]:
+    """Return a copy of `messages` with prior draft 的 description 还原成 raw 文本.
+
+    只动 assistant draft 消息 — 其它消息原样传过去.
+    """
+    out: list[dict] = []
+    for m in messages:
+        if m.get("role") != "assistant":
+            out.append(m)
+            continue
+        content = m.get("content") or ""
+        try:
+            obj = json.loads(content)
+        except (ValueError, TypeError):
+            out.append(m)
+            continue
+        if isinstance(obj, dict) and obj.get("action") == "draft":
+            desc = obj.get("description")
+            if isinstance(desc, str) and desc:
+                obj = {**obj, "description": _strip_assembled_blocks(desc)}
+                m = {**m, "content": json.dumps(obj, ensure_ascii=False)}
+        out.append(m)
+    return out
 
 
 def _validate_shape(step: int, slug: str, data, schema):
@@ -809,6 +860,10 @@ class AiChatService:
             raise AiWizardError(step=1, code="prompt_format_error", message=f"模板缺失变量 {e}")
         system_prompt = f"{prompt.system_prompt}\n\n---\n{project_block}{extra_context}"
 
+        # 历史 assistant draft 的 description 是服务端拼装结果 (含 env blockquote + 图片 markdown);
+        # 直接喂回 LLM 会让它照搬这些块进新输出, 拼装时再被追加一次 → 双图. 先剥成 raw.
+        messages = _sanitize_messages_for_llm(messages)
+
         # 加载本轮图片 (只挂到最后一条 user message 上)
         # 内部方法仍在 AiWizardService 上 — 复用免重写
         helper = AiWizardService()
@@ -873,18 +928,20 @@ class AiChatService:
         if vision_warning:
             parsed["follow_up_questions"] = [vision_warning] + list(parsed.get("follow_up_questions") or [])
             parsed["follow_up_questions"] = parsed["follow_up_questions"][:3]
-        # 拼装 description: 第一条 user 消息作为原始描述 + AI 推断环境 + 全对话累计图片 markdown.
+        # 拼装 description: LLM 输出的 description (用户可让它改写) + AI 推断环境 + 全对话累计图片 markdown.
+        # LLM 没给 description (旧 prompt / 漏字段) 时回落到首条 user 消息, 保住向后兼容.
         # 用 conversation_attachment_ids 而非 attachment_ids - 否则当 LLM 先 ask 再 draft 时,
         # 用户回答那一轮 attachment_ids=[], 早先附的图就丢了 (#bug)
-        first_user_text = ""
-        for m in messages:
-            if m.get("role") == "user":
-                first_user_text = m.get("content") or ""
-                break
+        llm_desc = (parsed.get("description") or "").strip()
+        if not llm_desc:
+            for m in messages:
+                if m.get("role") == "user":
+                    llm_desc = m.get("content") or ""
+                    break
         meta_ids = conversation_attachment_ids if conversation_attachment_ids is not None else attachment_ids
         image_meta = helper._load_image_metadata(meta_ids or [], user)
         parsed["description"] = helper._assemble_description(
-            first_user_text, parsed.get("inferred_env", ""), image_meta,
+            llm_desc, parsed.get("inferred_env", ""), image_meta,
         )
         parsed["action"] = "draft"
         parsed["_warnings"] = warnings_to_user

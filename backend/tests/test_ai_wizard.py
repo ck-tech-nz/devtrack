@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from apps.ai.models import Prompt
@@ -2158,3 +2160,88 @@ def test_chat_omits_project_block_when_no_project(site_settings):
         svc.chat(messages=[{"role": "user", "content": "y"}], attachment_ids=[], user=None)
 
     assert "当前项目:" not in captured["system_prompt"]
+
+
+def test_strip_assembled_blocks_removes_env_and_image_lines():
+    """Unit: 服务端拼装的 env blockquote + 图片 markdown 行必须被剥掉, 段落文本保留."""
+    from apps.issues.services_ai_wizard import _strip_assembled_blocks
+    assembled = (
+        "用户原话第一段\n\n"
+        "用户原话第二段\n\n"
+        "> 🤖 *AI 推断环境*: 环境: prod | 角色: 普通用户\n\n"
+        "![screenshot.png](/uploads/x.png)\n\n"
+        "![another.png](/uploads/y.png)"
+    )
+    out = _strip_assembled_blocks(assembled)
+    assert out == "用户原话第一段\n\n用户原话第二段"
+
+
+def test_strip_assembled_blocks_keeps_raw_when_no_appendix():
+    from apps.issues.services_ai_wizard import _strip_assembled_blocks
+    raw = "只有用户文本, 没有任何拼装块"
+    assert _strip_assembled_blocks(raw) == raw
+
+
+@pytest.mark.django_db
+def test_chat_strips_assembled_blocks_from_history_before_calling_llm(site_settings, monkeypatch):
+    """重现用户报告: 改描述时图片被重复显示 — 因为 history 里 description 含图片 markdown,
+    LLM 照搬, 拼装时再追加. sanitize 必须把 history 里的拼装块剥掉, 再发给 LLM."""
+    from apps.issues.services_ai_wizard import AiChatService, AiWizardService
+    from apps.settings.models import SiteSettings
+    from tests.factories import LLMConfigFactory
+    LLMConfigFactory(is_default=True, is_active=True)
+    SiteSettings.objects.update(modules=["通知中心"], labels={})
+
+    def fake_load_image_metadata(self, attachment_ids, owner):
+        if not attachment_ids:
+            return []
+        return [{"file_name": "x.png", "file_url": "/uploads/x.png"}]
+    monkeypatch.setattr(AiWizardService, "_load_image_metadata", fake_load_image_metadata)
+
+    # 模拟 v1 已落地: assistant 历史里的 description 是服务端拼装后的成品
+    assembled_v1 = (
+        "用户原描述\n\n"
+        "> 🤖 *AI 推断环境*: 环境: prod | 角色: 普通用户 | 页面: 看板\n\n"
+        "![x.png](/uploads/x.png)"
+    )
+    history = [
+        {"role": "user", "content": "用户原描述"},
+        {"role": "assistant", "content": json.dumps({
+            "action": "draft", "title": "T", "description": assembled_v1,
+            "priority": "P2", "module": "通知中心", "repro_steps": "1. a",
+            "expected_behavior": "b", "labels": [], "follow_up_questions": [],
+            "inferred_env": "环境: prod | 角色: 普通用户 | 页面: 看板",
+        }, ensure_ascii=False)},
+        {"role": "user", "content": "改一下描述, 应该是 X"},
+    ]
+
+    captured_messages: list = []
+    def fake_chat(self, **kwargs):
+        captured_messages.extend(kwargs.get("messages") or [])
+        # LLM 输出新描述 (按 prompt 规则: 只写纯文本)
+        return json.dumps({
+            "action": "draft", "title": "T", "description": "用户改写后的描述 X",
+            "priority": "P2", "module": "通知中心", "repro_steps": "1. a",
+            "expected_behavior": "b", "labels": [], "follow_up_questions": [],
+            "inferred_env": "环境: prod | 角色: 普通用户 | 页面: 看板",
+        }, ensure_ascii=False)
+
+    with patch("apps.issues.services_ai_wizard.LLMClient.chat", new=fake_chat):
+        svc = AiChatService()
+        result = svc.chat(
+            messages=history, attachment_ids=[], user=None,
+            conversation_attachment_ids=["00000000-0000-0000-0000-000000000001"],
+        )
+
+    # LLM 应该只看到 raw 描述, 不应看到拼装块
+    asst_msg = next(m for m in captured_messages if m.get("role") == "assistant")
+    asst_content = json.loads(asst_msg["content"])
+    assert asst_content["description"] == "用户原描述"
+    assert "> 🤖" not in asst_content["description"]
+    assert "![x.png]" not in asst_content["description"]
+
+    # 最终拼装的 description: env + 图片各只出现一次
+    final_desc = result["description"]
+    assert final_desc.count("> 🤖 *AI 推断环境*") == 1
+    assert final_desc.count("![x.png](/uploads/x.png)") == 1
+    assert "用户改写后的描述 X" in final_desc
