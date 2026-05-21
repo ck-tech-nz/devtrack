@@ -41,6 +41,19 @@ class ExternalIssueCreateSerializer(serializers.Serializer):
         return data
 
 
+class ExternalNotificationCreateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=200)
+    content = serializers.CharField(required=False, allow_blank=True, default="")
+    target_type = serializers.ChoiceField(
+        choices=["user", "group", "all"], required=False, default="all",
+    )
+    target_group_id = serializers.IntegerField(required=False, allow_null=True, default=None)
+    target_user_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, default=list,
+    )
+    is_draft = serializers.BooleanField(required=False, default=False)
+
+
 class ExternalIssueResponseSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     issue_number = serializers.SerializerMethodField()

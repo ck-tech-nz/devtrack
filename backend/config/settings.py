@@ -187,6 +187,13 @@ UPTIME_SYSTEM_BOT_USERNAME = "bot"
 # Page permissions seed file (DB ↔ JSON round-trip via sync_page_perms / dump_page_perms)
 PAGE_PERMS_SEED_FILE = BASE_DIR / "page_perms.json"
 
+# Remote DevTrakr targets — used by the Notification admin "发布到 test / prod" buttons.
+# Keys are issued by the remote (ExternalAPIKey on test/prod), stored locally in .env.
+DEVTRAKR_TEST_URL = os.environ.get("DEVTRAKR_TEST_URL", "https://devtrakr-test.matrixai.xin/api/external/notifications/create/")
+DEVTRAKR_TEST_KEY = os.environ.get("DEVTRAKR_TEST_KEY", "")
+DEVTRAKR_PROD_URL = os.environ.get("DEVTRAKR_PROD_URL", "https://devtrakr.matrixai.xin/api/external/notifications/create/")
+DEVTRAKR_PROD_KEY = os.environ.get("DEVTRAKR_PROD_KEY", "")
+
 UNFOLD = {
     "SITE_TITLE": "DevTrack",
     "SITE_HEADER": "DevTrack 管理后台",

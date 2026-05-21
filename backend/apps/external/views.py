@@ -4,8 +4,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from apps.issues.models import Issue, Activity
+from apps.notifications.models import Notification
+from apps.notifications.views import _generate_recipients
 from .authentication import APIKeyAuthentication
-from .serializers import ExternalIssueCreateSerializer, ExternalIssueResponseSerializer
+from .serializers import (
+    ExternalIssueCreateSerializer,
+    ExternalIssueResponseSerializer,
+    ExternalNotificationCreateSerializer,
+)
 
 
 class ExternalPagination(PageNumberPagination):
@@ -106,6 +112,42 @@ class ExternalIssueListCreateView(APIView):
         page = paginator.paginate_queryset(qs, request)
         serializer = ExternalIssueResponseSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class ExternalNotificationCreateView(APIView):
+    authentication_classes = [APIKeyAuthentication]
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not hasattr(request, "api_key") or request.api_key is None:
+            return Response(
+                {"detail": "认证失败"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        serializer = ExternalNotificationCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        notification = Notification.objects.create(
+            notification_type=Notification.Type.BROADCAST,
+            title=data["title"],
+            content=data["content"],
+            source_user=request.api_key.default_assignee,
+            target_type=data["target_type"],
+            target_group_id=data["target_group_id"],
+            is_draft=data["is_draft"],
+        )
+        if data["target_type"] == Notification.TargetType.USER and data["target_user_ids"]:
+            notification.target_users.set(data["target_user_ids"])
+
+        recipient_count = 0
+        if not data["is_draft"]:
+            recipient_count = _generate_recipients(notification)
+
+        return Response(
+            {"id": str(notification.id), "recipients": recipient_count},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ExternalIssueDetailView(APIView):
