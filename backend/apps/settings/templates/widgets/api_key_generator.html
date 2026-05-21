@@ -1,0 +1,37 @@
+<div class="flex items-stretch gap-2" data-api-key-generator>
+  {% include "django/forms/widgets/input.html" %}
+  <button type="button"
+          data-generate-api-key
+          class="inline-flex items-center gap-1 px-3 text-sm font-medium rounded-md border border-base-300 text-base-600 bg-white hover:bg-base-50 shadow-sm transition dark:bg-base-800 dark:border-base-700 dark:text-base-300 dark:hover:bg-base-700 whitespace-nowrap">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 9A8.001 8.001 0 0119.418 12M18.364 15A8.001 8.001 0 014.582 12"/></svg>
+    生成
+  </button>
+</div>
+
+<script>
+(function() {
+  document.querySelectorAll('[data-api-key-generator]').forEach(function(wrapper) {
+    var input = wrapper.querySelector('input');
+    var btn = wrapper.querySelector('[data-generate-api-key]');
+    if (!input || !btn || btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    var ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var LEN = 56;
+    btn.addEventListener('click', function() {
+      var crypto = window.crypto || window.msCrypto;
+      var max = Math.floor(256 / ALPHABET.length) * ALPHABET.length;
+      var out = '';
+      while (out.length < LEN) {
+        var buf = new Uint8Array(LEN - out.length);
+        crypto.getRandomValues(buf);
+        for (var i = 0; i < buf.length && out.length < LEN; i++) {
+          if (buf[i] < max) out += ALPHABET[buf[i] % ALPHABET.length];
+        }
+      }
+      input.value = 'sk-' + out;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+    });
+  });
+})();
+</script>

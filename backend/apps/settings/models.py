@@ -1,8 +1,20 @@
 import secrets
+import string
 
 from django.conf import settings as django_settings
 from django.db import models
 from solo.models import SingletonModel
+
+
+API_KEY_PREFIX = "sk-"
+API_KEY_RANDOM_LEN = 56
+API_KEY_ALPHABET = string.ascii_letters + string.digits
+
+
+def generate_api_key() -> str:
+    return API_KEY_PREFIX + "".join(
+        secrets.choice(API_KEY_ALPHABET) for _ in range(API_KEY_RANDOM_LEN)
+    )
 
 
 def default_labels():
@@ -119,5 +131,5 @@ class ExternalAPIKey(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.key:
-            self.key = secrets.token_hex(32)
+            self.key = generate_api_key()
         super().save(*args, **kwargs)

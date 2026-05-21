@@ -2,7 +2,7 @@ from django.contrib import admin
 from solo.admin import SingletonModelAdmin
 from unfold.admin import ModelAdmin
 from .models import DatabaseBackup, ExternalAPIKey, SiteSettings
-from .widgets import JsonReadonlyToggleWidget
+from .widgets import ApiKeyGeneratorWidget, JsonReadonlyToggleWidget
 
 
 @admin.register(SiteSettings)
@@ -30,3 +30,8 @@ class ExternalAPIKeyAdmin(ModelAdmin):
         if obj:
             return self.readonly_fields + ("key",)
         return self.readonly_fields
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "key":
+            kwargs["widget"] = ApiKeyGeneratorWidget()
+        return super().formfield_for_dbfield(db_field, request, **kwargs)

@@ -256,7 +256,7 @@ class ActionItemCommentFactory(factory.django.DjangoModelFactory):
     content = "完成情况说明"
 
 
-from apps.settings.models import ExternalAPIKey
+from apps.settings.models import ExternalAPIKey, generate_api_key
 
 
 class ExternalAPIKeyFactory(factory.django.DjangoModelFactory):
@@ -264,7 +264,7 @@ class ExternalAPIKeyFactory(factory.django.DjangoModelFactory):
         model = ExternalAPIKey
 
     name = factory.Sequence(lambda n: f"External Platform {n}")
-    key = factory.LazyFunction(lambda: __import__('secrets').token_hex(32))
+    key = factory.LazyFunction(generate_api_key)
     project = factory.SubFactory(ProjectFactory)
     default_assignee = factory.SubFactory(UserFactory)
     is_active = True

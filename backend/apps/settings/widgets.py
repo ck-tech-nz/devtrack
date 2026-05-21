@@ -1,5 +1,12 @@
 import json
 from django.forms import Widget
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+
+class ApiKeyGeneratorWidget(UnfoldAdminTextInputWidget):
+    """Text input with an inline button that fills the field with a random hex token."""
+
+    template_name = "widgets/api_key_generator.html"
 
 
 class JsonReadonlyToggleWidget(Widget):
