@@ -29,6 +29,11 @@ class ExternalIssueListCreateView(APIView):
             return Response(
                 {"detail": "认证失败"}, status=status.HTTP_401_UNAUTHORIZED
             )
+        if request.api_key.project_id is None:
+            return Response(
+                {"detail": "此端点需要项目级 API Key"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = ExternalIssueCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -90,6 +95,11 @@ class ExternalIssueListCreateView(APIView):
         if not hasattr(request, "api_key") or request.api_key is None:
             return Response(
                 {"detail": "认证失败"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+        if request.api_key.project_id is None:
+            return Response(
+                {"detail": "此端点需要项目级 API Key"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         qs = Issue.objects.select_related("assignee").filter(
@@ -158,6 +168,11 @@ class ExternalIssueDetailView(APIView):
         if not hasattr(request, "api_key") or request.api_key is None:
             return Response(
                 {"detail": "认证失败"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+        if request.api_key.project_id is None:
+            return Response(
+                {"detail": "此端点需要项目级 API Key"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         issue = Issue.objects.select_related("assignee").filter(

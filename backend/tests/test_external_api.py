@@ -315,6 +315,64 @@ class TestExternalAPIDocs:
 
 
 @pytest.mark.django_db
+class TestSiteLevelExternalAPIKey:
+    """A site-level key has no project — used for site-wide ops (e.g. broadcast notifications)."""
+
+    def test_can_create_key_without_project(self, site_settings):
+        from apps.settings.models import ExternalAPIKey
+        key = ExternalAPIKey.objects.create(name="site key")
+        assert key.pk is not None
+        assert key.project is None
+        assert key.default_assignee is None
+        assert key.key.startswith("sk-")
+
+    def test_site_level_key_rejected_by_issue_create(self, api_client, site_settings):
+        from apps.settings.models import ExternalAPIKey
+        site_key = ExternalAPIKey.objects.create(name="site key")
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {site_key.key}")
+        resp = api_client.post("/api/external/issues/", {"title": "x"}, format="json")
+        assert resp.status_code == 403
+
+    def test_site_level_key_rejected_by_issue_list(self, api_client, site_settings):
+        from apps.settings.models import ExternalAPIKey
+        site_key = ExternalAPIKey.objects.create(name="site key")
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {site_key.key}")
+        resp = api_client.get("/api/external/issues/")
+        assert resp.status_code == 403
+
+    def test_site_level_key_rejected_by_issue_detail(self, api_client, site_settings):
+        from apps.settings.models import ExternalAPIKey
+        site_key = ExternalAPIKey.objects.create(name="site key")
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {site_key.key}")
+        resp = api_client.get("/api/external/issues/1/")
+        assert resp.status_code == 403
+
+    def test_site_level_key_accepted_by_notification_create(self, api_client, site_settings):
+        from apps.settings.models import ExternalAPIKey
+        from apps.notifications.models import Notification
+        site_key = ExternalAPIKey.objects.create(name="site key")
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {site_key.key}")
+        resp = api_client.post(
+            "/api/external/notifications/create/",
+            {"title": "全站通知", "content": "hello"},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        notif = Notification.objects.get(pk=resp.data["id"])
+        # source_user is None when key has no default_assignee
+        assert notif.source_user is None
+
+    def test_project_bound_key_still_works_for_issues(
+        self, external_client, api_key_obj, site_settings,
+    ):
+        # Regression: existing project-scoped flow not broken
+        resp = external_client.post(
+            "/api/external/issues/", {"title": "issue from project key"}, format="json",
+        )
+        assert resp.status_code == 201
+
+
+@pytest.mark.django_db
 class TestExternalAPITestKey:
     def test_valid_key(self, external_client, api_key_obj):
         resp = external_client.post("/api/external/test-key/")

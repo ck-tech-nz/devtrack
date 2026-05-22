@@ -108,15 +108,27 @@ class DatabaseBackup(models.Model):
 
 
 class ExternalAPIKey(models.Model):
+    """External API key.
+
+    project=NULL means a site-level key (e.g. for broadcast notification publishing).
+    project=<Project> means a project-scoped key (e.g. for issue creation).
+    """
+
     name = models.CharField(max_length=100, verbose_name="名称")
     key = models.CharField(max_length=64, unique=True, verbose_name="API Key")
     project = models.ForeignKey(
-        "projects.Project", on_delete=models.CASCADE, verbose_name="关联项目"
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        verbose_name="关联项目",
+        help_text="留空表示站点级 key(只可用于站点级接口,例如发布通知)",
     )
     default_assignee = models.ForeignKey(
         django_settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
+        blank=True,
         verbose_name="默认负责人",
     )
     is_active = models.BooleanField(default=True, verbose_name="启用")
