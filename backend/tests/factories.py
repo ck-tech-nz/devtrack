@@ -9,6 +9,14 @@ from apps.repos.models import Repo, GitHubIssue, Commit, GitAuthorAlias
 from apps.ai.models import LLMConfig, Prompt, Analysis
 from apps.tools.models import Attachment
 from apps.uptime.models import UptimeMonitor, UptimeCheck
+from apps.ai_testing.models import (
+    AITestingModelSettings,
+    ProjectEnvironment,
+    TestFlow,
+    TestRun,
+    TestStepRun,
+    BrowserArtifact,
+)
 from django.utils import timezone as tz
 
 fake = Faker("zh_CN")
@@ -316,3 +324,105 @@ class UptimeCheckFactory(factory.django.DjangoModelFactory):
     is_up = True
     status_code = 200
     response_ms = 100
+
+
+class AITestingModelSettingsFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AITestingModelSettings
+
+    llm_config = factory.SubFactory(LLMConfigFactory)
+    planner_model = "qwen3.6"
+    critic_model = ""
+    temperature = 0.1
+    tool_call_timeout_secs = 60
+    max_agent_turns = 30
+    enable_critic_review = False
+    is_global_default = False
+
+
+class ProjectEnvironmentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ProjectEnvironment
+
+    project = factory.SubFactory(ProjectFactory)
+    name = factory.Sequence(lambda n: f"staging-{n}")
+    base_url = "https://example.com"
+    login_type = ProjectEnvironment.LOGIN_USERNAME_PASSWORD
+    login_config = factory.LazyFunction(dict)
+    login_username = "tester"
+    credential_ref = ""
+    model_settings = None
+    allowed_url_patterns = factory.LazyFunction(list)
+    allow_write_actions = False
+    allow_dangerous_actions = False
+    artifact_retention_policy = factory.LazyFunction(dict)
+    max_concurrent_runs = 1
+    is_active = True
+
+    @factory.post_generation
+    def login_password(self, create, extracted, **kwargs):
+        if not create:
+            return
+        if extracted is not None:
+            self.set_login_password(extracted)
+            self.save(update_fields=["login_password_encrypted", "updated_at"])
+
+
+class AITestFlowFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TestFlow
+
+    project = factory.SubFactory(ProjectFactory)
+    environment = factory.LazyAttribute(lambda o: ProjectEnvironmentFactory(project=o.project))
+    name = factory.Sequence(lambda n: f"Flow {n}")
+    description = "Test flow description"
+    target_url = "https://example.com"
+    success_criteria = "看到成功提示"
+    max_steps = 30
+    timeout_secs = 300
+    cleanup_policy = TestFlow.CLEANUP_NONE
+    cleanup_enabled = False
+    status = TestFlow.STATUS_DRAFT
+    created_by = factory.SubFactory(UserFactory)
+
+
+class AITestRunFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TestRun
+
+    flow = factory.SubFactory(AITestFlowFactory)
+    project = factory.SelfAttribute("flow.project")
+    environment = factory.SelfAttribute("flow.environment")
+    name = factory.Sequence(lambda n: f"Run {n}")
+    target_url = "https://example.com"
+    input_snapshot = factory.LazyFunction(dict)
+    status = TestRun.STATUS_PENDING
+    created_by = factory.SubFactory(UserFactory)
+
+
+class AITestStepRunFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TestStepRun
+
+    run = factory.SubFactory(AITestRunFactory)
+    step_index = factory.Sequence(lambda n: n + 1)
+    skill_name = ""
+    thought_summary = ""
+    tool_name = "observe_page"
+    tool_input = factory.LazyFunction(dict)
+    tool_result = factory.LazyFunction(dict)
+    page_url = "https://example.com"
+    status = TestStepRun.STATUS_SUCCESS
+    error_message = ""
+
+
+class BrowserArtifactFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = BrowserArtifact
+
+    run = factory.SubFactory(AITestRunFactory)
+    step = factory.SubFactory(AITestStepRunFactory, run=factory.SelfAttribute("..run"))
+    artifact_type = BrowserArtifact.TYPE_SCREENSHOT
+    attachment = None
+    content = ""
+    metadata = factory.LazyFunction(dict)

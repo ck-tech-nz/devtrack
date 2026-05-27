@@ -23,6 +23,15 @@
         "uriFormat": "http://localhost:%s",
         "action": "openExternally"
       }
+    },
+    {
+      "name": "Celery Worker",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "celery", "-A", "config", "worker", "-l", "info", "--concurrency=2"],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal"
     }
   ],
   "compounds": [
@@ -34,6 +43,16 @@
         "hidden": false,
         "group": "1_fullstack",
         "order": 1
+      }
+    },
+    {
+      "name": "全栈启动 (Django + Vue + Celery)",
+      "configurations": ["Django", "Vue", "Celery Worker"],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "1_fullstack",
+        "order": 2
       }
     }
   ]

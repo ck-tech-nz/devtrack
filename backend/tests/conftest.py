@@ -14,7 +14,18 @@ def auth_user():
     user = UserFactory()
     group, _ = Group.objects.get_or_create(name="管理员")
     group.permissions.set(
-        Permission.objects.filter(content_type__app_label__in=["projects", "issues", "settings", "repos", "ai", "users", "notifications"])
+        Permission.objects.filter(
+            content_type__app_label__in=[
+                "projects",
+                "issues",
+                "settings",
+                "repos",
+                "ai",
+                "ai_testing",
+                "users",
+                "notifications",
+            ]
+        )
     )
     user.groups.add(group)
     return user
