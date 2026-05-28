@@ -125,7 +125,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
     transform: translateX(-50%);
   }
 }
-:global(.dark) .rm-timeline::before {
+:root.dark .rm-timeline::before {
   background: linear-gradient(
     to bottom,
     rgb(139 92 246 / 0)        0%,
@@ -162,8 +162,8 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
 }
 .rm-edge--top    { color: rgb(124 58 237); animation-delay: 0s; }
 .rm-edge--bottom { color: rgb(107 114 128); animation-delay: 0.15s; }
-:global(.dark) .rm-edge--top    { color: rgb(196 181 253); }
-:global(.dark) .rm-edge--bottom { color: rgb(156 163 175); }
+:root.dark .rm-edge--top    { color: rgb(196 181 253); }
+:root.dark .rm-edge--bottom { color: rgb(156 163 175); }
 
 .rm-edge__icon  { width: 0.875rem; height: 0.875rem; }
 .rm-edge__label { font-weight: 500; }
@@ -200,7 +200,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
   justify-content: center;
   transition: transform 0.25s ease;
 }
-:global(.dark) .rm-node {
+:root.dark .rm-node {
   border-color: var(--rm-bg-deep);
 }
 
@@ -285,7 +285,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
   );
   z-index: 1;
 }
-:global(.dark) .rm-connector {
+:root.dark .rm-connector {
   background: linear-gradient(
     to right,
     rgb(139 92 246 / 0.55),
@@ -305,7 +305,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
       rgb(196 181 253 / 0)
     );
   }
-  :global(.dark) .rm-row--left .rm-connector {
+  :root.dark .rm-row--left .rm-connector {
     background: linear-gradient(
       to left,
       rgb(139 92 246 / 0.55),
@@ -345,7 +345,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
   );
   z-index: -1;
 }
-:global(.dark) .rm-today::before {
+:root.dark .rm-today::before {
   background: linear-gradient(
     to right,
     transparent,
@@ -373,7 +373,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
   position: relative;
   animation: rm-today-glow 4s ease-in-out infinite;
 }
-:global(.dark) .rm-today__pill {
+:root.dark .rm-today__pill {
   background: linear-gradient(180deg, rgb(31 41 55), rgb(17 24 39));
   border-color: rgb(91 33 182);
   color: rgb(221 214 254);
@@ -397,7 +397,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
   line-height: 1;
   transform: translateY(-1px);
 }
-:global(.dark) .rm-today__sep {
+:root.dark .rm-today__sep {
   color: rgb(139 92 246);
 }
 .rm-today__date {
@@ -424,7 +424,7 @@ const todayFormatted = computed(() => props.todayIso.replace(/-/g, '.'))
       inset 0 1px 0 rgb(255 255 255 / 0.9);
   }
 }
-:global(.dark) .rm-today__pill {
+:root.dark .rm-today__pill {
   animation-name: rm-today-glow-dark;
 }
 @keyframes rm-today-glow-dark {

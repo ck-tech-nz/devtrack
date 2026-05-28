@@ -69,7 +69,7 @@ function pad(n: number) {
   z-index: -1;
   pointer-events: none;
 }
-:global(.dark) .rm-hero::before {
+:root.dark .rm-hero::before {
   background:
     radial-gradient(60% 100% at 22% 60%, rgb(139 92 246 / 0.22), transparent 70%),
     radial-gradient(50% 100% at 88% 40%, rgb(202 138 4 / 0.14), transparent 70%);
@@ -92,7 +92,7 @@ function pad(n: number) {
   height: 1px;
   background: linear-gradient(to right, rgb(139 92 246), rgb(196 181 253 / 0.2));
 }
-:global(.dark) .rm-hero__eyebrow-rule {
+:root.dark .rm-hero__eyebrow-rule {
   background: linear-gradient(to right, rgb(196 181 253), rgb(139 92 246 / 0.2));
 }
 .rm-hero__eyebrow-text {
@@ -103,7 +103,7 @@ function pad(n: number) {
   color: rgb(124 58 237);
   font-weight: 500;
 }
-:global(.dark) .rm-hero__eyebrow-text {
+:root.dark .rm-hero__eyebrow-text {
   color: rgb(196 181 253);
 }
 
@@ -117,7 +117,7 @@ function pad(n: number) {
   margin: 0;
   font-feature-settings: "ss01" 1, "kern" 1;
 }
-:global(.dark) .rm-hero__title {
+:root.dark .rm-hero__title {
   color: rgb(243 244 246);
 }
 
@@ -128,7 +128,7 @@ function pad(n: number) {
   color: rgb(75 85 99);
   max-width: 30rem;
 }
-:global(.dark) .rm-hero__subtitle {
+:root.dark .rm-hero__subtitle {
   color: rgb(156 163 175);
 }
 
@@ -141,7 +141,7 @@ function pad(n: number) {
   padding: 1rem 0 0.25rem;
   border-top: 1px solid rgb(229 231 235);
 }
-:global(.dark) .rm-hero__stats {
+:root.dark .rm-hero__stats {
   border-top-color: rgb(31 41 55);
 }
 
@@ -155,7 +155,7 @@ function pad(n: number) {
 .rm-stat + .rm-stat {
   border-left: 1px solid rgb(229 231 235);
 }
-:global(.dark) .rm-stat + .rm-stat {
+:root.dark .rm-stat + .rm-stat {
   border-left-color: rgb(31 41 55);
 }
 
@@ -167,7 +167,7 @@ function pad(n: number) {
   font-family: var(--rm-mono);
   font-weight: 500;
 }
-:global(.dark) .rm-stat__label {
+:root.dark .rm-stat__label {
   color: rgb(156 163 175);
 }
 
@@ -188,9 +188,9 @@ function pad(n: number) {
 }
 .rm-stat--done       .rm-stat__value { color: rgb(22 163 74); }
 
-:global(.dark) .rm-stat--planned    .rm-stat__value { color: rgb(209 213 219); }
-:global(.dark) .rm-stat--inprogress .rm-stat__value { color: rgb(96 165 250); }
-:global(.dark) .rm-stat--done       .rm-stat__value { color: rgb(74 222 128); }
+:root.dark .rm-stat--planned    .rm-stat__value { color: rgb(209 213 219); }
+:root.dark .rm-stat--inprogress .rm-stat__value { color: rgb(96 165 250); }
+:root.dark .rm-stat--done       .rm-stat__value { color: rgb(74 222 128); }
 
 /* 进行中的数字带极轻微的呼吸高亮 */
 .rm-stat--inprogress .rm-stat__value::after {

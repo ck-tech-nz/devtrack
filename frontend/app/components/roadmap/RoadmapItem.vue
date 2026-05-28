@@ -58,7 +58,7 @@ const statusClass = computed(() => statusClassMap[props.item.status])
   overflow: hidden;
   outline: none;
 }
-:global(.dark) .rm-card {
+:root.dark .rm-card {
   --rm-card-border: rgb(31 41 55);
   --rm-card-border-hover: rgb(91 33 182);
   background: rgb(17 24 39);
@@ -80,7 +80,7 @@ const statusClass = computed(() => statusClassMap[props.item.status])
   opacity: 0.5;
   transition: opacity 0.25s ease;
 }
-:global(.dark) .rm-card::before {
+:root.dark .rm-card::before {
   background: linear-gradient(
     to right,
     transparent,
@@ -107,8 +107,8 @@ const statusClass = computed(() => statusClassMap[props.item.status])
   outline: 2px solid rgb(139 92 246 / 0.45);
   outline-offset: 3px;
 }
-:global(.dark) .rm-card:hover,
-:global(.dark) .rm-card:focus-visible {
+:root.dark .rm-card:hover,
+:root.dark .rm-card:focus-visible {
   box-shadow:
     0 12px 28px -16px rgb(0 0 0 / 0.65),
     0 0 0 1px rgb(139 92 246 / 0.25);
@@ -130,7 +130,7 @@ const statusClass = computed(() => statusClassMap[props.item.status])
   font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
-:global(.dark) .rm-card__date {
+:root.dark .rm-card__date {
   color: rgb(156 163 175);
 }
 
@@ -144,7 +144,7 @@ const statusClass = computed(() => statusClassMap[props.item.status])
   line-height: 1.35;
   letter-spacing: -0.005em;
 }
-:global(.dark) .rm-card__title {
+:root.dark .rm-card__title {
   color: rgb(243 244 246);
 }
 
@@ -155,7 +155,7 @@ const statusClass = computed(() => statusClassMap[props.item.status])
   color: rgb(75 85 99);
   margin: 0;
 }
-:global(.dark) .rm-card__desc {
+:root.dark .rm-card__desc {
   color: rgb(156 163 175);
 }
 
@@ -195,10 +195,10 @@ const statusClass = computed(() => statusClassMap[props.item.status])
 .rm-pill--fix       { color: rgb(180 83 9); }
 .rm-pill--milestone { color: rgb(161 98 7); }
 
-:global(.dark) .rm-pill--feature   { color: rgb(196 181 253); }
-:global(.dark) .rm-pill--improve   { color: rgb(147 197 253); }
-:global(.dark) .rm-pill--fix       { color: rgb(252 211 77); }
-:global(.dark) .rm-pill--milestone { color: rgb(253 224 71); }
+:root.dark .rm-pill--feature   { color: rgb(196 181 253); }
+:root.dark .rm-pill--improve   { color: rgb(147 197 253); }
+:root.dark .rm-pill--fix       { color: rgb(252 211 77); }
+:root.dark .rm-pill--milestone { color: rgb(253 224 71); }
 
 /* Status pill: soft-fill with a leading dot */
 .rm-pill--status {
@@ -223,9 +223,9 @@ const statusClass = computed(() => statusClassMap[props.item.status])
 }
 .rm-pill--done       { background: rgb(220 252 231); color: rgb(22 101 52); }
 
-:global(.dark) .rm-pill--planned    { background: rgb(31 41 55); color: rgb(209 213 219); }
-:global(.dark) .rm-pill--inprogress { background: rgb(30 58 138 / 0.5); color: rgb(147 197 253); }
-:global(.dark) .rm-pill--done       { background: rgb(20 83 45 / 0.5); color: rgb(134 239 172); }
+:root.dark .rm-pill--planned    { background: rgb(31 41 55); color: rgb(209 213 219); }
+:root.dark .rm-pill--inprogress { background: rgb(30 58 138 / 0.5); color: rgb(147 197 253); }
+:root.dark .rm-pill--done       { background: rgb(20 83 45 / 0.5); color: rgb(134 239 172); }
 
 @keyframes rm-card-pulse {
   0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }

@@ -79,7 +79,7 @@ const stats = computed(() => {
   padding: 4rem 1rem;
   color: rgb(156 163 175);
 }
-:global(.dark) .rm-empty {
+:root.dark .rm-empty {
   color: rgb(107 114 128);
 }
 
@@ -88,7 +88,7 @@ const stats = computed(() => {
   height: 1px;
   background: linear-gradient(to right, transparent, rgb(229 231 235), transparent);
 }
-:global(.dark) .rm-empty__rule {
+:root.dark .rm-empty__rule {
   background: linear-gradient(to right, transparent, rgb(55 65 81), transparent);
 }
 
