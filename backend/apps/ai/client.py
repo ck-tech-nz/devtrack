@@ -1,4 +1,5 @@
 import base64
+import httpx
 import openai
 from .models import LLMConfig
 
@@ -10,6 +11,46 @@ class LLMClient:
             api_key=config.api_key,
             base_url=config.base_url or None,
         )
+
+    def list_model_ids(self, timeout: float = 15) -> list[str]:
+        """拉取提供商 /v1/models 的模型 ID 列表,对非标准响应做容错。
+
+        不走 openai SDK 的 models.list():当 base_url 误填成网页(返回 HTML)、
+        或服务把 data 写成纯字符串数组时,SDK 会抛出晦涩的
+        'str' object has no attribute '_set_private_attributes'。这里改用裸 HTTP
+        请求并自行解析:
+
+        - 端点返回非 JSON(HTML 等)→ 抛出可读错误,提示 base_url 可能指向网页;
+        - data 元素既支持 {"id": ...} 对象,也支持纯字符串(部分本地推理服务)。
+        """
+        base = (self.config.base_url or "https://api.openai.com/v1").rstrip("/")
+        url = f"{base}/models"
+        headers = {}
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
+
+        resp = httpx.get(url, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+
+        ctype = resp.headers.get("content-type", "")
+        if "json" not in ctype.lower():
+            raise ValueError(
+                f"{url} 返回 {ctype or '未知类型'} 而非 JSON;"
+                "base_url 可能指向网页而非 OpenAI 兼容 API。"
+            )
+
+        payload = resp.json()
+        items = payload.get("data") if isinstance(payload, dict) else payload
+        if not isinstance(items, list):
+            raise ValueError(f"{url} 响应缺少 data 列表,无法解析模型列表。")
+
+        ids: set[str] = set()
+        for item in items:
+            if isinstance(item, str):
+                ids.add(item)
+            elif isinstance(item, dict) and item.get("id"):
+                ids.add(str(item["id"]))
+        return sorted(ids)
 
     def complete(self, model: str, system_prompt: str, user_prompt: str, temperature: float, timeout: float | None = None) -> str:
         kwargs = dict(

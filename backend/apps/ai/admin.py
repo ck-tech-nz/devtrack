@@ -1,8 +1,9 @@
-import openai
 from django.contrib import admin, messages
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 
+from .client import LLMClient
 from .forms import PromptAdminForm
 from .models import LLMConfig, Prompt, Analysis
 
@@ -12,15 +13,11 @@ def fetch_models_from_provider(modeladmin, request, queryset):
     """调用 OpenAI 兼容的 GET /v1/models,把返回的模型 ID 写入 available_models。
 
     一次失败不影响其它行;每行单独提示成功/失败,方便一键刷新多个配置。
+    解析逻辑见 LLMClient.list_model_ids,对非标准响应会给出可读的失败原因。
     """
     for cfg in queryset:
         try:
-            client = openai.OpenAI(
-                api_key=cfg.api_key,
-                base_url=cfg.base_url or None,
-                timeout=15,
-            )
-            ids = sorted({m.id for m in client.models.list().data})
+            ids = LLMClient(cfg).list_model_ids()
             cfg.available_models = ids
             cfg.save(update_fields=["available_models", "updated_at"])
             messages.success(request, f"{cfg.name}: 获取到 {len(ids)} 个模型")
@@ -62,7 +59,9 @@ class LLMConfigAdmin(ModelAdmin):
     def available_models_display(self, obj):
         ids = list(obj.available_models or [])
         if not ids:
-            return format_html(
+            # 静态文案,无插值;Django 6.0 起 format_html 不接受零参数调用,
+            # 改用 mark_safe(等价于零参数 format_html,但不会报 TypeError)。
+            return mark_safe(
                 '<div class="text-font-subtle-light dark:text-font-subtle-dark text-sm">'
                 '留空。可通过右上角「动作 → 从提供商获取可用模型」拉取。'
                 '</div>'
