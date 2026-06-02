@@ -45,11 +45,11 @@
 
             <!-- 描述 -->
             <div class="form-row">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between h-5">
                 <label>描述</label>
-                <UButton v-if="isFieldDirty('description')" size="xs" variant="soft" :loading="savingField === 'description'" @click="saveField('description')">保存</UButton>
+                <FieldSaveStatus :saving="savingField === 'description'" :saved="savedField === 'description'" />
               </div>
-              <MarkdownEditor ref="descriptionEditor" v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" @upload-complete="handleUploadComplete" />
+              <MarkdownEditor ref="descriptionEditor" v-model="form.description" placeholder="添加描述..." :default-mode="isNewIssue ? 'edit' : 'preview'" min-height="520px" @upload-complete="handleUploadComplete" @blur="handleBlurSave('description')" />
             </div>
 
           </div>
@@ -59,25 +59,25 @@
           <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">分析记录</h3>
           <div class="space-y-4">
             <div class="form-row">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between h-5">
                 <label>备注</label>
-                <UButton v-if="isFieldDirty('remark')" size="xs" variant="soft" :loading="savingField === 'remark'" @click="saveField('remark')">保存</UButton>
+                <FieldSaveStatus :saving="savingField === 'remark'" :saved="savedField === 'remark'" />
               </div>
-              <UTextarea v-model="form.remark" :rows="2" placeholder="备注信息" />
+              <UTextarea v-model="form.remark" :rows="2" placeholder="备注信息" @blur="handleBlurSave('remark')" />
             </div>
             <div class="form-row">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between h-5">
                 <label>原因分析</label>
-                <UButton v-if="isFieldDirty('cause')" size="xs" variant="soft" :loading="savingField === 'cause'" @click="saveField('cause')">保存</UButton>
+                <FieldSaveStatus :saving="savingField === 'cause'" :saved="savedField === 'cause'" />
               </div>
-              <UTextarea v-model="form.cause" :rows="3" :placeholder="latestAiCause ? `[AI] ${latestAiCause}` : '问题原因'" />
+              <UTextarea v-model="form.cause" :rows="3" :placeholder="latestAiCause ? `[AI] ${latestAiCause}` : '问题原因'" @blur="handleBlurSave('cause')" />
             </div>
             <div class="form-row">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between h-5">
                 <label>解决方案</label>
-                <UButton v-if="isFieldDirty('solution')" size="xs" variant="soft" :loading="savingField === 'solution'" @click="saveField('solution')">保存</UButton>
+                <FieldSaveStatus :saving="savingField === 'solution'" :saved="savedField === 'solution'" />
               </div>
-              <UTextarea v-model="form.solution" :rows="3" :placeholder="latestAiSolution ? `[AI] ${latestAiSolution}` : '解决办法'" />
+              <UTextarea v-model="form.solution" :rows="3" :placeholder="latestAiSolution ? `[AI] ${latestAiSolution}` : '解决办法'" @blur="handleBlurSave('solution')" />
             </div>
           </div>
         </div>
@@ -950,6 +950,7 @@ function renderMarkdown(text: string) {
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (savedFieldTimer) clearTimeout(savedFieldTimer)
 })
 const users = ref<any[]>([])
 const labelItems = ref<Record<string, { foreground: string; background: string; description: string }>>({})
@@ -1197,6 +1198,16 @@ const helperItems = computed(() =>
 
 const savedForm = ref<typeof form.value>({ ...form.value })
 const savingField = ref<string | null>(null)
+// 失焦自动保存成功后，短暂显示"已保存"
+const savedField = ref<string | null>(null)
+let savedFieldTimer: ReturnType<typeof setTimeout> | null = null
+function markSaved(field: string) {
+  savedField.value = field
+  if (savedFieldTimer) clearTimeout(savedFieldTimer)
+  savedFieldTimer = setTimeout(() => {
+    if (savedField.value === field) savedField.value = null
+  }, 2000)
+}
 
 function isFieldDirty(field: keyof typeof form.value) {
   return JSON.stringify(form.value[field]) !== JSON.stringify(savedForm.value[field])
@@ -1290,6 +1301,25 @@ async function saveField(field: keyof typeof form.value) {
     if (field === 'description') descriptionEditor.value?.setMode('preview')
   } catch (e) {
     console.error(`Save ${field} failed:`, e)
+  } finally {
+    savingField.value = null
+  }
+}
+
+// 文本框失焦自动保存：描述/备注/原因分析/解决方案，仅在有改动时提交。
+// 只更新该字段的基线（不整表 refetch），避免覆盖其它正在编辑中的字段。
+async function handleBlurSave(field: 'description' | 'remark' | 'cause' | 'solution') {
+  if (!issue.value || !isFieldDirty(field)) return
+  savingField.value = field
+  try {
+    const value = form.value[field]
+    await api(`/api/issues/${issue.value.id}/`, { method: 'PATCH', body: { [field]: value } })
+    savedForm.value[field] = JSON.parse(JSON.stringify(value))
+    ;(issue.value as any)[field] = value
+    if (field === 'description') descriptionEditor.value?.setMode('preview')
+    markSaved(field)
+  } catch (e) {
+    console.error(`Auto-save ${field} failed:`, e)
   } finally {
     savingField.value = null
   }

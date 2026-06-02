@@ -31,11 +31,11 @@
 
       <!-- Formatting toolbar -->
       <div v-show="mode === 'edit'" class="flex items-center gap-0.5 ml-auto pr-2">
-        <button v-for="btn in toolbarButtons" :key="btn.title" :title="btn.title" class="toolbar-btn" @click="btn.action">
+        <button v-for="btn in toolbarButtons" :key="btn.title" :title="btn.title" class="toolbar-btn" @mousedown.prevent @click="btn.action">
           <UIcon :name="btn.icon" class="w-4 h-4" />
         </button>
         <span class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
-        <button title="上传文件" class="toolbar-btn" @click="triggerFileInput">
+        <button title="上传文件" class="toolbar-btn" @mousedown.prevent @click="triggerFileInput">
           <UIcon name="i-heroicons-paper-clip" class="w-4 h-4" />
         </button>
       </div>
@@ -47,7 +47,8 @@
         ref="textareaRef"
         :value="modelValue"
         :placeholder="placeholder"
-        class="w-full min-h-[260px] p-4 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-y outline-none"
+        class="w-full p-4 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-y outline-none"
+        :style="{ minHeight: editorMinHeight }"
         @input="onTextareaInput"
         @keydown="handleMentionKeydown"
         @paste="handlePaste"
@@ -80,7 +81,8 @@
     <div
       ref="previewRef"
       v-show="mode === 'preview'"
-      class="markdown-body min-h-[260px] p-4 bg-white dark:bg-gray-900 text-sm"
+      class="markdown-body p-4 bg-white dark:bg-gray-900 text-sm"
+      :style="{ minHeight: editorMinHeight }"
       v-html="renderedHtml"
     />
   </div>
@@ -117,6 +119,7 @@ const props = defineProps<{
   modelValue: string
   placeholder?: string
   defaultMode?: 'edit' | 'preview'
+  minHeight?: string
 }>()
 
 const emit = defineEmits<{
@@ -129,6 +132,7 @@ const { api } = useApi()
 const toast = useToast()
 
 const mode = ref<'edit' | 'preview'>(props.defaultMode || 'edit')
+const editorMinHeight = computed(() => props.minHeight || '260px')
 defineExpose({ setMode: (m: 'edit' | 'preview') => { mode.value = m } })
 const isDragging = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
