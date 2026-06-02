@@ -1,7 +1,7 @@
 services:
   backend:
-    image: registry.aimenu.tech/devtrack/backend-prod
-    container_name: devtrack-backend
+    image: registry.cktech.hk/devtrakr/backend-prod
+    container_name: devtrakr-backend
     restart: unless-stopped
     env_file:
       - .env
@@ -15,17 +15,17 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
       - "traefik.enable=true"
-      - "traefik.http.routers.devtrack-backend.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.devtrack-backend.entrypoints=web"
-      - "traefik.http.services.devtrack-backend.loadbalancer.server.port=8000"
+      - "traefik.http.routers.devtrakr-backend.rule=Host(`devtrakr.matrixai.xin`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.devtrakr-backend.entrypoints=web"
+      - "traefik.http.services.devtrakr-backend.loadbalancer.server.port=8000"
     command: >
       sh -c "uv run python manage.py migrate --noinput &&
              uv run python manage.py sync_page_perms 2>/dev/null || true &&
-             uv run python manage.py runserver 0.0.0.0:8000"
+             uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --workers 4"
 
   frontend:
-    image: registry.aimenu.tech/devtrack/frontend-prod
-    container_name: devtrack-frontend
+    image: registry.cktech.hk/devtrakr/frontend-prod
+    container_name: devtrakr-frontend
     restart: unless-stopped
     networks:
       - db-network
@@ -35,14 +35,14 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
       - "traefik.enable=true"
-      - "traefik.http.routers.devtrack-frontend.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.devtrack-frontend.entrypoints=web"
-      - "traefik.http.services.devtrack-frontend.loadbalancer.server.port=3000"
-      - "traefik.http.routers.devtrack-frontend.priority=1"
+      - "traefik.http.routers.devtrakr-frontend.rule=Host(`devtrakr.matrixai.xin`)"
+      - "traefik.http.routers.devtrakr-frontend.entrypoints=web"
+      - "traefik.http.services.devtrakr-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.devtrakr-frontend.priority=1"
 
   celery-worker:
-    image: registry.aimenu.tech/devtrack/backend-prod
-    container_name: devtrack-celery-worker
+    image: registry.cktech.hk/devtrakr/backend-prod
+    container_name: devtrakr-celery-worker
     restart: unless-stopped
     env_file:
       - .env
@@ -56,8 +56,8 @@ services:
     command: uv run celery -A config worker -l info
 
   celery-beat:
-    image: registry.aimenu.tech/devtrack/backend-prod
-    container_name: devtrack-celery-beat
+    image: registry.cktech.hk/devtrakr/backend-prod
+    container_name: devtrakr-celery-beat
     restart: unless-stopped
     env_file:
       - .env
@@ -74,7 +74,6 @@ networks:
   traefik-network:
     name: traefik-network
     external: true
-      
 
 volumes:
   repo_data:

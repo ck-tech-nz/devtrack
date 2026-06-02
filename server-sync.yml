@@ -6,7 +6,7 @@ environments:
     confirm: false
 
   prod:
-    ssh_host: devtrakr-remote
-    remote_path: /home/ftkj/cps/devtrakr_prod
+    ssh_host: devtrakr-prod-remote
+    remote_path: /home/ftkj/cps/devtrakr
     local_path: deploy/prod
     confirm: true
