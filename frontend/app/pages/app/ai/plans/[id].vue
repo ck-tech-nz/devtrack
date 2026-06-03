@@ -116,24 +116,22 @@
               复制到员工评价
             </UButton>
           </div>
-          <UTextarea
+          <MarkdownEditor
             v-model="evalForm.ai_summary"
-            :rows="5"
-            autoresize
             placeholder="点「生成 AI 小结」让 AI 分析本月目标与各任务（含自评/点评）情况；生成后可自由编辑"
-            class="w-full"
+            default-mode="preview"
+            min-height="180px"
           />
         </div>
 
         <!-- 员工评价（对员工可见） -->
         <div class="space-y-1">
           <label class="text-xs font-medium text-gray-500 dark:text-gray-400">员工评价 · 对员工可见</label>
-          <UTextarea
+          <MarkdownEditor
             v-model="evalForm.employee_evaluation"
-            :rows="4"
-            autoresize
             placeholder="可一键复制上方 AI 小结，或独立撰写对该员工的月度评价"
-            class="w-full"
+            default-mode="edit"
+            min-height="160px"
           />
         </div>
 

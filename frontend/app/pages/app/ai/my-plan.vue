@@ -58,7 +58,7 @@
             <UIcon name="i-heroicons-chat-bubble-bottom-center-text" class="w-4 h-4 text-crystal-500" />
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">本月评价</h3>
           </div>
-          <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{{ current.employee_evaluation }}</p>
+          <MarkdownView :text="current.employee_evaluation" />
         </div>
 
         <!-- 行动项列表 -->
