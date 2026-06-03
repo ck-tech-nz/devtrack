@@ -33,16 +33,40 @@
           <UIcon name="i-heroicons-chevron-down-20-solid" class="w-4 h-4 text-gray-400" />
         </button>
       </UDropdownMenu>
+
+      <!-- 模拟登录态：此按钮出现即表示正在以他人身份操作 -->
+      <UButton
+        v-if="user?.impersonated_by"
+        icon="i-heroicons-arrow-uturn-left"
+        color="warning"
+        variant="soft"
+        size="sm"
+        :loading="returning"
+        :title="`正在以 ${user.name || user.username} 的身份操作，点击返回管理员`"
+        @click="onReturn"
+      >
+        返回管理员
+      </UButton>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
 const { breadcrumbs } = useNavigation()
-const { user, logout, can } = useAuth()
+const { user, logout, can, stopImpersonation } = useAuth()
 const { settings, update } = useUserSettings()
 const { resolveAvatarUrl } = useAvatars()
 const { api } = useApi()
+
+const returning = ref(false)
+async function onReturn() {
+  returning.value = true
+  try {
+    await stopImpersonation()
+  } finally {
+    returning.value = false
+  }
+}
 
 async function openAdmin() {
   try {
