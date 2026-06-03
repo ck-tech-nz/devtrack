@@ -123,7 +123,7 @@
         </div>
       </div>
 
-      <!-- 我的提升计划 + 最近动态（同样的折叠规则） -->
+      <!-- 我的任务 + 最近动态（同样的折叠规则） -->
       <div
         v-if="hasPlan || hasActivity"
         class="grid grid-cols-1 gap-4"
@@ -597,45 +597,5 @@ onMounted(async () => {
   color: #9ca3af;
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-/* 我的提升计划 */
-.plan-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8125rem;
-  color: #6b7280;
-  margin-bottom: 0.75rem;
-}
-:root.dark .plan-summary { color: #9ca3af; }
-.plan-summary-dot { color: #d1d5db; }
-.plan-progress {
-  margin-bottom: 1rem;
-}
-.plan-items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.plan-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.8125rem;
-}
-.plan-item-title {
-  color: #374151;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-right: 0.5rem;
-}
-:root.dark .plan-item-title { color: #d1d5db; }
-.plan-item-points {
-  color: #9ca3af;
-  font-size: 0.75rem;
-  flex-shrink: 0;
 }
 </style>
