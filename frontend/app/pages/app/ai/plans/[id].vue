@@ -262,7 +262,7 @@
           </div>
 
           <!-- 已记录点评 / 未达成 -->
-          <div v-if="hasReview(item)" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+          <div v-if="hasReview(item) && !reopenedIds.has(item.id)" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
             <div class="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 mb-2.5">
               <UIcon :name="item.status === 'not_achieved' ? 'i-heroicons-x-circle' : 'i-heroicons-star'" class="w-3.5 h-3.5" :class="item.status === 'not_achieved' ? 'text-red-500' : 'text-amber-500'" />
               {{ item.status === 'not_achieved' ? '未达成' : '点评' }}
@@ -283,6 +283,17 @@
               <span class="text-xs text-emerald-600 dark:text-emerald-400">✓ 员工已确认 · 改进措施：</span>{{ item.improve_note || '—' }}
             </div>
             <p v-else-if="item.status === 'not_achieved'" class="text-xs text-amber-600 dark:text-amber-400 mt-2.5">待员工确认并填写改进措施</p>
+            <UButton
+              v-if="item.status === 'not_achieved' && plan.status !== 'archived'"
+              size="xs"
+              variant="outline"
+              color="success"
+              icon="i-heroicons-arrow-uturn-left"
+              class="mt-3"
+              @click="reopenVerify(item)"
+            >
+              改为已达成
+            </UButton>
           </div>
 
           <!-- 评论区 -->
@@ -456,6 +467,8 @@ const loading = ref(true)
 const publishing = ref(false)
 const verifyingIds = ref(new Set<string>())
 const commentingIds = ref(new Set<string>())
+// 管理员对「未达成」任务重新验收时，临时展开评分面板的任务集合
+const reopenedIds = ref(new Set<string>())
 const removingId = ref<string | null>(null)
 
 const pool = ref<any[]>([])
@@ -725,12 +738,24 @@ async function verifyItem(itemId: string, status: string) {
   try {
     await api(`/api/kpi/action-items/${itemId}/verify/`, { method: 'POST', body })
     toast.add({ title: status === 'verified' ? '已验收' : '已标记未达成', color: 'success' })
+    reopenedIds.value = new Set([...reopenedIds.value].filter(id => id !== itemId))
     await fetchPlan()
   } catch (e: any) {
     toast.add({ title: '操作失败', description: e?.data?.detail || '', color: 'error' })
   } finally {
     verifyingIds.value = new Set([...verifyingIds.value].filter(id => id !== itemId))
   }
+}
+
+// 重新验收「未达成」任务：展开评分面板，沿用既有维度、已填分数与点评作初值
+function reopenVerify(item: any) {
+  scoreDraft.value[item.id] = { ...(item.scores || {}) }
+  commentDraft.value[item.id] = item.review_comment || ''
+  reopenedIds.value = new Set([...reopenedIds.value, item.id])
+}
+
+function cancelReopen(itemId: string) {
+  reopenedIds.value = new Set([...reopenedIds.value].filter(id => id !== itemId))
 }
 
 function openNotAchieved(item: any) {

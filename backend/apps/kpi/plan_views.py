@@ -376,6 +376,10 @@ class ActionItemVerifyView(APIView):
             item.scores = scores
             item.review_comment = review_comment
             item.review_dimensions = dims
+            # 由「未达成」改判为达成时，清除归因，避免残留陈旧数据
+            if item.not_achieved_reason:
+                item.not_achieved_reason = ""
+                update_fields.append("not_achieved_reason")
         else:
             # 未达成：强制原因（总评）+ 归因，便于诊断、问责与后续干预
             review_comment = (request.data.get("review_comment") or "").strip()
