@@ -79,13 +79,19 @@
         </div>
       </div>
 
-      <!-- 月度小结与员工评价 -->
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-4">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">月度小结与员工评价</h2>
-            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">AI 小结仅你可见；员工评价对该员工公开</p>
-          </div>
+      <!-- 月度小结与员工评价（默认收起） -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
+        <div class="flex items-center justify-between gap-3">
+          <button type="button" class="flex items-center gap-2 min-w-0 text-left" @click="evalPanelOpen = !evalPanelOpen">
+            <UIcon
+              :name="evalPanelOpen ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'"
+              class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0"
+            />
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">月度小结与员工评价</h2>
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">AI 小结仅你可见；员工评价对该员工公开</p>
+            </div>
+          </button>
           <UButton
             size="xs"
             variant="outline"
@@ -98,6 +104,7 @@
           </UButton>
         </div>
 
+      <div v-if="evalPanelOpen" class="space-y-4 mt-4">
         <!-- AI 小结（仅管理者，可编辑） -->
         <div class="space-y-1">
           <div class="flex items-center justify-between gap-2">
@@ -130,7 +137,7 @@
           <MarkdownEditor
             v-model="evalForm.employee_evaluation"
             placeholder="可一键复制上方 AI 小结，或独立撰写对该员工的月度评价"
-            default-mode="edit"
+            default-mode="preview"
             min-height="160px"
           />
         </div>
@@ -140,6 +147,7 @@
             保存评价
           </UButton>
         </div>
+      </div>
       </div>
 
       <!-- 任务列表 -->
@@ -415,7 +423,8 @@ const scoreDraft = ref<Record<string, Record<string, number>>>({})
 const commentDraft = ref<Record<string, string>>({})
 const newComments = ref<Record<string, string>>({})
 
-// 月度小结 / 员工评价
+// 月度小结 / 员工评价（面板默认收起）
+const evalPanelOpen = ref(false)
 const generatingSummary = ref(false)
 const savingEval = ref(false)
 const evalForm = ref({ ai_summary: '', employee_evaluation: '' })
@@ -477,6 +486,7 @@ function syncEvalForm() {
 }
 
 async function generateSummary() {
+  evalPanelOpen.value = true
   generatingSummary.value = true
   try {
     plan.value = await api(`/api/kpi/plans/${planId}/ai-summary/`, { method: 'POST' })
