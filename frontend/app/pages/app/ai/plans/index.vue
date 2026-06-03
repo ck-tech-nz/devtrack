@@ -25,14 +25,9 @@
           />
         </UButtonGroup>
 
-        <!-- 批量生成 -->
-        <UButton
-          size="sm"
-          icon="i-heroicons-sparkles"
-          :loading="batchGenerating"
-          @click="batchGenerate"
-        >
-          批量生成草案
+        <!-- 派发任务 -->
+        <UButton size="sm" icon="i-heroicons-paper-airplane" @click="openDispatch">
+          派发任务
         </UButton>
       </div>
     </div>
@@ -84,20 +79,14 @@
           <span v-else class="text-gray-300 dark:text-gray-600">-</span>
         </template>
 
-        <!-- 总积分 -->
-        <template #total_points-cell="{ row }">
-          <span v-if="r(row).plan_id" class="font-medium text-gray-900 dark:text-gray-100">
-            {{ r(row).total_points ?? '-' }}
-          </span>
-          <span v-else class="text-gray-300 dark:text-gray-600">-</span>
+        <!-- 待验收 -->
+        <template #reviewing-cell="{ row }">
+          <span class="text-amber-600 dark:text-amber-400">{{ r(row).reviewing ?? 0 }}</span>
         </template>
 
-        <!-- 已得积分 -->
-        <template #earned_points-cell="{ row }">
-          <span v-if="r(row).plan_id" class="font-medium text-emerald-600 dark:text-emerald-400">
-            {{ r(row).earned_points ?? '-' }}
-          </span>
-          <span v-else class="text-gray-300 dark:text-gray-600">-</span>
+        <!-- 已完成 -->
+        <template #done-cell="{ row }">
+          <span class="text-emerald-600 dark:text-emerald-400">{{ r(row).done ?? 0 }}</span>
         </template>
 
         <!-- 操作列 -->
@@ -128,8 +117,8 @@
                 variant="outline"
                 color="success"
                 icon="i-heroicons-paper-airplane"
-                :loading="publishingIds.has(r(row).plan_id)"
-                @click="publishPlan(r(row).plan_id)"
+                :loading="publishingIds.has(r(row).plan_id!)"
+                @click="publishPlan(r(row).plan_id!)"
               >
                 发布
               </UButton>
@@ -147,8 +136,8 @@
                 variant="outline"
                 color="neutral"
                 icon="i-heroicons-archive-box"
-                :loading="archivingIds.has(r(row).plan_id)"
-                @click="archivePlan(r(row).plan_id)"
+                :loading="archivingIds.has(r(row).plan_id!)"
+                @click="archivePlan(r(row).plan_id!)"
               >
                 归档
               </UButton>
@@ -170,6 +159,27 @@
         <span class="text-xs text-gray-400 dark:text-gray-500">共 {{ tableRows.length }} 位成员</span>
       </div>
     </div>
+
+    <UModal v-model:open="dispatchOpen">
+      <template #content>
+        <div class="p-5 space-y-3">
+          <h3 class="text-base font-semibold">派发任务</h3>
+          <USelectMenu v-model="form.user_id" :items="memberOptions" value-key="value" label-key="label" placeholder="选择成员" class="w-full" />
+          <UInput v-model="form.title" placeholder="任务标题" class="w-full" />
+          <UInput v-model="form.due_date" type="date" class="w-full" />
+          <USelect v-model="form.priority" :items="priorityOptions" class="w-full" />
+          <UTextarea v-model="form.description" :rows="2" placeholder="描述/可量化目标（可选）" class="w-full" />
+          <div>
+            <p class="text-xs text-gray-500 mb-1">点评维度（默认取自维度库，可改）</p>
+            <ReviewDimensionEditor v-model="form.review_dimensions" :pool="pool" />
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
+            <UButton variant="ghost" color="neutral" @click="dispatchOpen = false">取消</UButton>
+            <UButton :loading="dispatching" :disabled="!form.user_id || !form.title || !form.due_date" @click="submitDispatch">派发</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -183,17 +193,27 @@ const toast = useToast()
 const period = ref(new Date().toISOString().slice(0, 7)) // "2026-04"
 const plans = ref<any[]>([])
 const loading = ref(true)
-const batchGenerating = ref(false)
 const generatingIds = ref(new Set<number>())
 const publishingIds = ref(new Set<string>())
 const archivingIds = ref(new Set<string>())
 
+const priorityOptions = [
+  { label: '高', value: 'high' },
+  { label: '中', value: 'medium' },
+  { label: '低', value: 'low' },
+]
+const dispatchOpen = ref(false)
+const dispatching = ref(false)
+const pool = ref<any[]>([])
+const memberOptions = ref<{ label: string; value: number }[]>([])
+const form = ref<any>({ user_id: null, title: '', due_date: '', priority: 'medium', description: '', review_dimensions: [] })
+
 const columns = [
   { accessorKey: 'user', header: '成员' },
   { accessorKey: 'status', header: '状态' },
-  { accessorKey: 'items_count', header: '行动项数' },
-  { accessorKey: 'total_points', header: '总积分' },
-  { accessorKey: 'earned_points', header: '已得积分' },
+  { accessorKey: 'items_count', header: '任务数' },
+  { accessorKey: 'reviewing', header: '待验收' },
+  { accessorKey: 'done', header: '已完成' },
   { accessorKey: 'actions', header: '操作' },
 ]
 
@@ -204,8 +224,8 @@ interface PlanRow {
   plan_id: string | null
   status: string | null
   items_count: number | null
-  total_points: number | null
-  earned_points: number | null
+  reviewing: number | null
+  done: number | null
 }
 
 const tableRows = computed<PlanRow[]>(() => {
@@ -216,8 +236,8 @@ const tableRows = computed<PlanRow[]>(() => {
     plan_id: p.id ?? null,
     status: p.status ?? null,
     items_count: p.action_items_count ?? p.items_count ?? null,
-    total_points: p.total_points ?? null,
-    earned_points: p.earned_points ?? null,
+    reviewing: p.reviewing_count ?? 0,
+    done: p.done_count ?? 0,
   }))
 })
 
@@ -242,13 +262,13 @@ function statusColor(status: string | null): any {
 
 function prevMonth() {
   const [y, m] = period.value.split('-').map(Number)
-  const d = new Date(y, m - 2, 1)
+  const d = new Date(y!, (m! - 2), 1)
   period.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 function nextMonth() {
   const [y, m] = period.value.split('-').map(Number)
-  const d = new Date(y, m, 1)
+  const d = new Date(y!, m!, 1)
   period.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
@@ -302,16 +322,42 @@ async function archivePlan(planId: string) {
   }
 }
 
-async function batchGenerate() {
-  batchGenerating.value = true
+async function openDispatch() {
+  form.value = { user_id: null, title: '', due_date: '', priority: 'medium', description: '', review_dimensions: [] }
   try {
-    await api('/api/kpi/plans/generate/', { method: 'POST', body: {} })
-    toast.add({ title: '批量草案已生成', color: 'success' })
+    const cfg = await api<any>('/api/kpi/scoring-config/')
+    pool.value = cfg.review_dimensions || []
+    form.value.review_dimensions = JSON.parse(JSON.stringify(pool.value))
+  } catch { pool.value = [] }
+  if (!memberOptions.value.length) {
+    const data = await api<any>('/api/users/?page_size=200')
+    const users = (data.results || data || []) as any[]
+    memberOptions.value = users.map((u: any) => ({ label: u.name || u.username, value: u.id }))
+  }
+  dispatchOpen.value = true
+}
+
+async function submitDispatch() {
+  dispatching.value = true
+  try {
+    await api('/api/kpi/tasks/dispatch/', {
+      method: 'POST',
+      body: {
+        user_id: form.value.user_id,
+        title: form.value.title.trim(),
+        due_date: form.value.due_date,
+        priority: form.value.priority,
+        description: form.value.description,
+        review_dimensions: form.value.review_dimensions,
+      },
+    })
+    dispatchOpen.value = false
+    toast.add({ title: '已派发', color: 'success' })
     await fetchPlans()
   } catch (e: any) {
-    toast.add({ title: '批量生成失败', description: e?.data?.detail || '', color: 'error' })
+    toast.add({ title: '派发失败', description: e?.data?.detail || '', color: 'error' })
   } finally {
-    batchGenerating.value = false
+    dispatching.value = false
   }
 }
 
