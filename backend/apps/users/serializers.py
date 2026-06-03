@@ -95,7 +95,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "name", "email", "avatar", "github_id", "is_active", "date_joined", "groups"]
+        fields = ["id", "username", "name", "email", "avatar", "github_id", "is_active", "is_superuser", "date_joined", "groups"]
 
     def get_groups(self, obj):
         return list(obj.groups.values_list("name", flat=True))
