@@ -253,6 +253,18 @@ class ActionItemStatusView(APIView):
             )
         item.status = new_status
         item.save(update_fields=["status", "updated_at"])
+
+        # 可选的"成果说明" → 落成一条评论（支持线上/线下反馈）
+        note = (request.data.get("note") or "").strip()
+        if note:
+            attachment_url = attachment_key = ""
+            if "attachment" in request.FILES:
+                attachment_url, attachment_key = upload_image(request.FILES["attachment"])
+            ActionItemComment.objects.create(
+                action_item=item, author=request.user, content=note,
+                attachment_url=attachment_url, attachment_key=attachment_key,
+            )
+
         return Response(ActionItemSerializer(item).data)
 
 

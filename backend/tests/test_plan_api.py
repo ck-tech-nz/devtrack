@@ -255,3 +255,37 @@ class TestTaskDispatchAPI:
         emp = UserFactory()
         resp = client.post("/api/kpi/tasks/dispatch/", {"user_id": emp.id, "title": "x", "due_date": "2026-06-30"}, format="json")
         assert resp.status_code == 403
+
+
+class TestActionItemSubmitNote:
+    def test_submit_with_note_creates_comment(self, employee_client):
+        client, user = employee_client
+        plan = ImprovementPlanFactory(user=user, status="published")
+        item = ActionItemFactory(plan=plan, status="in_progress")
+        resp = client.post(f"/api/kpi/action-items/{item.id}/status/",
+                           {"status": "submitted", "note": "线下已完成，说明见此"}, format="json")
+        assert resp.status_code == 200
+        item.refresh_from_db()
+        assert item.status == "submitted"
+        assert item.comments.filter(content="线下已完成，说明见此").exists()
+
+
+class TestScoringConfigDimensions:
+    def test_get_includes_review_dimensions(self, superuser_client):
+        resp = superuser_client.get("/api/kpi/scoring-config/")
+        assert resp.status_code == 200
+        assert "review_dimensions" in resp.data
+        assert len(resp.data["review_dimensions"]) == 4
+
+    def test_put_updates_review_dimensions(self, superuser_client):
+        dims = [{"key": "understanding", "label": "理解深度", "weight": 1.0}]
+        resp = superuser_client.put("/api/kpi/scoring-config/", {"review_dimensions": dims}, format="json")
+        assert resp.status_code == 200
+        assert resp.data["review_dimensions"] == dims
+
+
+class TestAdminRegistration:
+    def test_scoring_config_registered(self):
+        from django.contrib import admin as dj_admin
+        from apps.kpi.models import KPIScoringConfig
+        assert KPIScoringConfig in dj_admin.site._registry
