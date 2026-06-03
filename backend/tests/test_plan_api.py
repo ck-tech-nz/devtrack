@@ -164,6 +164,13 @@ class TestActionItemVerifyAPI:
         item.refresh_from_db()
         assert item.status == "not_achieved"
 
+    def test_verify_rejects_non_dict_scores(self, manager_client):
+        client, _ = manager_client
+        item = self._submitted_item()
+        resp = client.post(f"/api/kpi/action-items/{item.id}/verify/",
+                           {"status": "verified", "scores": [1, 2, 3], "review_comment": "x"}, format="json")
+        assert resp.status_code == 400
+
 
 class TestCommentAPI:
     def test_employee_adds_comment(self, employee_client):
@@ -216,18 +223,25 @@ class TestTaskDispatchAPI:
             "due_date": "2026-06-30", "priority": "high",
         }, format="json")
         assert resp.status_code == 201
-        from apps.kpi.models import ImprovementPlan, ActionItem
+        from apps.kpi.models import ImprovementPlan, ActionItem, KPIScoringConfig
         plan = ImprovementPlan.objects.get(user=emp, period=timezone.now().strftime("%Y-%m"))
         assert plan.status == "published"
         item = ActionItem.objects.get(id=resp.data["id"])
         assert item.status == "pending"
         assert str(item.due_date) == "2026-06-30"
-        assert len(item.review_dimensions) == 4
+        assert item.review_dimensions == KPIScoringConfig.get_solo().review_dimensions
 
     def test_dispatch_requires_due_date(self, manager_client):
         client, _ = manager_client
         emp = UserFactory()
         resp = client.post("/api/kpi/tasks/dispatch/", {"user_id": emp.id, "title": "x"}, format="json")
+        assert resp.status_code == 400
+
+    def test_dispatch_rejects_malformed_due_date(self, manager_client):
+        client, _ = manager_client
+        emp = UserFactory()
+        resp = client.post("/api/kpi/tasks/dispatch/",
+                           {"user_id": emp.id, "title": "x", "due_date": "not-a-date"}, format="json")
         assert resp.status_code == 400
 
     def test_dispatch_reuses_and_publishes_current_month_plan(self, manager_client):

@@ -287,12 +287,16 @@ class ActionItemVerifyView(APIView):
         dims = request.data.get("review_dimensions")
         if dims is None:
             dims = item.review_dimensions or []
+        if not isinstance(dims, list) or not all(isinstance(d, dict) and "key" in d for d in dims):
+            return Response({"detail": "review_dimensions 格式不正确"}, status=status.HTTP_400_BAD_REQUEST)
 
         if new_status == "verified":
             review_comment = (request.data.get("review_comment") or "").strip()
             if not review_comment:
                 return Response({"detail": "验收需填写总评"}, status=status.HTTP_400_BAD_REQUEST)
             scores = request.data.get("scores") or {}
+            if not isinstance(scores, dict):
+                return Response({"detail": "scores 须为对象"}, status=status.HTTP_400_BAD_REQUEST)
             valid_keys = {d["key"] for d in dims}
             for k, v in scores.items():
                 if k not in valid_keys:
@@ -326,9 +330,17 @@ class TaskDispatchView(APIView):
         if not user_id or not title or not due_date:
             return Response({"detail": "user_id、title、due_date 均为必填"},
                             status=status.HTTP_400_BAD_REQUEST)
+
+        # 校验 due_date 格式（避免畸形输入直达 ORM 触发 500）
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            ActionItem._meta.get_field("due_date").to_python(due_date)
+        except (DjangoValidationError, ValueError, TypeError):
+            return Response({"detail": "due_date 格式须为 YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             target = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
+        except (User.DoesNotExist, ValueError, TypeError):
             return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         period = timezone.now().strftime("%Y-%m")
@@ -344,8 +356,10 @@ class TaskDispatchView(APIView):
             plan.save(update_fields=["status", "published_at", "updated_at"])
 
         dims = request.data.get("review_dimensions")
-        if not dims:
+        if dims is None:
             dims = KPIScoringConfig.get_solo().review_dimensions
+        if not isinstance(dims, list) or not all(isinstance(d, dict) and "key" in d for d in dims):
+            return Response({"detail": "review_dimensions 格式不正确"}, status=status.HTTP_400_BAD_REQUEST)
 
         last = plan.action_items.order_by("-sort_order").first()
         next_order = (last.sort_order + 1) if last else 0
