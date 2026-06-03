@@ -17,6 +17,8 @@ class ActionItemCommentSerializer(serializers.ModelSerializer):
 
 class ActionItemSerializer(serializers.ModelSerializer):
     earned_points = serializers.IntegerField(read_only=True)
+    overall_score = serializers.FloatField(read_only=True)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.name", default="", read_only=True)
     comments = ActionItemCommentSerializer(many=True, read_only=True)
 
     class Meta:
@@ -25,9 +27,15 @@ class ActionItemSerializer(serializers.ModelSerializer):
             "id", "source", "dimension", "title", "description",
             "measurable_target", "points", "priority", "status",
             "quality_factor", "earned_points", "sort_order",
+            "due_date", "scores", "review_comment", "review_dimensions",
+            "overall_score", "reviewed_by", "reviewed_by_name", "reviewed_at",
             "comments", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "source", "earned_points", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "source", "earned_points", "overall_score",
+            "reviewed_by", "reviewed_by_name", "reviewed_at",
+            "created_at", "updated_at",
+        ]
 
 
 class ActionItemBriefSerializer(serializers.ModelSerializer):

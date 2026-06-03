@@ -159,3 +159,20 @@ class TestGeneratePlanAPI:
         )
         assert resp.status_code == 201
         assert resp.data["status"] == "draft"
+
+
+class TestActionItemSerializerFields:
+    def test_detail_exposes_review_fields(self, manager_client):
+        client, _ = manager_client
+        plan = ImprovementPlanFactory()
+        ActionItemFactory(
+            plan=plan,
+            review_dimensions=[{"key": "quality", "label": "完成质量", "weight": 1.0}],
+            scores={"quality": 4}, review_comment="不错", status="verified",
+        )
+        resp = client.get(f"/api/kpi/plans/{plan.id}/")
+        item = resp.data["action_items"][0]
+        for key in ("scores", "review_comment", "overall_score", "due_date",
+                    "review_dimensions", "reviewed_by_name", "reviewed_at"):
+            assert key in item
+        assert item["overall_score"] == 4.0
