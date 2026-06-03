@@ -31,6 +31,18 @@
         <template #date_joined-cell="{ row }">
           {{ row.original.date_joined?.slice(0, 10) || '-' }}
         </template>
+        <template #actions-cell="{ row }">
+          <UButton
+            v-if="auth.user.value?.is_superuser && !row.original.is_superuser"
+            icon="i-heroicons-user-circle"
+            size="xs"
+            color="neutral"
+            variant="soft"
+            @click="onImpersonate(row.original)"
+          >
+            模拟登录
+          </UButton>
+        </template>
       </UTable>
       <div class="flex items-center justify-between px-4 py-3 border-t border-gray-50 dark:border-gray-800">
         <span class="text-xs text-gray-400 dark:text-gray-500">共 {{ users.length }} 位用户</span>
@@ -94,6 +106,8 @@ definePageMeta({ layout: 'default' })
 
 const { api } = useApi()
 const { resolveAvatarUrl } = useAvatars()
+const auth = useAuth()
+const toast = useToast()
 
 const loading = ref(true)
 const users = ref<any[]>([])
@@ -106,6 +120,7 @@ const columns = [
   { accessorKey: 'is_active', header: '状态' },
   { accessorKey: 'groups', header: '用户组' },
   { accessorKey: 'date_joined', header: '注册时间' },
+  { accessorKey: 'actions', header: '操作' },
 ]
 
 const groupOptions = computed(() => availableGroups.value.map(g => ({ label: g, value: g })))
@@ -153,6 +168,16 @@ async function handleCreate() {
     }
   } finally {
     creating.value = false
+  }
+}
+
+async function onImpersonate(row: { id: number | string; name?: string; username: string }) {
+  const label = row.name || row.username
+  if (!window.confirm(`确定以「${label}」的身份登录？你可以随时点击顶部横幅返回管理员。`)) return
+  try {
+    await auth.impersonate(row.id)
+  } catch (e: any) {
+    toast.add({ title: e?.data?.detail || '模拟登录失败', color: 'error' })
   }
 }
 
