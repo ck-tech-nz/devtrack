@@ -11,7 +11,7 @@
 非目标（YAGNI）：
 
 - 不建审计表，也不写服务器日志（用户明确不需要任何记录）。
-- 不支持模拟其他超管 / staff / 机器人 / 已停用用户。
+- 不支持模拟其他超管（除超管外，其余用户均可模拟）。
 - 不支持嵌套模拟（模拟会话中再发起模拟）。
 
 ## 安全模型（核心）
@@ -20,8 +20,11 @@
 前端的按钮可见性只是装饰，无法绕过后端校验。
 
 - **唯一发起者**：仅 `request.user.is_superuser == True` 可调用模拟接口，否则 403。
-- **禁止模拟的目标**：`is_superuser`、`is_staff`、`is_bot`、`is_active == False`、以及自己 → 一律拒绝（403/400）。
-  - 禁止模拟其他超管/staff，避免横向提权与权限套娃。
+- **唯一禁止的目标**：`is_superuser == True` → 拒绝（403），避免横向提权。
+  - 由于发起者自己也是超管，「目标非超管」这一条天然排除了自己以及所有其他超管，无需单独的 self 校验。
+  - staff / 机器人 / 普通用户等非超管账号均可模拟。
+  - 实务护栏：目标 `is_active == False` 时返回 400「该用户未激活」——因为 simplejwt 鉴权会拒绝停用用户，
+    签发的 token 调用任何接口都会立即 401，与其给管理员一个不可用的会话，不如直接报错。此为功能性兜底，不属于策略限制。
 - **禁止嵌套模拟**：若当前请求 token 已携带 `impersonated_by` 声明，拒绝再次发起（403）。
   （理论上模拟态用户必为非超管，已被 `is_superuser` 拦截；此处为纵深防御，显式再挡一层。）
 - **不可伪造**：`impersonated_by` 声明写在已签名的 JWT 中，客户端无法篡改。
@@ -48,10 +51,8 @@
   - 非超管 → 403「无权模拟登录」。
   - `user_id` 缺失/非法 → 400。
   - 目标不存在 → 404。
-  - 目标是自己 → 400「不能模拟自己」。
-  - 目标 `is_superuser` 或 `is_staff` → 403「不能模拟管理员账号」。
-  - 目标 `is_bot` → 400「不能模拟机器人账号」。
-  - 目标 `is_active == False` → 400「该用户未激活」。
+  - 目标 `is_superuser` → 403「不能模拟管理员账号」（同时覆盖了「模拟自己」的情况）。
+  - 目标 `is_active == False` → 400「该用户未激活」（功能性兜底，见安全模型）。
 - 签发 token：
 
   ```python
@@ -109,10 +110,11 @@
 文件：`frontend/app/pages/app/users/index.vue`。
 
 - 在 `UTable` 增加「操作」列，每行一个「模拟登录」`UButton`。
-- 可见条件：`auth.user?.is_superuser && !row.is_superuser && !row.is_staff && !row.is_bot && row.id !== auth.user?.id`。
+- 可见条件：`auth.user?.is_superuser && !row.is_superuser`。
+  （`!row.is_superuser` 已天然排除发起者自己与其他超管，故无需额外的 self 判断。）
 - 点击 → 确认（`UModal` 或 `confirm`）→ `impersonate(row.id)`。
-- 失败时用 `useToast` 提示后端返回的错误信息。
-  - 需确认 `AdminUserSerializer` 行数据是否包含 `is_superuser` / `is_staff` / `is_bot`；缺失则在该序列化器补字段，
+- 失败时用 `useToast` 提示后端返回的错误信息（如目标已停用时的 400）。
+  - 需确认 `AdminUserSerializer` 行数据是否包含 `is_superuser`；缺失则在该序列化器补该字段，
     以便前端正确判断按钮可见性。
 
 ## 错误处理
@@ -125,10 +127,9 @@
 新增 `tests/test_impersonation.py`：
 
 - 超管模拟普通用户 → 200，返回 access/refresh，且 access 解码后含 `impersonated_by == actor.id`。
-- 超管不能模拟另一个超管 → 403。
-- 超管不能模拟 staff → 403。
-- 超管不能模拟机器人 / 已停用用户 → 400。
-- 超管不能模拟自己 → 400。
+- 超管可模拟 staff（非超管）用户 → 200。
+- 超管不能模拟另一个超管 → 403（同一断言覆盖「模拟自己」）。
+- 超管不能模拟已停用用户 → 400。
 - 非超管发起 → 403。
 - 模拟态 token（带 `impersonated_by`）再次发起 → 403（禁止嵌套）。
 - 用模拟 token 调 `/api/auth/me/` → 响应含 `impersonated_by` / `impersonated_by_username`。
@@ -140,7 +141,7 @@
 
 - `backend/apps/users/views.py` — 新增 `ImpersonateView`，`MeView` 暴露模拟态。
 - `backend/apps/users/auth_urls.py` — 注册 `impersonate/`。
-- `backend/apps/users/serializers.py` — 必要时给 `AdminUserSerializer` 补 `is_superuser`/`is_staff`/`is_bot`（前端判断用）。
+- `backend/apps/users/serializers.py` — 必要时给 `AdminUserSerializer` 补 `is_superuser`（前端判断按钮可见用）。
 - `backend/tests/test_impersonation.py` — 新增测试。
 - `frontend/app/composables/useAuth.ts` — `impersonate` / `stopImpersonation` + 接口字段。
 - `frontend/app/components/ImpersonationBanner.vue` — 新增横幅。
