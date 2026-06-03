@@ -167,7 +167,10 @@
         <div
           v-for="(item, index) in items"
           :key="item.id"
-          class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5 transition-shadow hover:shadow-sm"
+          class="group rounded-xl border p-5 transition-shadow hover:shadow-sm"
+          :class="item.status === 'not_achieved'
+            ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-900/50'
+            : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'"
         >
           <!-- 头部 -->
           <div class="flex items-start justify-between gap-3 mb-3">
@@ -203,8 +206,8 @@
             <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ item.start_plan }}</p>
           </div>
 
-          <!-- 验收/评分（仅 submitted） -->
-          <div v-if="item.status === 'submitted'" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
+          <!-- 验收/评分（submitted，或管理员对未达成任务重新验收） -->
+          <div v-if="item.status === 'submitted' || reopenedIds.has(item.id)" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
             <div class="flex items-center gap-2 text-xs font-medium text-amber-600 dark:text-amber-400">
               <UIcon name="i-heroicons-clipboard-document-check" class="w-4 h-4" />
               验收与点评
@@ -247,30 +250,39 @@
             <UTextarea v-model="commentDraft[item.id]" :rows="2" placeholder="总评（必填）" class="w-full" />
             <div class="flex items-center gap-2">
               <UButton size="sm" color="success" icon="i-heroicons-check-circle" :loading="verifyingIds.has(item.id)" @click="verifyItem(item.id, 'verified')">
-                通过验收
+                {{ reopenedIds.has(item.id) ? '改为已达成' : '通过验收' }}
               </UButton>
-              <UButton size="sm" variant="outline" color="error" icon="i-heroicons-x-circle" :loading="verifyingIds.has(item.id)" @click="verifyItem(item.id, 'not_achieved')">
+              <UButton v-if="item.status === 'submitted'" size="sm" variant="outline" color="error" icon="i-heroicons-x-circle" :loading="verifyingIds.has(item.id)" @click="openNotAchieved(item)">
                 未达成
+              </UButton>
+              <UButton v-if="reopenedIds.has(item.id)" size="sm" variant="ghost" color="neutral" @click="cancelReopen(item.id)">
+                取消
               </UButton>
             </div>
           </div>
 
-          <!-- 已记录点评 -->
+          <!-- 已记录点评 / 未达成 -->
           <div v-if="hasReview(item)" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
             <div class="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 mb-2.5">
-              <UIcon name="i-heroicons-star" class="w-3.5 h-3.5 text-amber-500" />
-              点评
+              <UIcon :name="item.status === 'not_achieved' ? 'i-heroicons-x-circle' : 'i-heroicons-star'" class="w-3.5 h-3.5" :class="item.status === 'not_achieved' ? 'text-red-500' : 'text-amber-500'" />
+              {{ item.status === 'not_achieved' ? '未达成' : '点评' }}
+              <UBadge v-if="item.status === 'not_achieved' && item.not_achieved_reason_display" color="error" variant="subtle" size="xs">{{ item.not_achieved_reason_display }}</UBadge>
               <span v-if="item.reviewed_by_name" class="text-gray-400 dark:text-gray-500 font-normal">· {{ item.reviewed_by_name }}</span>
             </div>
-            <div class="space-y-1.5">
+            <div v-if="item.status === 'verified'" class="space-y-1.5">
               <div v-for="d in (item.review_dimensions || [])" :key="d.key" class="flex items-center justify-between gap-2 text-sm">
                 <span class="text-gray-500 dark:text-gray-400">{{ d.label }}</span>
                 <StarRow :value="item.scores?.[d.key] || 0" />
               </div>
             </div>
             <p v-if="item.review_comment" class="text-sm text-gray-700 dark:text-gray-300 mt-2.5 pt-2.5 border-t border-gray-50 dark:border-gray-800">
-              <span class="text-xs text-gray-400 dark:text-gray-500">总评：</span>{{ item.review_comment }}
+              <span class="text-xs text-gray-400 dark:text-gray-500">{{ item.status === 'not_achieved' ? '原因：' : '总评：' }}</span>{{ item.review_comment }}
             </p>
+            <!-- 员工闭环：改进承诺 -->
+            <div v-if="item.acknowledged" class="text-sm text-gray-700 dark:text-gray-300 mt-2.5 pt-2.5 border-t border-gray-50 dark:border-gray-800">
+              <span class="text-xs text-emerald-600 dark:text-emerald-400">✓ 员工已确认 · 改进措施：</span>{{ item.improve_note || '—' }}
+            </div>
+            <p v-else-if="item.status === 'not_achieved'" class="text-xs text-amber-600 dark:text-amber-400 mt-2.5">待员工确认并填写改进措施</p>
           </div>
 
           <!-- 评论区 -->
@@ -385,6 +397,35 @@
           </div>
         </template>
       </UModal>
+
+      <!-- 标记未达成弹窗（归因 + 原因 + 下一步） -->
+      <UModal v-model:open="notAchievedOpen" :ui="{ content: 'sm:max-w-md' }">
+        <template #content>
+          <div class="p-5 space-y-4">
+            <div>
+              <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">标记未达成</h3>
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ notAchievedItem?.title }}</p>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-medium text-gray-500 dark:text-gray-400">未达成归因 <span class="text-red-500">*</span></label>
+              <USelect v-model="naReason" :items="naReasonOptions" placeholder="选择归因" class="w-full" />
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-medium text-gray-500 dark:text-gray-400">未达成原因 <span class="text-red-500">*</span></label>
+              <UTextarea v-model="naComment" :rows="3" placeholder="具体说明为什么没达成，便于员工改正" class="w-full" />
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-medium text-gray-500 dark:text-gray-400">下一步</label>
+              <USelect v-model="naNextAction" :items="naNextActionOptions" class="w-full" />
+              <p class="text-[11px] text-gray-400 dark:text-gray-500">顺延重做会在下月计划克隆一条同样的任务</p>
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+              <UButton variant="ghost" color="neutral" @click="notAchievedOpen = false">取消</UButton>
+              <UButton color="error" icon="i-heroicons-x-circle" :loading="naSubmitting" @click="confirmNotAchieved">确认未达成</UButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
     </template>
 
     <!-- 未找到 -->
@@ -421,6 +462,25 @@ const pool = ref<any[]>([])
 const scoreDraft = ref<Record<string, Record<string, number>>>({})
 const commentDraft = ref<Record<string, string>>({})
 const newComments = ref<Record<string, string>>({})
+
+// 未达成弹窗
+const notAchievedOpen = ref(false)
+const notAchievedItem = ref<any>(null)
+const naReason = ref('')
+const naComment = ref('')
+const naNextAction = ref('record_only')
+const naSubmitting = ref(false)
+const naReasonOptions = [
+  { label: '能力/方法不足', value: 'ability' },
+  { label: '投入/主动性不够', value: 'effort' },
+  { label: '目标不合理', value: 'unrealistic' },
+  { label: '外部阻塞', value: 'blocked' },
+  { label: '优先级调整', value: 'reprioritized' },
+]
+const naNextActionOptions = [
+  { label: '顺延到下月重做', value: 'carry_over' },
+  { label: '仅记录关闭', value: 'record_only' },
+]
 
 // 月度小结 / 员工评价（面板默认收起）
 const evalPanelOpen = ref(false)
@@ -670,6 +730,50 @@ async function verifyItem(itemId: string, status: string) {
     toast.add({ title: '操作失败', description: e?.data?.detail || '', color: 'error' })
   } finally {
     verifyingIds.value = new Set([...verifyingIds.value].filter(id => id !== itemId))
+  }
+}
+
+function openNotAchieved(item: any) {
+  notAchievedItem.value = item
+  naReason.value = ''
+  naComment.value = ''
+  naNextAction.value = 'record_only'
+  notAchievedOpen.value = true
+}
+
+async function confirmNotAchieved() {
+  const item = notAchievedItem.value
+  if (!item) return
+  if (!naReason.value) {
+    toast.add({ title: '请选择未达成归因', color: 'warning' })
+    return
+  }
+  if (!naComment.value.trim()) {
+    toast.add({ title: '请填写未达成原因', color: 'warning' })
+    return
+  }
+  naSubmitting.value = true
+  verifyingIds.value = new Set([...verifyingIds.value, item.id])
+  try {
+    const res = await api<any>(`/api/kpi/action-items/${item.id}/verify/`, {
+      method: 'POST',
+      body: {
+        status: 'not_achieved',
+        review_comment: naComment.value.trim(),
+        not_achieved_reason: naReason.value,
+        next_action: naNextAction.value,
+        review_dimensions: item.review_dimensions || [],
+      },
+    })
+    notAchievedOpen.value = false
+    const carried = res?.carried_to_period
+    toast.add({ title: carried ? `已标记未达成，已顺延到 ${carried}` : '已标记未达成', color: 'success' })
+    await fetchPlan()
+  } catch (e: any) {
+    toast.add({ title: '操作失败', description: e?.data?.detail || '', color: 'error' })
+  } finally {
+    naSubmitting.value = false
+    verifyingIds.value = new Set([...verifyingIds.value].filter(id => id !== item.id))
   }
 }
 

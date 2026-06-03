@@ -20,7 +20,12 @@ class ActionItemSerializer(serializers.ModelSerializer):
     overall_score = serializers.FloatField(read_only=True)
     self_overall_score = serializers.FloatField(read_only=True)
     reviewed_by_name = serializers.CharField(source="reviewed_by.name", default="", read_only=True)
+    not_achieved_reason_display = serializers.CharField(source="get_not_achieved_reason_display", default="", read_only=True)
+    was_carried_over = serializers.SerializerMethodField()
     comments = ActionItemCommentSerializer(many=True, read_only=True)
+
+    def get_was_carried_over(self, obj):
+        return obj.carried_to.exists()
 
     class Meta:
         model = ActionItem
@@ -32,6 +37,8 @@ class ActionItemSerializer(serializers.ModelSerializer):
             "overall_score", "reviewed_by", "reviewed_by_name", "reviewed_at",
             "self_scores", "self_assessment", "self_assessed_at", "self_overall_score",
             "start_plan", "self_eta",
+            "not_achieved_reason", "not_achieved_reason_display", "was_carried_over",
+            "acknowledged", "acknowledged_at", "improve_note",
             "comments", "created_at", "updated_at",
         ]
         read_only_fields = [
@@ -39,6 +46,8 @@ class ActionItemSerializer(serializers.ModelSerializer):
             "reviewed_by", "reviewed_by_name", "reviewed_at",
             "self_scores", "self_assessment", "self_assessed_at", "self_overall_score",
             "start_plan", "self_eta",
+            "not_achieved_reason", "not_achieved_reason_display", "was_carried_over",
+            "acknowledged", "acknowledged_at", "improve_note",
             "created_at", "updated_at",
         ]
 

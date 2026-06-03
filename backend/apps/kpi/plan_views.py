@@ -357,6 +357,9 @@ class ActionItemVerifyView(APIView):
         if not isinstance(dims, list) or not all(isinstance(d, dict) and "key" in d for d in dims):
             return Response({"detail": "review_dimensions 格式不正确"}, status=status.HTTP_400_BAD_REQUEST)
 
+        update_fields = ["status", "scores", "review_comment", "review_dimensions",
+                         "reviewed_by", "reviewed_at", "updated_at"]
+
         if new_status == "verified":
             review_comment = (request.data.get("review_comment") or "").strip()
             if not review_comment:
@@ -373,12 +376,87 @@ class ActionItemVerifyView(APIView):
             item.scores = scores
             item.review_comment = review_comment
             item.review_dimensions = dims
+        else:
+            # 未达成：强制原因（总评）+ 归因，便于诊断、问责与后续干预
+            review_comment = (request.data.get("review_comment") or "").strip()
+            if not review_comment:
+                return Response({"detail": "标记未达成需填写原因"}, status=status.HTTP_400_BAD_REQUEST)
+            reason = request.data.get("not_achieved_reason")
+            valid_reasons = {c[0] for c in ActionItem.NotAchievedReason.choices}
+            if reason not in valid_reasons:
+                return Response({"detail": "请选择未达成归因"}, status=status.HTTP_400_BAD_REQUEST)
+            item.review_comment = review_comment
+            item.review_dimensions = dims
+            item.not_achieved_reason = reason
+            update_fields.append("not_achieved_reason")
 
         item.status = new_status
         item.reviewed_by = request.user
         item.reviewed_at = timezone.now()
-        item.save(update_fields=["status", "scores", "review_comment", "review_dimensions",
-                                 "reviewed_by", "reviewed_at", "updated_at"])
+        item.save(update_fields=update_fields)
+
+        # 未达成的下一步：顺延重做 → 在下月计划克隆一条新任务（保留溯源）
+        carried = None
+        if new_status == "not_achieved" and request.data.get("next_action") == "carry_over":
+            carried = self._carry_over(item, request.user)
+
+        data = ActionItemSerializer(item).data
+        if carried is not None:
+            data["carried_to_period"] = carried.plan.period
+        return Response(data)
+
+    @staticmethod
+    def _carry_over(item, user):
+        plan = item.plan
+        y, m = (int(x) for x in plan.period.split("-"))
+        ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+        next_period = f"{ny}-{nm:02d}"
+        next_plan, _ = ImprovementPlan.objects.get_or_create(
+            user=plan.user, period=next_period,
+            defaults={"status": ImprovementPlan.Status.PUBLISHED,
+                      "source_kpi_scores": {}, "created_by": user},
+        )
+        if next_plan.status != ImprovementPlan.Status.PUBLISHED:
+            next_plan.status = ImprovementPlan.Status.PUBLISHED
+            if not next_plan.published_at:
+                next_plan.published_at = timezone.now()
+            next_plan.save(update_fields=["status", "published_at", "updated_at"])
+        last = next_plan.action_items.order_by("-sort_order").first()
+        return ActionItem.objects.create(
+            plan=next_plan,
+            source=ActionItem.Source.MANAGER,
+            status=ActionItem.Status.PENDING,
+            title=item.title,
+            description=item.description,
+            measurable_target=item.measurable_target,
+            priority=item.priority,
+            dimension=item.dimension,
+            review_dimensions=item.review_dimensions,
+            carried_from=item,
+            sort_order=(last.sort_order + 1) if last else 0,
+        )
+
+
+class ActionItemAcknowledgeView(APIView):
+    """POST /api/kpi/action-items/{id}/acknowledge/ — 员工确认点评并填写改进措施（闭环）。"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            item = ActionItem.objects.select_related("plan").get(pk=pk)
+        except ActionItem.DoesNotExist:
+            return Response({"detail": "行动项不存在"}, status=status.HTTP_404_NOT_FOUND)
+        if item.plan.user != request.user:
+            return Response({"detail": "只能确认自己的任务"}, status=status.HTTP_403_FORBIDDEN)
+        if item.status not in ("verified", "not_achieved"):
+            return Response({"detail": "仅可在已验收/未达成后确认"}, status=status.HTTP_400_BAD_REQUEST)
+        improve_note = (request.data.get("improve_note") or "").strip()
+        if item.status == "not_achieved" and not improve_note:
+            return Response({"detail": "未达成需填写改进措施"}, status=status.HTTP_400_BAD_REQUEST)
+        item.improve_note = improve_note
+        item.acknowledged = True
+        item.acknowledged_at = timezone.now()
+        item.save(update_fields=["improve_note", "acknowledged", "acknowledged_at", "updated_at"])
         return Response(ActionItemSerializer(item).data)
 
 

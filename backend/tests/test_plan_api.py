@@ -175,10 +175,44 @@ class TestActionItemVerifyAPI:
         client, _ = manager_client
         item = ActionItemFactory(status="submitted")
         resp = client.post(f"/api/kpi/action-items/{item.id}/verify/",
-                           {"status": "not_achieved"}, format="json")
+                           {"status": "not_achieved", "review_comment": "目标没完成",
+                            "not_achieved_reason": "effort"}, format="json")
         assert resp.status_code == 200
         item.refresh_from_db()
         assert item.status == "not_achieved"
+        assert item.not_achieved_reason == "effort"
+
+    def test_not_achieved_requires_reason_and_attribution(self, manager_client):
+        client, _ = manager_client
+        item = ActionItemFactory(status="submitted")
+        # 缺原因
+        r1 = client.post(f"/api/kpi/action-items/{item.id}/verify/",
+                         {"status": "not_achieved", "not_achieved_reason": "effort"}, format="json")
+        assert r1.status_code == 400
+        # 缺归因
+        r2 = client.post(f"/api/kpi/action-items/{item.id}/verify/",
+                         {"status": "not_achieved", "review_comment": "x"}, format="json")
+        assert r2.status_code == 400
+        # 非法归因
+        r3 = client.post(f"/api/kpi/action-items/{item.id}/verify/",
+                         {"status": "not_achieved", "review_comment": "x",
+                          "not_achieved_reason": "nope"}, format="json")
+        assert r3.status_code == 400
+
+    def test_not_achieved_carry_over_clones_to_next_month(self, manager_client):
+        from apps.kpi.models import ImprovementPlan
+        client, _ = manager_client
+        plan = ImprovementPlanFactory(period="2026-06", status="published")
+        item = ActionItemFactory(plan=plan, status="submitted", title="顺延任务")
+        resp = client.post(f"/api/kpi/action-items/{item.id}/verify/",
+                           {"status": "not_achieved", "review_comment": "下月再做",
+                            "not_achieved_reason": "blocked", "next_action": "carry_over"}, format="json")
+        assert resp.status_code == 200
+        assert resp.data["carried_to_period"] == "2026-07"
+        next_plan = ImprovementPlan.objects.get(user=plan.user, period="2026-07")
+        clone = next_plan.action_items.get(title="顺延任务")
+        assert clone.status == "pending"
+        assert str(clone.carried_from_id) == str(item.id)
 
     def test_verify_rejects_non_dict_scores(self, manager_client):
         client, _ = manager_client
@@ -186,6 +220,33 @@ class TestActionItemVerifyAPI:
         resp = client.post(f"/api/kpi/action-items/{item.id}/verify/",
                            {"status": "verified", "scores": [1, 2, 3], "review_comment": "x"}, format="json")
         assert resp.status_code == 400
+
+
+class TestActionItemAcknowledge:
+    def test_employee_acknowledges_not_achieved_with_improve_note(self, employee_client):
+        client, user = employee_client
+        plan = ImprovementPlanFactory(user=user, status="published")
+        item = ActionItemFactory(plan=plan, status="not_achieved")
+        resp = client.post(f"/api/kpi/action-items/{item.id}/acknowledge/",
+                           {"improve_note": "下次先查日志"}, format="json")
+        assert resp.status_code == 200
+        item.refresh_from_db()
+        assert item.acknowledged is True
+        assert item.improve_note == "下次先查日志"
+
+    def test_not_achieved_acknowledge_requires_improve_note(self, employee_client):
+        client, user = employee_client
+        plan = ImprovementPlanFactory(user=user, status="published")
+        item = ActionItemFactory(plan=plan, status="not_achieved")
+        resp = client.post(f"/api/kpi/action-items/{item.id}/acknowledge/", {}, format="json")
+        assert resp.status_code == 400
+
+    def test_cannot_acknowledge_others_task(self, employee_client):
+        client, _ = employee_client
+        item = ActionItemFactory(status="not_achieved")  # belongs to someone else
+        resp = client.post(f"/api/kpi/action-items/{item.id}/acknowledge/",
+                           {"improve_note": "x"}, format="json")
+        assert resp.status_code == 403
 
 
 class TestCommentAPI:

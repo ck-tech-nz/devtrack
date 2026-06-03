@@ -66,7 +66,10 @@
           <div
             v-for="item in actionItems"
             :key="item.id"
-            class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden transition-shadow hover:shadow-sm"
+            class="rounded-xl border overflow-hidden transition-shadow hover:shadow-sm"
+            :class="item.status === 'not_achieved'
+              ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-900/50'
+              : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'"
           >
             <!-- 标题行（可点击展开） -->
             <div
@@ -175,17 +178,21 @@
                 </div>
               </div>
 
-              <!-- 经理点评（含自评/他评对比） -->
+              <!-- 经理点评 / 未达成（含自评对比、归因、改进闭环） -->
               <div
                 v-if="hasReview(item)"
-                class="rounded-lg border border-crystal-100 dark:border-crystal-900/50 bg-crystal-50/40 dark:bg-crystal-950/20 p-3.5 space-y-2.5"
+                class="rounded-lg border p-3.5 space-y-2.5"
+                :class="item.status === 'not_achieved'
+                  ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20'
+                  : 'border-crystal-100 dark:border-crystal-900/50 bg-crystal-50/40 dark:bg-crystal-950/20'"
               >
                 <div class="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                  <UIcon name="i-heroicons-star" class="w-3.5 h-3.5 text-amber-500" />
-                  经理点评
+                  <UIcon :name="item.status === 'not_achieved' ? 'i-heroicons-x-circle' : 'i-heroicons-star'" class="w-3.5 h-3.5" :class="item.status === 'not_achieved' ? 'text-red-500' : 'text-amber-500'" />
+                  {{ item.status === 'not_achieved' ? '未达成' : '经理点评' }}
+                  <UBadge v-if="item.status === 'not_achieved' && item.not_achieved_reason_display" color="error" variant="subtle" size="xs">{{ item.not_achieved_reason_display }}</UBadge>
                   <span v-if="item.reviewed_by_name" class="font-normal text-gray-400 dark:text-gray-500">· {{ item.reviewed_by_name }}</span>
                 </div>
-                <div class="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1.5 text-sm items-center">
+                <div v-if="item.status === 'verified'" class="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1.5 text-sm items-center">
                   <span class="text-xs text-gray-400 dark:text-gray-500" />
                   <span class="text-xs text-gray-400 dark:text-gray-500 text-center">自评</span>
                   <span class="text-xs text-gray-400 dark:text-gray-500 text-center">经理</span>
@@ -195,8 +202,22 @@
                     <StarRow :value="item.scores?.[d.key] || 0" />
                   </template>
                 </div>
-                <div v-if="item.review_comment" class="text-sm text-gray-700 dark:text-gray-300 border-t border-crystal-100 dark:border-crystal-900/50 pt-2.5">
-                  <span class="text-xs text-gray-400 dark:text-gray-500">总评：</span>{{ item.review_comment }}
+                <div v-if="item.review_comment" class="text-sm text-gray-700 dark:text-gray-300 border-t border-gray-100 dark:border-gray-700/40 pt-2.5">
+                  <span class="text-xs text-gray-400 dark:text-gray-500">{{ item.status === 'not_achieved' ? '原因：' : '总评：' }}</span>{{ item.review_comment }}
+                </div>
+
+                <!-- 闭环：员工确认 + 改进措施 -->
+                <div v-if="item.status === 'not_achieved'" class="border-t border-gray-100 dark:border-gray-700/40 pt-2.5">
+                  <div v-if="item.acknowledged" class="text-sm text-gray-700 dark:text-gray-300">
+                    <span class="text-xs text-emerald-600 dark:text-emerald-400">✓ 已确认 · 我的改进措施：</span>{{ item.improve_note || '—' }}
+                  </div>
+                  <div v-else class="space-y-2">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">请确认并写下改进措施（下次怎么做得更好）</p>
+                    <UTextarea v-model="ackNote[item.id]" :rows="2" placeholder="例如：先查日志定位根因，遇阻塞 2 小时内主动提出…" class="w-full" />
+                    <UButton size="sm" color="primary" icon="i-heroicons-check" :loading="ackSubmitting[item.id]" :disabled="!ackNote[item.id]?.trim()" @click.stop="acknowledge(item.id)">
+                      确认并提交改进
+                    </UButton>
+                  </div>
                 </div>
               </div>
 
@@ -431,6 +452,8 @@ const expandedItems = ref<Set<string>>(new Set())
 const commentText = ref<Record<string, string>>({})
 const updatingStatus = ref<Record<string, boolean>>({})
 const submittingComment = ref<Record<string, boolean>>({})
+const ackNote = ref<Record<string, string>>({})
+const ackSubmitting = ref<Record<string, boolean>>({})
 
 // 过往月份懒加载状态
 const historyOpen = ref<Set<string>>(new Set())
@@ -576,6 +599,24 @@ async function confirmSubmit() {
     toast.add({ title: '提交失败', description: e?.data?.detail || '', color: 'error' })
   } finally {
     updatingStatus.value[item.id] = false
+  }
+}
+
+async function acknowledge(itemId: string) {
+  const note = ackNote.value[itemId]?.trim()
+  if (!note) return
+  ackSubmitting.value[itemId] = true
+  try {
+    await api(`/api/kpi/action-items/${itemId}/acknowledge/`, {
+      method: 'POST',
+      body: { improve_note: note },
+    })
+    toast.add({ title: '已确认', color: 'success' })
+    await fetchPlan()
+  } catch (e: any) {
+    toast.add({ title: '提交失败', description: e?.data?.detail || '', color: 'error' })
+  } finally {
+    ackSubmitting.value[itemId] = false
   }
 }
 

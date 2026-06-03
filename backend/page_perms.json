@@ -123,7 +123,7 @@
     },
     {
       "path": "/app/ai/plans",
-      "label": "团队任务",
+      "label": "团队绩效管理",
       "icon": "i-heroicons-clipboard-document-list",
       "permission": "kpi.change_improvementplan",
       "parent": "#group:team-perf",

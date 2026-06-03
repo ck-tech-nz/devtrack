@@ -264,6 +264,13 @@ class ActionItem(models.Model):
         VERIFIED = "verified", "已验收"
         NOT_ACHIEVED = "not_achieved", "未达成"
 
+    class NotAchievedReason(models.TextChoices):
+        ABILITY = "ability", "能力/方法不足"
+        EFFORT = "effort", "投入/主动性不够"
+        UNREALISTIC = "unrealistic", "目标不合理"
+        BLOCKED = "blocked", "外部阻塞"
+        REPRIORITIZED = "reprioritized", "优先级调整"
+
     QUALITY_FACTORS = [("0.50", "0.5"), ("0.80", "0.8"), ("1.00", "1.0"), ("1.20", "1.2")]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -299,6 +306,15 @@ class ActionItem(models.Model):
     self_scores = models.JSONField(default=dict, blank=True, verbose_name="自评评分")  # {dim_key: 1..5}
     self_assessment = models.TextField(blank=True, default="", verbose_name="自评复盘")  # 思考与判断/对 AI 输出的分析
     self_assessed_at = models.DateTimeField(null=True, blank=True, verbose_name="自评时间")
+    # —— 未达成归因 + 闭环（员工确认 + 改进承诺）——
+    not_achieved_reason = models.CharField(
+        max_length=20, choices=NotAchievedReason.choices, blank=True, default="", verbose_name="未达成归因")
+    carried_from = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="carried_to", verbose_name="顺延自")
+    acknowledged = models.BooleanField(default=False, verbose_name="员工已确认")
+    acknowledged_at = models.DateTimeField(null=True, blank=True, verbose_name="确认时间")
+    improve_note = models.TextField(blank=True, default="", verbose_name="改进措施")
 
     class Meta:
         verbose_name = "行动项"

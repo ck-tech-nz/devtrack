@@ -11,6 +11,7 @@ from .plan_views import (
     PlanListView, MyPlanView, PlanDetailView, PlanEditView,
     PlanPublishView, PlanArchiveView, PlanGenerateView,
     ActionItemStatusView, ActionItemVerifyView, ActionItemCommentListView,
+    ActionItemAcknowledgeView,
     TaskDispatchView, ReviewDimensionsView,
     PlanAISummaryView, PlanEvaluationView,
 )
@@ -51,4 +52,5 @@ urlpatterns = [
     path("action-items/<uuid:pk>/status/", ActionItemStatusView.as_view(), name="action-item-status"),
     path("action-items/<uuid:pk>/verify/", ActionItemVerifyView.as_view(), name="action-item-verify"),
     path("action-items/<uuid:pk>/comments/", ActionItemCommentListView.as_view(), name="action-item-comments"),
+    path("action-items/<uuid:pk>/acknowledge/", ActionItemAcknowledgeView.as_view(), name="action-item-acknowledge"),
 ]
