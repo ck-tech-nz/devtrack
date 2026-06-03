@@ -78,12 +78,15 @@ class PlanListSerializer(serializers.ModelSerializer):
     item_count = serializers.SerializerMethodField()
     total_points = serializers.SerializerMethodField()
     earned_points = serializers.SerializerMethodField()
+    reviewing_count = serializers.SerializerMethodField()
+    done_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ImprovementPlan
         fields = [
             "id", "user", "user_name", "user_avatar", "period", "status",
             "item_count", "total_points", "earned_points",
+            "reviewing_count", "done_count",
             "published_at", "created_at",
         ]
         read_only_fields = fields
@@ -96,3 +99,9 @@ class PlanListSerializer(serializers.ModelSerializer):
 
     def get_earned_points(self, obj):
         return sum(item.earned_points for item in obj.action_items.all())
+
+    def get_reviewing_count(self, obj):
+        return sum(1 for i in obj.action_items.all() if i.status == "submitted")
+
+    def get_done_count(self, obj):
+        return sum(1 for i in obj.action_items.all() if i.status == "verified")

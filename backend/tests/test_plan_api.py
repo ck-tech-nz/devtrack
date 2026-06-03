@@ -298,6 +298,22 @@ class TestScoringConfigDimensions:
         assert resp.data["review_dimensions"] == dims
 
 
+class TestPlanListSupervisionCounts:
+    def test_list_returns_reviewing_and_done_counts(self, manager_client):
+        client, _ = manager_client
+        period = "2026-06"
+        plan = ImprovementPlanFactory(period=period, status="published")
+        ActionItemFactory(plan=plan, status="submitted")
+        ActionItemFactory(plan=plan, status="submitted")
+        ActionItemFactory(plan=plan, status="verified")
+        ActionItemFactory(plan=plan, status="in_progress")
+        resp = client.get(f"/api/kpi/plans/?period={period}")
+        assert resp.status_code == 200
+        row = next(r for r in resp.data if str(r["id"]) == str(plan.id))
+        assert row["reviewing_count"] == 2
+        assert row["done_count"] == 1
+
+
 class TestAdminRegistration:
     def test_scoring_config_registered(self):
         from django.contrib import admin as dj_admin
