@@ -2,7 +2,7 @@
   <div class="space-y-2">
     <div
       v-for="(d, i) in model"
-      :key="i"
+      :key="d.key"
       class="flex items-center gap-2"
     >
       <UInput v-model="d.label" size="xs" variant="outline" placeholder="维度名称" class="flex-1" />
@@ -42,7 +42,7 @@ const poolUnused = computed(() =>
 )
 
 function add() {
-  model.value.push({ key: `custom_${Date.now()}`, label: '', weight: 0.1 })
+  model.value.push({ key: crypto.randomUUID(), label: '', weight: 0.1 })
 }
 function addFromPool() {
   const next = poolUnused.value[0]
