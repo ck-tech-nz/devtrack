@@ -68,6 +68,8 @@ def test_nested_impersonation_rejected(superuser_client):
     impersonated.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
     resp2 = impersonated.post("/api/auth/impersonate/", {"user_id": other.id})
     assert resp2.status_code == 403
+    # 必须由嵌套守卫返回，而非 is_superuser 校验（两者 detail 不同）
+    assert resp2.json()["detail"] == "不可嵌套模拟"
 
 
 def test_impersonation_refresh_token_is_short_lived(superuser_client):
