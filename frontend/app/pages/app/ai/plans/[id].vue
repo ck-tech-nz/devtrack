@@ -123,12 +123,8 @@
               <UTextarea v-model="item.description" size="sm" variant="outline" placeholder="描述此行动项的内容和背景" :rows="2" :disabled="plan.status === 'archived'" />
             </div>
 
-            <!-- 积分、优先级、维度 -->
-            <div class="grid grid-cols-3 gap-3">
-              <div class="space-y-1">
-                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">积分</label>
-                <UInput v-model.number="item.points" size="sm" variant="outline" type="number" :disabled="plan.status === 'archived'" />
-              </div>
+            <!-- 优先级、维度 -->
+            <div class="grid grid-cols-2 gap-3">
               <div class="space-y-1">
                 <label class="text-xs font-medium text-gray-500 dark:text-gray-400">优先级</label>
                 <USelect v-model="item.priority" size="sm" variant="outline" :items="priorityOptions" :disabled="plan.status === 'archived'" />
@@ -140,34 +136,27 @@
             </div>
           </div>
 
-          <!-- 验收操作（仅 submitted 状态） -->
-          <div v-if="item.status === 'submitted'" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-xs font-medium text-gray-500 dark:text-gray-400">验收：</span>
-              <USelect
-                v-model="verifyFactors[item.id]"
-                :items="qualityFactorOptions"
-                size="sm"
-                variant="outline"
-                class="w-24"
+          <!-- 验收/评分（仅 submitted 状态） -->
+          <div v-if="item.status === 'submitted'" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">点评维度（可改）</p>
+            <ReviewDimensionEditor v-model="item.review_dimensions" :pool="pool" />
+            <div v-for="d in (item.review_dimensions || [])" :key="d.key" class="flex items-center gap-2">
+              <span class="text-sm text-gray-600 dark:text-gray-400 w-24">{{ d.label }}</span>
+              <UButton
+                v-for="star in 5" :key="star"
+                size="xs" variant="ghost" :color="(scoreDraft[item.id]?.[d.key] || 0) >= star ? 'warning' : 'neutral'"
+                icon="i-heroicons-star-solid"
+                @click="setStar(item.id, d.key, star)"
               />
-              <UButton
-                size="xs"
-                color="success"
-                icon="i-heroicons-check-circle"
-                :loading="verifyingIds.has(item.id)"
-                @click="verifyItem(item.id, 'verified', verifyFactors[item.id] || '1.00')"
-              >
-                已验收
+            </div>
+            <UTextarea v-model="commentDraft[item.id]" :rows="2" placeholder="总评（必填）" class="w-full" />
+            <div class="flex items-center gap-2">
+              <UButton size="xs" color="success" icon="i-heroicons-check-circle"
+                :loading="verifyingIds.has(item.id)" @click="verifyItem(item.id, 'verified')">
+                通过评分
               </UButton>
-              <UButton
-                size="xs"
-                variant="outline"
-                color="error"
-                icon="i-heroicons-x-circle"
-                :loading="verifyingIds.has(item.id)"
-                @click="verifyItem(item.id, 'failed')"
-              >
+              <UButton size="xs" variant="outline" color="error" icon="i-heroicons-x-circle"
+                :loading="verifyingIds.has(item.id)" @click="verifyItem(item.id, 'not_achieved')">
                 未达成
               </UButton>
             </div>
@@ -286,8 +275,10 @@ const commentingIds = ref(new Set<string>())
 // 可编辑的行动项副本
 const editItems = ref<any[]>([])
 
-// 验收系数选择（按 item.id）
-const verifyFactors = ref<Record<string, string>>({})
+// 评分草稿（按 item.id → dim key → 1..5）
+const pool = ref<any[]>([])
+const scoreDraft = ref<Record<string, Record<string, number>>>({})
+const commentDraft = ref<Record<string, string>>({})
 
 // 新评论输入（按 item.id）
 const newComments = ref<Record<string, string>>({})
@@ -304,13 +295,6 @@ const dimensionOptions = [
   { label: '协作', value: 'collaboration' },
   { label: '成长', value: 'growth' },
   { label: '质量', value: 'quality' },
-]
-
-const qualityFactorOptions = [
-  { label: '0.5', value: '0.50' },
-  { label: '0.8', value: '0.80' },
-  { label: '1.0', value: '1.00' },
-  { label: '1.2', value: '1.20' },
 ]
 
 function statusLabel(status: string) {
@@ -361,11 +345,8 @@ async function fetchPlan() {
   try {
     plan.value = await api<any>(`/api/kpi/plans/${planId}/`)
     editItems.value = (plan.value.action_items || []).map((item: any) => ({ ...item }))
-    // 初始化验收系数默认值
-    for (const item of editItems.value) {
-      if (item.id && !verifyFactors.value[item.id]) {
-        verifyFactors.value[item.id] = '1.00'
-      }
+    if (!pool.value.length) {
+      try { pool.value = (await api<any>('/api/kpi/scoring-config/')).review_dimensions || [] } catch { /* ignore: pool optional */ }
     }
   } catch {
     // 保持 plan 为 null，显示空状态
@@ -423,16 +404,30 @@ async function handlePublish() {
   }
 }
 
-async function verifyItem(itemId: string, status: string, qualityFactor?: string) {
+function setStar(itemId: string, key: string, star: number) {
+  if (!scoreDraft.value[itemId]) scoreDraft.value[itemId] = {}
+  scoreDraft.value[itemId][key] = star
+}
+
+async function verifyItem(itemId: string, status: string) {
+  const item = editItems.value.find((i: any) => i.id === itemId)
+  if (status === 'verified' && !commentDraft.value[itemId]?.trim()) {
+    toast.add({ title: '请填写总评', color: 'warning' })
+    return
+  }
   verifyingIds.value = new Set([...verifyingIds.value, itemId])
   const body: any = { status }
-  if (qualityFactor) body.quality_factor = qualityFactor
+  if (status === 'verified') {
+    body.scores = scoreDraft.value[itemId] || {}
+    body.review_comment = commentDraft.value[itemId]?.trim()
+    body.review_dimensions = item?.review_dimensions || []
+  }
   try {
     await api(`/api/kpi/action-items/${itemId}/verify/`, { method: 'POST', body })
-    toast.add({ title: status === 'verified' ? '已验收' : '已标记未达成', color: 'success' })
+    toast.add({ title: status === 'verified' ? '已评分' : '已标记未达成', color: 'success' })
     await fetchPlan()
-  } catch {
-    toast.add({ title: '操作失败', color: 'error' })
+  } catch (e: any) {
+    toast.add({ title: '操作失败', description: e?.data?.detail || '', color: 'error' })
   } finally {
     verifyingIds.value = new Set([...verifyingIds.value].filter(id => id !== itemId))
   }
