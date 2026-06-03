@@ -49,6 +49,13 @@ class MeSerializer(serializers.ModelSerializer):
         data["default_project"] = (
             {"id": str(proj.id), "name": proj.name} if proj else None
         )
+        # 模拟态：从请求 token 读取，不落库
+        request = self.context.get("request")
+        token = getattr(request, "auth", None) if request else None
+        data["impersonated_by"] = token.get("impersonated_by") if token is not None else None
+        data["impersonated_by_username"] = (
+            token.get("impersonated_by_username") if token is not None else None
+        )
         return data
 
 
@@ -95,7 +102,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "name", "email", "avatar", "github_id", "is_active", "date_joined", "groups"]
+        fields = ["id", "username", "name", "email", "avatar", "github_id", "is_active", "is_superuser", "date_joined", "groups"]
 
     def get_groups(self, obj):
         return list(obj.groups.values_list("name", flat=True))

@@ -97,6 +97,16 @@ def _default_piece_rate_config():
     }
 
 
+def _default_review_dimensions():
+    """点评维度候选库/默认池。派发新任务时默认从此快照。"""
+    return [
+        {"key": "initiative", "label": "主动性", "weight": 0.25},
+        {"key": "understanding", "label": "理解深度", "weight": 0.25},
+        {"key": "quality", "label": "完成质量", "weight": 0.25},
+        {"key": "delivery", "label": "交付与沟通", "weight": 0.25},
+    ]
+
+
 class KPIScoringConfig(SingletonModel):
     """KPI 评分规则配置（全局单例）。"""
 
@@ -134,6 +144,11 @@ class KPIScoringConfig(SingletonModel):
         default=_default_piece_rate_config,
         verbose_name="工单计件配置",
         help_text="Code Arena 工单单价梯度、工时分级、段位阈值与保护期",
+    )
+    review_dimensions = models.JSONField(
+        default=_default_review_dimensions,
+        verbose_name="点评维度库",
+        help_text="点评维度候选库/默认池，每项 {key,label,weight}；派发新任务时默认从此填充，之后逐任务可改",
     )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -212,6 +227,12 @@ class ImprovementPlan(models.Model):
     archived_at = models.DateTimeField(null=True, blank=True, verbose_name="归档时间")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # —— LLM 月度小结：分析本月目标 + 各任务执行/自评/点评情况，整理汇总 ——
+    # ai_summary 仅管理者可见、可编辑；employee_evaluation 为对员工公开的月度评价（可一键由小结复制而来）
+    ai_summary = models.TextField(blank=True, default="", verbose_name="AI 月度小结")
+    ai_summary_at = models.DateTimeField(null=True, blank=True, verbose_name="AI 小结生成时间")
+    ai_summary_model = models.CharField(max_length=100, blank=True, default="", verbose_name="AI 小结所用模型")
+    employee_evaluation = models.TextField(blank=True, default="", verbose_name="员工评价（对员工可见）")
 
     class Meta:
         verbose_name = "提升计划"
@@ -243,6 +264,13 @@ class ActionItem(models.Model):
         VERIFIED = "verified", "已验收"
         NOT_ACHIEVED = "not_achieved", "未达成"
 
+    class NotAchievedReason(models.TextChoices):
+        ABILITY = "ability", "能力/方法不足"
+        EFFORT = "effort", "投入/主动性不够"
+        UNREALISTIC = "unrealistic", "目标不合理"
+        BLOCKED = "blocked", "外部阻塞"
+        REPRIORITIZED = "reprioritized", "优先级调整"
+
     QUALITY_FACTORS = [("0.50", "0.5"), ("0.80", "0.8"), ("1.00", "1.0"), ("1.20", "1.2")]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -262,6 +290,31 @@ class ActionItem(models.Model):
     sort_order = models.PositiveIntegerField(default=0, verbose_name="排序")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    due_date = models.DateField(null=True, blank=True, verbose_name="截止日期")
+    scores = models.JSONField(default=dict, blank=True, verbose_name="维度评分")  # {dim_key: 1..5}
+    review_comment = models.TextField(blank=True, default="", verbose_name="总评")
+    review_dimensions = models.JSONField(default=list, blank=True, verbose_name="本任务维度")  # [{key,label,weight}]
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", verbose_name="评分人",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="评分时间")
+    # —— 立计划（开始执行时填写，制造承诺）——
+    start_plan = models.TextField(blank=True, default="", verbose_name="执行计划")  # 我打算怎么做
+    self_eta = models.DateField(null=True, blank=True, verbose_name="自评预计完成日期")
+    # —— 员工自评（提交时填写，用于"自评 vs 他评"落差，驱动自我觉察）——
+    self_scores = models.JSONField(default=dict, blank=True, verbose_name="自评评分")  # {dim_key: 1..5}
+    self_assessment = models.TextField(blank=True, default="", verbose_name="自评复盘")  # 思考与判断/对 AI 输出的分析
+    self_assessed_at = models.DateTimeField(null=True, blank=True, verbose_name="自评时间")
+    # —— 未达成归因 + 闭环（员工确认 + 改进承诺）——
+    not_achieved_reason = models.CharField(
+        max_length=20, choices=NotAchievedReason.choices, blank=True, default="", verbose_name="未达成归因")
+    carried_from = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="carried_to", verbose_name="顺延自")
+    acknowledged = models.BooleanField(default=False, verbose_name="员工已确认")
+    acknowledged_at = models.DateTimeField(null=True, blank=True, verbose_name="确认时间")
+    improve_note = models.TextField(blank=True, default="", verbose_name="改进措施")
 
     class Meta:
         verbose_name = "行动项"
@@ -276,6 +329,32 @@ class ActionItem(models.Model):
         if self.status == self.Status.VERIFIED and self.quality_factor:
             return round(self.points * float(self.quality_factor))
         return 0
+
+    @property
+    def overall_score(self):
+        """按本任务自己的 review_dimensions 权重对已打分维度加权平均（1-5）；未打分返回 None。"""
+        if not self.scores:
+            return None
+        dims = {d["key"]: float(d.get("weight", 0)) for d in (self.review_dimensions or [])}
+        den = sum(dims.get(k, 0) for k in self.scores)
+        if dims and den:
+            num = sum(float(v) * dims.get(k, 0) for k, v in self.scores.items())
+            return round(num / den, 1)
+        vals = [float(v) for v in self.scores.values()]  # 无权重信息 → 等权平均
+        return round(sum(vals) / len(vals), 1)
+
+    @property
+    def self_overall_score(self):
+        """员工自评的加权综合分（1-5）；未自评返回 None。逻辑同 overall_score。"""
+        if not self.self_scores:
+            return None
+        dims = {d["key"]: float(d.get("weight", 0)) for d in (self.review_dimensions or [])}
+        den = sum(dims.get(k, 0) for k in self.self_scores)
+        if dims and den:
+            num = sum(float(v) * dims.get(k, 0) for k, v in self.self_scores.items())
+            return round(num / den, 1)
+        vals = [float(v) for v in self.self_scores.values()]
+        return round(sum(vals) / len(vals), 1)
 
 
 class ActionItemComment(models.Model):

@@ -42,3 +42,44 @@ class TestActionItem:
         for status in ("pending", "in_progress", "submitted", "verified", "not_achieved"):
             item = ActionItemFactory(status=status)
             assert item.status == status
+
+
+def test_scoring_config_has_default_review_dimensions():
+    from apps.kpi.models import KPIScoringConfig
+    cfg = KPIScoringConfig.get_solo()
+    dims = cfg.review_dimensions
+    assert isinstance(dims, list)
+    assert {d["key"] for d in dims} == {"initiative", "understanding", "quality", "delivery"}
+    assert all("label" in d and "weight" in d for d in dims)
+
+
+def test_overall_score_weighted():
+    from tests.factories import ActionItemFactory
+    item = ActionItemFactory(
+        review_dimensions=[{"key": "a", "label": "A", "weight": 0.75},
+                           {"key": "b", "label": "B", "weight": 0.25}],
+        scores={"a": 5, "b": 1},
+    )
+    assert item.overall_score == 4.0
+
+
+def test_overall_score_equal_weight_fallback_when_no_dims():
+    from tests.factories import ActionItemFactory
+    item = ActionItemFactory(review_dimensions=[], scores={"x": 3, "y": 5})
+    assert item.overall_score == 4.0
+
+
+def test_overall_score_partial_normalizes():
+    from tests.factories import ActionItemFactory
+    item = ActionItemFactory(
+        review_dimensions=[{"key": "a", "label": "A", "weight": 0.7},
+                           {"key": "b", "label": "B", "weight": 0.3}],
+        scores={"a": 5},
+    )
+    assert item.overall_score == 5.0
+
+
+def test_overall_score_none_when_unscored():
+    from tests.factories import ActionItemFactory
+    item = ActionItemFactory(scores={})
+    assert item.overall_score is None
