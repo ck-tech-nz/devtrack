@@ -627,6 +627,7 @@ class KPIScoringConfigView(APIView):
             "capability_formula": cfg.capability_formula,
             "ceilings": cfg.ceilings,
             "piece_rate_config": cfg.piece_rate_config,
+            "review_dimensions": cfg.review_dimensions,
             "updated_at": cfg.updated_at,
         })
 
@@ -635,7 +636,7 @@ class KPIScoringConfigView(APIView):
         fields = [
             "dimension_weights", "efficiency_formula", "output_formula",
             "quality_formula", "capability_formula", "ceilings",
-            "piece_rate_config",
+            "piece_rate_config", "review_dimensions",
         ]
         for field in fields:
             if field in request.data:
@@ -649,5 +650,6 @@ class KPIScoringConfigView(APIView):
             "capability_formula": cfg.capability_formula,
             "ceilings": cfg.ceilings,
             "piece_rate_config": cfg.piece_rate_config,
+            "review_dimensions": cfg.review_dimensions,
             "updated_at": cfg.updated_at,
         })
