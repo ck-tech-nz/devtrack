@@ -277,6 +277,15 @@ class ActionItem(models.Model):
     sort_order = models.PositiveIntegerField(default=0, verbose_name="排序")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    due_date = models.DateField(null=True, blank=True, verbose_name="截止日期")
+    scores = models.JSONField(default=dict, blank=True, verbose_name="维度评分")  # {dim_key: 1..5}
+    review_comment = models.TextField(blank=True, default="", verbose_name="总评")
+    review_dimensions = models.JSONField(default=list, blank=True, verbose_name="本任务维度")  # [{key,label,weight}]
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", verbose_name="评分人",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="评分时间")
 
     class Meta:
         verbose_name = "行动项"
@@ -291,6 +300,19 @@ class ActionItem(models.Model):
         if self.status == self.Status.VERIFIED and self.quality_factor:
             return round(self.points * float(self.quality_factor))
         return 0
+
+    @property
+    def overall_score(self):
+        """按本任务自己的 review_dimensions 权重对已打分维度加权平均（1-5）；未打分返回 None。"""
+        if not self.scores:
+            return None
+        dims = {d["key"]: float(d.get("weight", 0)) for d in (self.review_dimensions or [])}
+        den = sum(dims.get(k, 0) for k in self.scores)
+        if dims and den:
+            num = sum(v * dims.get(k, 0) for k, v in self.scores.items())
+            return round(num / den, 1)
+        vals = list(self.scores.values())  # 无权重信息 → 等权平均
+        return round(sum(vals) / len(vals), 1)
 
 
 class ActionItemComment(models.Model):

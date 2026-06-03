@@ -51,3 +51,29 @@ def test_scoring_config_has_default_review_dimensions():
     assert isinstance(dims, list)
     assert {d["key"] for d in dims} == {"initiative", "understanding", "quality", "delivery"}
     assert all("label" in d and "weight" in d for d in dims)
+
+
+def test_overall_score_weighted():
+    from tests.factories import ActionItemFactory
+    item = ActionItemFactory(
+        review_dimensions=[{"key": "a", "label": "A", "weight": 0.5},
+                           {"key": "b", "label": "B", "weight": 0.5}],
+        scores={"a": 4, "b": 2},
+    )
+    assert item.overall_score == 3.0
+
+
+def test_overall_score_partial_normalizes():
+    from tests.factories import ActionItemFactory
+    item = ActionItemFactory(
+        review_dimensions=[{"key": "a", "label": "A", "weight": 0.7},
+                           {"key": "b", "label": "B", "weight": 0.3}],
+        scores={"a": 5},
+    )
+    assert item.overall_score == 5.0
+
+
+def test_overall_score_none_when_unscored():
+    from tests.factories import ActionItemFactory
+    item = ActionItemFactory(scores={})
+    assert item.overall_score is None
