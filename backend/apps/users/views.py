@@ -15,6 +15,8 @@ from .serializers import (
 
 User = get_user_model()
 
+IMPERSONATION_REFRESH_LIFETIME = timedelta(minutes=30)
+
 
 class MeView(RetrieveUpdateAPIView):
     serializer_class = MeSerializer
@@ -138,10 +140,8 @@ class ImpersonateView(APIView):
             return Response({"detail": "该用户未激活"}, status=status.HTTP_400_BAD_REQUEST)
 
         refresh = RefreshToken.for_user(target)
-        refresh.set_exp(lifetime=timedelta(minutes=30))  # 模拟会话短期
+        refresh.set_exp(lifetime=IMPERSONATION_REFRESH_LIFETIME)  # 模拟会话短期
         refresh["impersonated_by"] = actor.id
         refresh["impersonated_by_username"] = actor.username
         access = refresh.access_token
-        access["impersonated_by"] = actor.id
-        access["impersonated_by_username"] = actor.username
         return Response({"access": str(access), "refresh": str(refresh)})

@@ -1,4 +1,5 @@
 import pytest
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -11,9 +12,6 @@ def test_user_list_includes_is_superuser(superuser_client):
     rows = resp.json()["results"]
     assert rows, "expected at least one user in results"
     assert all("is_superuser" in row for row in rows)
-
-
-from rest_framework_simplejwt.tokens import AccessToken
 
 
 def test_superuser_can_impersonate_regular_user(superuser_client):
@@ -38,12 +36,14 @@ def test_cannot_impersonate_superuser(superuser_client):
     target = UserFactory(is_superuser=True, is_active=True)
     resp = superuser_client.post("/api/auth/impersonate/", {"user_id": target.id})
     assert resp.status_code == 403
+    assert resp.json()["detail"] == "不能模拟管理员账号"
 
 
 def test_cannot_impersonate_inactive_user(superuser_client):
     target = UserFactory(is_superuser=False, is_active=False)
     resp = superuser_client.post("/api/auth/impersonate/", {"user_id": target.id})
     assert resp.status_code == 400
+    assert resp.json()["detail"] == "该用户未激活"
 
 
 def test_target_not_found_returns_404(superuser_client):
@@ -75,6 +75,5 @@ def test_nested_impersonation_rejected(superuser_client):
 def test_impersonation_refresh_token_is_short_lived(superuser_client):
     target = UserFactory(is_superuser=False, is_active=True)
     resp = superuser_client.post("/api/auth/impersonate/", {"user_id": target.id})
-    from rest_framework_simplejwt.tokens import RefreshToken
     refresh = RefreshToken(resp.json()["refresh"])
     assert refresh["exp"] - refresh["iat"] <= 3600
