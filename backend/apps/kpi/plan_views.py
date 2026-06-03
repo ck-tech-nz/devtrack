@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 from apps.permissions import FullDjangoModelPermissions
 from apps.tools.storage import upload_image
-from .models import ImprovementPlan, ActionItem, ActionItemComment
+from .models import ImprovementPlan, ActionItem, ActionItemComment, KPIScoringConfig
 from .plan_serializers import (
     PlanListSerializer, PlanDetailSerializer,
     ActionItemSerializer, ActionItemCommentSerializer,
@@ -277,6 +277,60 @@ class ActionItemVerifyView(APIView):
         item.status = new_status
         item.save(update_fields=["status", "quality_factor", "updated_at"])
         return Response(ActionItemSerializer(item).data)
+
+
+class TaskDispatchView(APIView):
+    """POST /api/kpi/tasks/dispatch/ — 管理者即时派发任务（月度自动归桶、直接发布）。"""
+    permission_classes = [FullDjangoModelPermissions]
+    queryset = ImprovementPlan.objects.none()
+
+    def post(self, request):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        user_id = request.data.get("user_id")
+        title = (request.data.get("title") or "").strip()
+        due_date = request.data.get("due_date")
+        if not user_id or not title or not due_date:
+            return Response({"detail": "user_id、title、due_date 均为必填"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            target = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        period = timezone.now().strftime("%Y-%m")
+        plan, _created = ImprovementPlan.objects.get_or_create(
+            user=target, period=period,
+            defaults={"status": ImprovementPlan.Status.PUBLISHED,
+                      "source_kpi_scores": {}, "created_by": request.user},
+        )
+        if plan.status != ImprovementPlan.Status.PUBLISHED:
+            plan.status = ImprovementPlan.Status.PUBLISHED
+            if not plan.published_at:
+                plan.published_at = timezone.now()
+            plan.save(update_fields=["status", "published_at", "updated_at"])
+
+        dims = request.data.get("review_dimensions")
+        if not dims:
+            dims = KPIScoringConfig.get_solo().review_dimensions
+
+        last = plan.action_items.order_by("-sort_order").first()
+        next_order = (last.sort_order + 1) if last else 0
+
+        item = ActionItem.objects.create(
+            plan=plan,
+            source=ActionItem.Source.MANAGER,
+            status=ActionItem.Status.PENDING,
+            title=title,
+            description=request.data.get("description", ""),
+            measurable_target=request.data.get("measurable_target", ""),
+            priority=request.data.get("priority", ActionItem.Priority.MEDIUM),
+            due_date=due_date,
+            review_dimensions=dims,
+            sort_order=next_order,
+        )
+        return Response(ActionItemSerializer(item).data, status=status.HTTP_201_CREATED)
 
 
 class ActionItemCommentListView(APIView):

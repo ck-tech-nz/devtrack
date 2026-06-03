@@ -176,3 +176,53 @@ class TestActionItemSerializerFields:
                     "review_dimensions", "reviewed_by_name", "reviewed_at"):
             assert key in item
         assert item["overall_score"] == 4.0
+
+
+class TestTaskDispatchAPI:
+    def test_dispatch_creates_published_plan_and_item(self, manager_client):
+        client, _ = manager_client
+        emp = UserFactory()
+        resp = client.post("/api/kpi/tasks/dispatch/", {
+            "user_id": emp.id, "title": "读懂订单表设计并写200字理解",
+            "due_date": "2026-06-30", "priority": "high",
+        }, format="json")
+        assert resp.status_code == 201
+        from apps.kpi.models import ImprovementPlan, ActionItem
+        plan = ImprovementPlan.objects.get(user=emp, period=timezone.now().strftime("%Y-%m"))
+        assert plan.status == "published"
+        item = ActionItem.objects.get(id=resp.data["id"])
+        assert item.status == "pending"
+        assert str(item.due_date) == "2026-06-30"
+        assert len(item.review_dimensions) == 4
+
+    def test_dispatch_requires_due_date(self, manager_client):
+        client, _ = manager_client
+        emp = UserFactory()
+        resp = client.post("/api/kpi/tasks/dispatch/", {"user_id": emp.id, "title": "x"}, format="json")
+        assert resp.status_code == 400
+
+    def test_dispatch_reuses_and_publishes_current_month_plan(self, manager_client):
+        client, _ = manager_client
+        emp = UserFactory()
+        ImprovementPlanFactory(user=emp, period=timezone.now().strftime("%Y-%m"), status="draft")
+        resp = client.post("/api/kpi/tasks/dispatch/", {"user_id": emp.id, "title": "任务A", "due_date": "2026-06-30"}, format="json")
+        assert resp.status_code == 201
+        from apps.kpi.models import ImprovementPlan
+        plans = ImprovementPlan.objects.filter(user=emp, period=timezone.now().strftime("%Y-%m"))
+        assert plans.count() == 1
+        assert plans.first().status == "published"
+
+    def test_dispatch_custom_dimensions_snapshot(self, manager_client):
+        client, _ = manager_client
+        emp = UserFactory()
+        dims = [{"key": "understanding", "label": "理解深度", "weight": 1.0}]
+        resp = client.post("/api/kpi/tasks/dispatch/", {"user_id": emp.id, "title": "x", "due_date": "2026-06-30", "review_dimensions": dims}, format="json")
+        from apps.kpi.models import ActionItem
+        item = ActionItem.objects.get(id=resp.data["id"])
+        assert item.review_dimensions == dims
+
+    def test_employee_cannot_dispatch(self, employee_client):
+        client, _ = employee_client
+        emp = UserFactory()
+        resp = client.post("/api/kpi/tasks/dispatch/", {"user_id": emp.id, "title": "x", "due_date": "2026-06-30"}, format="json")
+        assert resp.status_code == 403
