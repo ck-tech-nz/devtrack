@@ -97,6 +97,16 @@ def _default_piece_rate_config():
     }
 
 
+def _default_review_dimensions():
+    """点评维度候选库/默认池。派发新任务时默认从此快照。"""
+    return [
+        {"key": "initiative", "label": "主动性", "weight": 0.25},
+        {"key": "understanding", "label": "理解深度", "weight": 0.25},
+        {"key": "quality", "label": "完成质量", "weight": 0.25},
+        {"key": "delivery", "label": "交付与沟通", "weight": 0.25},
+    ]
+
+
 class KPIScoringConfig(SingletonModel):
     """KPI 评分规则配置（全局单例）。"""
 
@@ -134,6 +144,11 @@ class KPIScoringConfig(SingletonModel):
         default=_default_piece_rate_config,
         verbose_name="工单计件配置",
         help_text="Code Arena 工单单价梯度、工时分级、段位阈值与保护期",
+    )
+    review_dimensions = models.JSONField(
+        default=_default_review_dimensions,
+        verbose_name="点评维度库",
+        help_text="点评维度候选库/默认池，每项 {key,label,weight}；派发新任务时默认从此填充，之后逐任务可改",
     )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

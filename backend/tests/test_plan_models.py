@@ -42,3 +42,12 @@ class TestActionItem:
         for status in ("pending", "in_progress", "submitted", "verified", "not_achieved"):
             item = ActionItemFactory(status=status)
             assert item.status == status
+
+
+def test_scoring_config_has_default_review_dimensions():
+    from apps.kpi.models import KPIScoringConfig
+    cfg = KPIScoringConfig.get_solo()
+    dims = cfg.review_dimensions
+    assert isinstance(dims, list)
+    assert {d["key"] for d in dims} == {"initiative", "understanding", "quality", "delivery"}
+    assert all("label" in d and "weight" in d for d in dims)
