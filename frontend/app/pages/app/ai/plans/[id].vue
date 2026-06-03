@@ -140,6 +140,9 @@
           <div v-if="item.status === 'submitted'" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400">点评维度（可改）</p>
             <ReviewDimensionEditor v-model="item.review_dimensions" :pool="pool" />
+            <p v-if="!(item.review_dimensions || []).length" class="text-xs text-amber-600 dark:text-amber-400">
+              请先添加至少一个评分维度
+            </p>
             <div v-for="d in (item.review_dimensions || [])" :key="d.key" class="flex items-center gap-2">
               <span class="text-sm text-gray-600 dark:text-gray-400 w-24">{{ d.label }}</span>
               <UButton
@@ -344,7 +347,12 @@ async function fetchPlan() {
   loading.value = true
   try {
     plan.value = await api<any>(`/api/kpi/plans/${planId}/`)
-    editItems.value = (plan.value.action_items || []).map((item: any) => ({ ...item }))
+    editItems.value = (plan.value.action_items || []).map((item: any) => ({
+      ...item,
+      review_dimensions: Array.isArray(item.review_dimensions)
+        ? item.review_dimensions.map((d: any) => ({ ...d }))
+        : [],
+    }))
     if (!pool.value.length) {
       try { pool.value = (await api<any>('/api/kpi/scoring-config/')).review_dimensions || [] } catch { /* ignore: pool optional */ }
     }
