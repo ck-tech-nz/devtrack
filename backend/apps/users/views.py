@@ -1,5 +1,7 @@
+from datetime import timedelta
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.generics import RetrieveUpdateAPIView, ListCreateAPIView, CreateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
@@ -104,3 +106,42 @@ class AdminSessionView(APIView):
             return Response({"detail": "无权访问管理后台"}, status=status.HTTP_403_FORBIDDEN)
         django_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         return Response({"detail": "ok"})
+
+
+class ImpersonateView(APIView):
+    """超管模拟登录：签发目标用户的短期 JWT，带 impersonated_by 声明。
+    安全边界完全由本接口校验，前端按钮可见性仅为装饰。"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        actor = request.user
+        # 纵深防御：禁止在模拟态中再次发起模拟
+        if request.auth is not None and request.auth.get("impersonated_by"):
+            return Response({"detail": "不可嵌套模拟"}, status=status.HTTP_403_FORBIDDEN)
+        if not actor.is_superuser:
+            return Response({"detail": "无权模拟登录"}, status=status.HTTP_403_FORBIDDEN)
+
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response({"detail": "缺少 user_id"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            target = User.objects.get(pk=user_id)
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 唯一禁止的目标：超管（同时覆盖了模拟自己的情况）
+        if target.is_superuser:
+            return Response({"detail": "不能模拟管理员账号"}, status=status.HTTP_403_FORBIDDEN)
+        # 功能性兜底：停用用户的 token 鉴权必失败，直接报错
+        if not target.is_active:
+            return Response({"detail": "该用户未激活"}, status=status.HTTP_400_BAD_REQUEST)
+
+        refresh = RefreshToken.for_user(target)
+        refresh.set_exp(lifetime=timedelta(minutes=30))  # 模拟会话短期
+        refresh["impersonated_by"] = actor.id
+        refresh["impersonated_by_username"] = actor.username
+        access = refresh.access_token
+        access["impersonated_by"] = actor.id
+        access["impersonated_by_username"] = actor.username
+        return Response({"access": str(access), "refresh": str(refresh)})
