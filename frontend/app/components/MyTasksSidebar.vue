@@ -60,6 +60,7 @@
     </template>
 
     <!-- 个人提升任务（派发给我的任务） -->
+    <template v-if="planCount > 0">
     <hr class="my-2 border-gray-100 dark:border-gray-800">
     <button
       class="relative flex items-center w-full h-10 px-2 rounded-lg transition-colors"
@@ -106,17 +107,13 @@
         >逾期</span>
       </NuxtLink>
 
-      <div v-if="planTasks.length === 0" class="pl-9 pr-2 py-1.5 text-xs text-gray-400 dark:text-gray-600">
-        暂无任务
-      </div>
-
       <NuxtLink
-        v-if="planCount > 0"
         to="/app/ai/my-plan"
         class="flex items-center h-8 pl-9 pr-2 rounded-lg text-xs text-crystal-600 dark:text-crystal-400 hover:bg-crystal-50 dark:hover:bg-crystal-950"
       >
         查看全部 →
       </NuxtLink>
+    </template>
     </template>
   </div>
 </template>
