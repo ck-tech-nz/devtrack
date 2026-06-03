@@ -110,7 +110,7 @@
     },
     {
       "path": "/app/ai/my-plan",
-      "label": "我的任务",
+      "label": "我的绩效",
       "icon": "i-heroicons-clipboard-document-check",
       "permission": null,
       "parent": null,
