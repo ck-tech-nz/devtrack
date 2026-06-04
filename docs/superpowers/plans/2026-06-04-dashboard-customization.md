@@ -484,13 +484,14 @@ git commit -m "feat(home): useDashboardLayout composable (order/visibility/edit 
   },
 ```
 
-- [ ] **Step 2: 本地 .env 追加变量**
+- [ ] **Step 2: 本地 .env 追加变量(不提交 —— `frontend/.env` 已被 .gitignore 忽略)**
 
 修改 `frontend/.env`,追加一行(保留已有的 `NUXT_API_BASE`):
 ```bash
 NUXT_API_BASE=http://localhost:8100
 NUXT_PUBLIC_SERVER_MONITOR_URL=http://localhost:9300/embed?key=smk_-jNiwEc4r9Im9IfsA9uEaxp0GqxqUxYW
 ```
+> 部署值不入库:`.env` 不提交。生产地址 `https://monitor.cktech.hk/embed?key=...` 在部署时写入 prod 服务器 compose 读取的 `.env`(见 §部署接线 / `/land-and-deploy`),不进 git。
 
 - [ ] **Step 3: docker-compose frontend 服务增加运行时 env**
 
@@ -518,7 +519,8 @@ Expected: 通过。
 - [ ] **Step 5: Commit**
 
 ```bash
-git add frontend/nuxt.config.ts frontend/.env docker-compose.yml
+# 注意:不要 git add frontend/.env(已被 .gitignore 忽略,且含 key,不入库)
+git add frontend/nuxt.config.ts docker-compose.yml
 git commit -m "feat(home): wire NUXT_PUBLIC_SERVER_MONITOR_URL runtime config"
 ```
 
