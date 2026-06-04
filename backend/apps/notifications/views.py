@@ -242,6 +242,6 @@ class ManagePublishView(APIView):
 
         notification.is_draft = False
         notification.save(update_fields=["is_draft"])
-        recipient_count = _generate_recipients(notification)
+        recipient_count = generate_recipients(notification)
 
         return Response({"id": str(notification.id), "recipients": recipient_count})
