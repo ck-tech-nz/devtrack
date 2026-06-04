@@ -3,6 +3,8 @@ interface UserSettings {
   issues_view_mode: 'kanban' | 'table'
   project_view_mode: 'kanban' | 'table'
   theme: 'light' | 'dark' | 'auto'
+  // 工作台区块布局:有序的 {id, visible} 数组(空数组 = 用默认布局)
+  dashboard_layout: { id: string; visible: boolean }[]
 }
 
 const defaults: UserSettings = {
@@ -10,6 +12,7 @@ const defaults: UserSettings = {
   issues_view_mode: 'table',
   project_view_mode: 'kanban',
   theme: 'light',
+  dashboard_layout: [],
 }
 
 export function useUserSettings() {
