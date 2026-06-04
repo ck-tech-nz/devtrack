@@ -13,6 +13,8 @@
       v-if="expanded"
       :src="url"
       loading="lazy"
+      sandbox="allow-scripts allow-same-origin"
+      referrerpolicy="no-referrer"
       class="server-frame"
     />
   </div>
@@ -23,13 +25,20 @@
 const colorMode = useColorMode()
 const expanded = ref(true)
 
-// 追加 &theme= 跟随应用主题:切换深浅色时 src 变化 → iframe 自动重载并渲染对应主题。
+// 追加 theme= 跟随应用主题:切换深浅色时 src 变化 → iframe 自动重载并渲染对应主题。
 const url = computed(() => {
   const base = (useRuntimeConfig().public.serverMonitorUrl as string) || ''
   if (!base) return ''
   const theme = colorMode.value === 'dark' ? 'dark' : 'light'
-  const sep = base.includes('?') ? '&' : '?'
-  return `${base}${sep}theme=${theme}`
+  try {
+    const u = new URL(base)
+    // 仅允许 http(s),挡住 javascript:/data: 等可疑 scheme
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return ''
+    u.searchParams.set('theme', theme) // set 覆盖,避免已有 theme 参数重复
+    return u.toString()
+  } catch {
+    return '' // 地址非法 → 整卡不渲染
+  }
 })
 </script>
 
