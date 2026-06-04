@@ -68,5 +68,12 @@ const expanded = ref(true)
   height: 640px;
   border: 0;
   border-radius: 0.5rem;
+  /* 监控页内容透明:容器背景随主题切换(与卡片同色),避免白底闪烁/穿透 */
+  background-color: #ffffff;
+  color-scheme: light;
+}
+:root.dark .server-frame {
+  background-color: #1f2937;
+  color-scheme: dark;
 }
 </style>
