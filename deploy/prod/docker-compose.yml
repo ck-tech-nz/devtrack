@@ -27,6 +27,9 @@ services:
     image: registry.cktech.hk/devtrakr/frontend-prod
     container_name: devtrakr-frontend
     restart: unless-stopped
+    environment:
+      # 服务器资源 iframe 嵌入地址(运行时注入,值取自同目录 .env)
+      - NUXT_PUBLIC_SERVER_MONITOR_URL=${NUXT_PUBLIC_SERVER_MONITOR_URL}
     networks:
       - db-network
       - traefik-network

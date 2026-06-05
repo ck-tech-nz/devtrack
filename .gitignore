@@ -6,6 +6,8 @@ dist/
 *.log
 .superpowers/
 .env
+.env.*
+!.env.example
 
 # Python / Backend
 __pycache__/
