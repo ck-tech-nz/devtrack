@@ -688,7 +688,6 @@ const createStatusOptions: { label: string; value: string }[] = ISSUE_STATUS_OPT
 const createAssigneeOptions = computed(() => [{ label: '无', value: '_none' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
 
 const filterAssigneeOptions = computed(() => users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })))
-const filterPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.label}`, value: p.value }))
 const filterStatusOptions: { label: string; value: string }[] = ISSUE_STATUS_OPTIONS
 
 function closeCreateModal() {
@@ -1035,7 +1034,11 @@ function onRegionFocusOut() {
   }, 0)
 }
 
-onUnmounted(() => { clearExpandTimer(); clearCollapseTimer() })
+onUnmounted(() => {
+  clearExpandTimer()
+  clearCollapseTimer()
+  if (searchDebounce) clearTimeout(searchDebounce)
+})
 
 onMounted(async () => {
   const [, usersData, settingsData, projectsData, reposData] = await Promise.all([
