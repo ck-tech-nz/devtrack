@@ -68,3 +68,42 @@ class TestBulletinActiveEndpoint:
     def test_requires_authentication(self, api_client):
         res = api_client.get(self.URL)
         assert res.status_code in (401, 403)
+
+
+class TestBulletinManageEndpoint:
+    LIST = "/api/notifications/bulletins/manage/"
+
+    def detail(self, pk):
+        return f"/api/notifications/bulletins/manage/{pk}/"
+
+    def test_list_forbidden_without_permission(self, regular_client):
+        res = regular_client.get(self.LIST)
+        assert res.status_code == 403
+
+    def test_list_ok_with_permission(self, auth_client):
+        BulletinFactory(content="manage-list-probe")
+        res = auth_client.get(self.LIST)
+        assert res.status_code == 200
+        # Seeded rows are present too — assert our row is listed, not an exact count.
+        assert any(r["content"] == "manage-list-probe" for r in res.data["results"])
+
+    def test_create_sets_created_by(self, auth_client, auth_user):
+        res = auth_client.post(self.LIST, {
+            "category": "value", "content": "对用户诚实", "is_active": True,
+        }, format="json")
+        assert res.status_code == 201
+        from apps.notifications.models import Bulletin
+        b = Bulletin.objects.get(content="对用户诚实")
+        assert b.created_by_id == auth_user.id
+
+    def test_create_forbidden_without_permission(self, regular_client):
+        res = regular_client.post(self.LIST, {"category": "quote", "content": "x"}, format="json")
+        assert res.status_code == 403
+
+    def test_update_and_delete(self, auth_client):
+        b = BulletinFactory(content="old")
+        res = auth_client.patch(self.detail(b.id), {"content": "new"}, format="json")
+        assert res.status_code == 200
+        assert res.data["content"] == "new"
+        res = auth_client.delete(self.detail(b.id))
+        assert res.status_code == 204

@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.permissions import FullDjangoModelPermissions
 from .models import Notification, NotificationRecipient, Bulletin
-from .serializers import NotificationSerializer, NotificationManageSerializer, BulletinPublicSerializer
+from .serializers import NotificationSerializer, NotificationManageSerializer, BulletinPublicSerializer, BulletinManageSerializer
 from .services import create_broadcast_notification, generate_recipients
 
 User = get_user_model()
@@ -260,3 +260,18 @@ class BulletinActiveListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Bulletin.objects.currently_active()
+
+
+class BulletinManageListCreateView(generics.ListCreateAPIView):
+    serializer_class = BulletinManageSerializer
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Bulletin.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class BulletinManageDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BulletinManageSerializer
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Bulletin.objects.all()

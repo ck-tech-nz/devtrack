@@ -3,7 +3,7 @@ from .views import (
     NotificationListView, NotificationDetailView, UnreadCountView,
     MarkReadView, MarkAllReadView,
     ManageListView, ManageDetailView, ManageCreateView, ManageUpdateView, ManagePublishView,
-    BulletinActiveListView,
+    BulletinActiveListView, BulletinManageListCreateView, BulletinManageDetailView,
 )
 
 urlpatterns = [
@@ -21,4 +21,7 @@ urlpatterns = [
     path("manage/<uuid:pk>/publish/", ManagePublishView.as_view(), name="notification-manage-publish"),
     # Bulletins (header carousel)
     path("bulletins/active/", BulletinActiveListView.as_view(), name="bulletin-active"),
+    path("bulletins/manage/", BulletinManageListCreateView.as_view(), name="bulletin-manage-list"),
+    path("bulletins/manage/<int:pk>/", BulletinManageDetailView.as_view(),
+         name="bulletin-manage-detail"),
 ]
