@@ -425,6 +425,7 @@ import { ISSUE_STATUS, ISSUE_STATUS_OPTIONS, kanbanColor, KANBAN_DEFAULT_COLUMNS
 import StatusCell from '~/components/issue/StatusCell.vue'
 import TransferDialog from '~/components/issue/TransferDialog.vue'
 import AssignDialog from '~/components/issue/AssignDialog.vue'
+import { buildIssueQueryParams } from '~/utils/issueQuery'
 
 definePageMeta({ layout: 'default' })
 
@@ -875,19 +876,18 @@ const statusColor = statusColorFn
 async function fetchIssues() {
   loading.value = true
   try {
-    const params = new URLSearchParams()
-    params.set('page', String(page.value))
-    params.set('page_size', String(pageSize))
-    if (!showCompleted.value && !filterStatus.value) {
-      params.set('exclude_statuses', '已关闭,未计划')
-    }
-    const assigneeId = filterHandler.value?.id || filterAssignee.value
-    if (assigneeId) params.set('assignee', assigneeId)
-    const priorityVal = filterPriorityTag.value?.value || filterPriority.value
-    if (priorityVal) params.set('priority', priorityVal)
-    if (filterStatus.value) params.set('status', filterStatus.value)
-    if (filterReporter.value) params.set(filterReporter.value.type, filterReporter.value.value)
-    if (searchQuery.value.trim()) params.set('search', searchQuery.value.trim())
+    const params = buildIssueQueryParams({
+      page: page.value,
+      pageSize,
+      showCompleted: showCompleted.value,
+      filterStatus: filterStatus.value,
+      filterAssignee: filterAssignee.value,
+      filterHandlerId: filterHandler.value?.id ?? null,
+      filterPriority: filterPriority.value,
+      filterPriorityTagValue: filterPriorityTag.value?.value ?? null,
+      filterReporter: filterReporter.value,
+      search: searchQuery.value,
+    })
 
     const data = await api<any>(`/api/issues/?${params.toString()}`)
     issues.value = data.results || data || []
