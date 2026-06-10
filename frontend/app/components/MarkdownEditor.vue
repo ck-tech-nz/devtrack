@@ -568,16 +568,18 @@ function handleDrop(e: DragEvent) {
 function handlePaste(e: ClipboardEvent) {
   const items = e.clipboardData?.items
   if (!items) return
-  const images: File[] = []
+  // 收集所有文件(不只是图片):从访达/资源管理器复制的 .md/.pdf 等文件
+  // 也走上传。否则浏览器默认行为只粘贴文件名纯文本,用户误以为附件已上传。
+  const files: File[] = []
   for (const item of items) {
-    if (item.type.startsWith('image/')) {
+    if (item.kind === 'file') {
       const file = item.getAsFile()
-      if (file) images.push(file)
+      if (file) files.push(file)
     }
   }
-  if (images.length) {
+  if (files.length) {
     e.preventDefault()
-    uploadFiles(images)
+    uploadFiles(files)
   }
 }
 

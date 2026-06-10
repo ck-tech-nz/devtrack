@@ -140,5 +140,12 @@ export function useMentionMarkdown() {
     .use(fileCardPlugin)
     .use(mentionPlugin)
 
+  // 关闭无 scheme 的模糊链接识别(http(s):// 完整 URL 不受影响)。
+  // .md 是摩尔多瓦顶级域名,否则裸文件名 "xxx.md" 会被识别成外部域名,
+  // 再被 fileCardPlugin 渲染成假的附件卡片(悬浮预览失效、点击跳转到
+  // 不存在的外部站点)。注意不能用 linkify.tlds('md', false) 单独移除:
+  // 该 API 会整体替换 TLD 列表,且两字符国家域名在 linkify-it 里是硬编码的。
+  md.linkify.set({ fuzzyLink: false })
+
   return { md, mentionPlugin }
 }
