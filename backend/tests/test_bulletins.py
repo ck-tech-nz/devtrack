@@ -42,6 +42,22 @@ class TestBulletinQuerySet:
         result = list(Bulletin.objects.currently_active())
         assert result.index(b_earlier) < result.index(b_later)
 
+    def test_currently_active_includes_window_boundary(self):
+        # 窗口边界是包含式的(starts_at__lte / ends_at__gte)。冻结 now 以避免
+        # 真实时钟在测试与查询之间漂移导致的偶发失败。
+        from unittest import mock
+
+        fixed = timezone.now()
+        edge = Bulletin.objects.create(
+            category="value", content="boundary-edge",
+            starts_at=fixed, ends_at=fixed,
+        )
+        with mock.patch(
+            "apps.notifications.models.timezone.now", return_value=fixed
+        ):
+            result = list(Bulletin.objects.currently_active())
+        assert edge in result
+
 
 from tests.factories import BulletinFactory
 
@@ -107,3 +123,13 @@ class TestBulletinManageEndpoint:
         assert res.data["content"] == "new"
         res = auth_client.delete(self.detail(b.id))
         assert res.status_code == 204
+
+    def test_detail_forbidden_without_permission(self, regular_client):
+        # 详情端点(GET/PATCH/DELETE)同样受 FullDjangoModelPermissions 保护,
+        # 无权限用户全部应拿到 403。
+        b = BulletinFactory(content="detail-guard")
+        assert regular_client.get(self.detail(b.id)).status_code == 403
+        assert regular_client.patch(
+            self.detail(b.id), {"content": "y"}, format="json"
+        ).status_code == 403
+        assert regular_client.delete(self.detail(b.id)).status_code == 403

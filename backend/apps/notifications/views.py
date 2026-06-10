@@ -265,7 +265,8 @@ class BulletinActiveListView(generics.ListAPIView):
 class BulletinManageListCreateView(generics.ListCreateAPIView):
     serializer_class = BulletinManageSerializer
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
-    queryset = Bulletin.objects.all()
+    # select_related 避免列表序列化 created_by_name 时的 N+1 查询
+    queryset = Bulletin.objects.select_related("created_by").all()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -274,4 +275,4 @@ class BulletinManageListCreateView(generics.ListCreateAPIView):
 class BulletinManageDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BulletinManageSerializer
     permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
-    queryset = Bulletin.objects.all()
+    queryset = Bulletin.objects.select_related("created_by").all()
