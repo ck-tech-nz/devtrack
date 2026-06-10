@@ -26,8 +26,7 @@ class TestBulletinQuerySet:
 
         result = list(Bulletin.objects.currently_active())
 
-        # NOTE: the test DB also contains the 5 seeded bulletins (migration 0004,
-        # added in a later task), so assert membership, not absolute counts.
+        # 断言成员关系而非绝对数量,对其它测试/夹具可能引入的额外行保持健壮。
         assert active in result
         assert within in result
         assert inactive not in result
@@ -35,8 +34,7 @@ class TestBulletinQuerySet:
         assert expired not in result
 
     def test_ordering_by_sort_order(self):
-        # Use high sort_order values so these sit after any seeded rows, then
-        # assert relative order rather than absolute positions.
+        # 用相对顺序断言而非绝对位置,对其它行的存在保持健壮。
         b_later = Bulletin.objects.create(category="quote", content="later", sort_order=102)
         b_earlier = Bulletin.objects.create(category="quote", content="earlier", sort_order=101)
         result = list(Bulletin.objects.currently_active())

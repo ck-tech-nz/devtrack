@@ -29,13 +29,13 @@
 
 ### 技术细节
 
-- 新增 `Bulletin` 模型 + `BulletinQuerySet.currently_active()`(`is_active` + 包含式 `starts_at`/`ends_at` 时间窗 + `sort_order` 排序);迁移 `0003_bulletin`(建表)、`0004_seed_bulletins`(`get_or_create` 幂等 seed 5 条启动公告,含 `unseed` 反向)。
+- 新增 `Bulletin` 模型 + `BulletinQuerySet.currently_active()`(`is_active` + 包含式 `starts_at`/`ends_at` 时间窗 + `sort_order` 排序);迁移 `0003_bulletin`(建表)。生产环境不预置数据,公告由管理员在「走马灯管理」页创建。
 - 前端引入 `@nuxt/test-utils` + `happy-dom` + `@vue/test-utils`:纯 TS 测试仍跑 node,组件 / composable 测试用 `// @vitest-environment nuxt` 注解切到 Nuxt 运行时(`mountSuspended` / `mockNuxtImport`)。
 - 测试:后端 bulletin 12 条 + 发布端点回归 4 条(共 803 通过);前端 PrioritySlider / useBulletins / HeaderBulletinCarousel / issueQuery 共 26 条新测试(共 43 通过)。
 
 ### 部署注意
 
-1. 部署后执行迁移 `python manage.py migrate notifications`(建 `bulletin` 表并 seed 5 条启动公告)。
+1. 部署后执行迁移 `python manage.py migrate notifications`(建 `bulletin` 表;不预置数据)。
 2. 运行 `python manage.py sync_page_perms` 同步走马灯管理页路由与 `notifications.{view,add,change,delete}_bulletin` 权限(`page_perms.json` 已加入管理员组)。
 
 ## 2026-05-16 — AI Issue Wizard v2
