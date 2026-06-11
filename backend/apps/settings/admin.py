@@ -10,15 +10,13 @@ class SiteSettingsAdmin(ModelAdmin, SingletonModelAdmin):
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == "priorities":
             kwargs["widget"] = ColorOptionListWidget(
-                hint="顺序为 高 → 低（第一行为最高优先级）；主色用于前端徽章/卡片/行底色与滑块渐变，「无底色」表示该档不着色。",
-                add_label="+ 添加优先级",
+                hint="顺序为 高 → 低（第一行为最高优先级）；主色用于前端徽章/卡片/行底色与滑块渐变，「无底色」表示该档不着色。档位固定，仅可改显示名/颜色/顺序。",
                 value_placeholder="值 (如 P0)",
                 label_placeholder="显示名 (如 紧急)",
             )
         elif db_field.name == "issue_statuses":
             kwargs["widget"] = ColorOptionListWidget(
-                hint="主色用于前端状态胶囊与看板列圆点。注意：状态流转逻辑依赖「值」，请只调整显示名与颜色，勿随意增删或改值。",
-                add_label="+ 添加状态",
+                hint="主色用于前端状态胶囊与看板列圆点。状态流转逻辑依赖「值」，档位固定，仅可改显示名/颜色/顺序。",
                 value_placeholder="值 (如 进行中)",
                 label_placeholder="显示名",
             )

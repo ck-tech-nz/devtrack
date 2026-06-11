@@ -1,10 +1,6 @@
 <div id="plw-{{ widget.name }}" class="mt-1">
   {% if widget.hint %}<p class="text-xs text-gray-400 mb-2">{{ widget.hint }}</p>{% endif %}
   <div id="plw-rows-{{ widget.name }}" class="flex flex-col gap-2"></div>
-  <button type="button" id="plw-add-{{ widget.name }}"
-          class="mt-2 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 shadow-sm transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
-    {{ widget.add_label }}
-  </button>
   <input type="hidden" id="plw-hidden-{{ widget.name }}" name="{{ widget.name }}" />
 </div>
 
@@ -13,7 +9,6 @@
   var items = {{ widget.items_json|safe }};
   var rowsBox = document.getElementById('plw-rows-{{ widget.name }}');
   var hidden = document.getElementById('plw-hidden-{{ widget.name }}');
-  var addBtn = document.getElementById('plw-add-{{ widget.name }}');
 
   var INPUT_CLS = 'px-2 py-1 text-sm rounded-md border border-gray-300 bg-white text-gray-700 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-300 focus:border-primary-500 focus:ring-primary-500';
   var BTN_CLS = 'px-1.5 py-1 text-xs rounded-md border border-gray-300 text-gray-500 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700';
@@ -78,12 +73,15 @@
       colorWrap.appendChild(hex);
       colorWrap.appendChild(noneLabel);
 
+      // 档位「值」锁定只读:Issue 模型 choices 与状态流转逻辑硬编码这些 value,
+      // 增删/改值会产生前端可选、后端 400 的半成品档位(admin 只应改显示名/颜色/顺序)
       var value = document.createElement('input');
       value.type = 'text';
       value.value = item.value;
-      value.placeholder = '{{ widget.value_placeholder|escapejs }}';
-      value.className = INPUT_CLS + ' w-24 font-mono';
-      value.addEventListener('input', function() { item.value = value.value.trim(); sync(); });
+      value.readOnly = true;
+      value.tabIndex = -1;
+      value.className = INPUT_CLS + ' w-24 font-mono opacity-60 cursor-not-allowed';
+      value.title = '档位值由系统固定,仅可调整显示名/颜色/顺序';
 
       var label = document.createElement('input');
       label.type = 'text';
@@ -108,24 +106,15 @@
       var down = mkBtn('↓', '下移', function() {
         if (i < items.length - 1) { items.splice(i + 1, 0, items.splice(i, 1)[0]); render(); sync(); }
       });
-      var del = mkBtn('✕', '删除', function() {
-        items.splice(i, 1); render(); sync();
-      });
 
       row.appendChild(colorWrap);
       row.appendChild(value);
       row.appendChild(label);
       row.appendChild(up);
       row.appendChild(down);
-      row.appendChild(del);
       rowsBox.appendChild(row);
     });
   }
-
-  addBtn.addEventListener('click', function() {
-    items.push({ value: '', label: '', background: '#9ca3af' });
-    render(); sync();
-  });
 
   render();
   sync();

@@ -10,19 +10,19 @@ class ApiKeyGeneratorWidget(UnfoldAdminTextInputWidget):
 
 
 class ColorOptionListWidget(Widget):
-    """带主色的选项对象列表行编辑器:每行 value/label/主色(原生取色器),支持增删与上下移.
+    """带主色的选项对象列表行编辑器:每行 value(只读)/label/主色(原生取色器),支持上下移.
 
     通用于 priorities / issue_statuses 这类 [{"value","label","background"},...] JSONField;
-    hint/add_label/占位文案由调用方按字段语义传入.
+    hint/占位文案由调用方按字段语义传入.档位 value 锁定不可增删改——Issue 模型
+    choices 与状态流转逻辑硬编码这些 value,放开编辑只会产生前端可选、后端 400 的档位.
     """
 
     template_name = "widgets/color_option_list.html"
 
-    def __init__(self, *, hint="", add_label="+ 添加选项",
+    def __init__(self, *, hint="",
                  value_placeholder="值", label_placeholder="显示名", attrs=None):
         super().__init__(attrs)
         self.hint = hint
-        self.add_label = add_label
         self.value_placeholder = value_placeholder
         self.label_placeholder = label_placeholder
 
@@ -55,7 +55,6 @@ class ColorOptionListWidget(Widget):
             .replace("&", "\\u0026")
         )
         context["widget"]["hint"] = self.hint
-        context["widget"]["add_label"] = self.add_label
         context["widget"]["value_placeholder"] = self.value_placeholder
         context["widget"]["label_placeholder"] = self.label_placeholder
         return context
