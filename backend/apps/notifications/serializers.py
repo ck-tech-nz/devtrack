@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Notification
+from .models import Notification, Bulletin
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -39,3 +39,25 @@ class NotificationManageSerializer(serializers.ModelSerializer):
 
     def get_recipient_count(self, obj):
         return obj.recipients.count()
+
+
+class BulletinPublicSerializer(serializers.ModelSerializer):
+    """Lean serializer for the carousel — no admin/internal fields."""
+
+    class Meta:
+        model = Bulletin
+        fields = ["id", "category", "content", "source", "link_url"]
+
+
+class BulletinManageSerializer(serializers.ModelSerializer):
+    """Admin-facing serializer: all editable fields + creator name."""
+    created_by_name = serializers.CharField(source="created_by.name", read_only=True, default=None)
+
+    class Meta:
+        model = Bulletin
+        fields = [
+            "id", "category", "content", "source", "link_url",
+            "is_active", "sort_order", "starts_at", "ends_at",
+            "created_by_name", "created_at", "updated_at",
+        ]
+        read_only_fields = ["created_by_name", "created_at", "updated_at"]

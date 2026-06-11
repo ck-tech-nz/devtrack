@@ -4,6 +4,40 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## 2026-06-10 — 页头公告走马灯 + 问题筛选栏
+
+页头中部新增一条轮播公告（名言 / 提示词 / 避坑 / 价值观 / 公告），配套后台管理页;问题列表的筛选从零散控件收拢成一条可折叠的筛选栏。
+
+### 新增
+
+- **页头走马灯公告**:`HeaderBulletinCarousel` 挂在 AppHeader 中部(仅 lg 及以上显示)。有公告时公告置顶常驻、多条间轮播;无公告时其余四类内容加载后随机洗牌一次、每 8 秒切换、悬停暂停。点击带链接的公告在新标签打开(`rel="noopener noreferrer"`)。
+- **走马灯管理页**:设置 → 走马灯管理(`/app/settings/bulletins`),管理员可增删改查公告,设置分类 / 出处 / 链接 / 启用 / 排序 / 生效时间窗。
+- **公开公告接口 + 管理接口**:`GET /api/notifications/bulletins/active/`(任意登录用户,精简字段,只返回当前生效项);`/api/notifications/bulletins/manage/`(管理端 CRUD,`FullDjangoModelPermissions` 鉴权)。
+- **`useBulletins` 轮询 composable**:模块级单例 + 订阅者引用计数,全站只跑一个 5 分钟定时器,标签页隐藏时不拉取、切回前台立即刷新,全部卸载后停。
+- **问题列表可折叠筛选栏**:「只看我的」开关、负责人 / 状态下拉、优先级滑块(`PrioritySlider`),并把当前生效的筛选条件汇总成可一键清除的 chips + 计数徽标。
+
+### 变更
+
+- 问题列表 `fetchIssues` 的查询参数拼装抽到纯函数 `~/utils/issueQuery.ts`(`buildIssueQueryParams`):行内徽标(处理人 / 优先级)优先级高于筛选栏下拉,未勾选「显示已完成」且未显式选状态时默认排除「已关闭 / 未计划」。行为不变,便于单测。
+- 管理端公告列表查询加 `select_related("created_by")`,避免序列化 `created_by_name` 时的 N+1。
+
+### 修复
+
+- **走马灯组件挂载即崩溃**:`watch(rotating, …, { immediate: true })` 在 `index` 声明之前就写 `index.value`,setup 同步执行命中 TDZ 抛 `ReferenceError`。已把 `index` 等状态移到 watch 之前。由新增组件测试发现。
+- **通知发布端点 NameError(历史遗留)**:`ManagePublishView.post` 误调用未定义的 `_generate_recipients`(正确名为 `generate_recipients`),发布任意草稿都会 500。已修正并补回归测试。
+- **dashboardLayout 测试失真**:`电话线路状态`(gateway)卡加入注册表后,旧测试仍断言 `server` 末位且漏了 `gateway`,在 main 上一直红。已更新断言。
+
+### 技术细节
+
+- 新增 `Bulletin` 模型 + `BulletinQuerySet.currently_active()`(`is_active` + 包含式 `starts_at`/`ends_at` 时间窗 + `sort_order` 排序);迁移 `0003_bulletin`(建表)。生产环境不预置数据,公告由管理员在「走马灯管理」页创建。
+- 前端引入 `@nuxt/test-utils` + `happy-dom` + `@vue/test-utils`:纯 TS 测试仍跑 node,组件 / composable 测试用 `// @vitest-environment nuxt` 注解切到 Nuxt 运行时(`mountSuspended` / `mockNuxtImport`)。
+- 测试:后端 bulletin 12 条 + 发布端点回归 4 条(共 803 通过);前端 PrioritySlider / useBulletins / HeaderBulletinCarousel / issueQuery 共 26 条新测试(共 43 通过)。
+
+### 部署注意
+
+1. 部署后执行迁移 `python manage.py migrate notifications`(建 `bulletin` 表;不预置数据)。
+2. 运行 `python manage.py sync_page_perms` 同步走马灯管理页路由与 `notifications.{view,add,change,delete}_bulletin` 权限(`page_perms.json` 已加入管理员组)。
+
 ## 2026-05-16 — AI Issue Wizard v2
 
 把"AI 提单向导"从 3 段串行的纯文本流水线（≈60 秒）改造成单次多模态调用（≈6–8 秒），并把重复检测合并进同一流程。

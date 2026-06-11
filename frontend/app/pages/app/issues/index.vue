@@ -3,30 +3,34 @@
     <MyPendingTasks />
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
-      <div class="flex items-center justify-between md:justify-end space-x-3">
+      <div class="flex items-center justify-between md:justify-end gap-3">
+        <!-- 筛选控件:常驻显示,不自动隐藏 -->
         <label class="flex items-center gap-1.5 cursor-pointer select-none">
           <span class="text-sm text-gray-500 dark:text-gray-400">查看全部</span>
           <USwitch v-model="showCompleted" size="lg" />
         </label>
         <UInput v-model="searchQuery" placeholder="搜索标题或编号" icon="i-heroicons-magnifying-glass" size="sm" class="w-44" />
-        <div class="relative">
-          <USelect v-model="filterAssignee" :items="filterAssigneeOptions" size="sm" class="w-28" value-key="value" placeholder="负责人" />
-          <button v-if="filterAssignee" class="filter-clear" @click="filterAssignee = ''">
-            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
-          </button>
-        </div>
-        <div class="relative">
-          <USelect v-model="filterPriority" :items="filterPriorityOptions" size="sm" class="w-28" value-key="value" placeholder="优先级" />
-          <button v-if="filterPriority" class="filter-clear" @click="filterPriority = ''">
-            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
-          </button>
-        </div>
+        <!-- 「只看我的」与「负责人」同属处理人筛选,合并为一个连体按钮组 -->
+        <UButtonGroup size="sm">
+          <UButton
+            icon="i-heroicons-user"
+            :variant="onlyMine ? 'solid' : 'outline'"
+            :color="onlyMine ? 'primary' : 'neutral'"
+            @click="onlyMine = !onlyMine"
+          >
+            只看我的
+          </UButton>
+          <USelect v-model="filterAssignee" :items="filterAssigneeOptions" class="w-28" value-key="value" placeholder="负责人" />
+        </UButtonGroup>
+        <PrioritySlider v-model="filterPriority" />
         <div class="relative">
           <USelect v-model="filterStatus" :items="filterStatusOptions" size="sm" class="w-28" value-key="value" placeholder="状态" />
           <button v-if="filterStatus" class="filter-clear" @click="filterStatus = ''">
             <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
           </button>
         </div>
+
+        <!-- 始终可见:点击徽章触发的上下文标签(处理人/优先级/提出人) -->
         <UBadge v-if="filterHandler" variant="subtle" size="md" class="filter-chip shrink-0">
           <span>处理人：{{ filterHandler.label }}</span>
           <button class="ml-1 flex items-center" aria-label="清除处理人筛选" @click="filterHandler = null">
@@ -45,6 +49,8 @@
             <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
           </button>
         </UBadge>
+
+        <!-- 始终可见:视图切换 / 刷新 / 新建 -->
         <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
           <button
             class="px-3 py-1 text-sm font-medium rounded-md transition-colors"
@@ -226,6 +232,7 @@
       v-else-if="viewMode === 'kanban'"
       :columns="kanbanColumns"
       :item-key="(item: any) => item.id"
+      :card-class="kanbanCardClass"
       @drop="onKanbanDrop"
     >
       <template #card="{ item }">
@@ -245,6 +252,13 @@
               <span class="text-crystal-600 dark:text-crystal-400 text-[10px] font-medium">{{ (item.assignee_name || '?').slice(0, 1) }}</span>
             </div>
             <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500">{{ item.assignee_name || '-' }}</span>
+          </div>
+          <div
+            v-if="item.estimated_completion"
+            class="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400"
+          >
+            <UIcon name="i-heroicons-calendar-days" class="w-3 h-3 shrink-0" />
+            <span>要求完成日期 {{ item.estimated_completion }}</span>
           </div>
         </NuxtLink>
       </template>
@@ -388,6 +402,7 @@ import { ISSUE_STATUS, ISSUE_STATUS_OPTIONS, kanbanColor, KANBAN_DEFAULT_COLUMNS
 import StatusCell from '~/components/issue/StatusCell.vue'
 import TransferDialog from '~/components/issue/TransferDialog.vue'
 import AssignDialog from '~/components/issue/AssignDialog.vue'
+import { buildIssueQueryParams } from '~/utils/issueQuery'
 
 definePageMeta({ layout: 'default' })
 
@@ -441,7 +456,11 @@ const viewMode = computed({
   get: () => settings.value.issues_view_mode,
   set: (v: 'kanban' | 'table') => updateSettings('issues_view_mode', v),
 })
-const showCompleted = ref(false)
+// 「查看全部」持久化到浏览器 localStorage,刷新页面不丢失该偏好
+const SHOW_COMPLETED_KEY = 'issues:showCompleted'
+const showCompleted = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem(SHOW_COMPLETED_KEY) === '1',
+)
 const page = ref(1)
 const pageSize = 15
 
@@ -456,6 +475,9 @@ const filterReporter = ref<{ type: 'reporter' | 'created_by'; value: string; lab
 const filterHandler = ref<{ id: string; label: string } | null>(null)
 // 优先级筛选：点击优先级徽章触发，以独立标签展示
 const filterPriorityTag = ref<{ value: string; label: string } | null>(null)
+// 「只看我的」：等价于 assignee=当前用户;与负责人下拉互斥
+const onlyMine = ref(false)
+
 const rowSelection = ref<Record<string, boolean>>({})
 const showBatchDeleteConfirm = ref(false)
 const batchDeleting = ref(false)
@@ -624,8 +646,11 @@ const createPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.
 const createStatusOptions: { label: string; value: string }[] = ISSUE_STATUS_OPTIONS
 const createAssigneeOptions = computed(() => [{ label: '无', value: '_none' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
 
-const filterAssigneeOptions = computed(() => users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })))
-const filterPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.label}`, value: p.value }))
+// 首项「全部负责人」(value '') 用于清除负责人筛选,替代原来的浮层 × 按钮
+const filterAssigneeOptions = computed(() => [
+  { label: '全部负责人', value: '' },
+  ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })),
+])
 const filterStatusOptions: { label: string; value: string }[] = ISSUE_STATUS_OPTIONS
 
 function closeCreateModal() {
@@ -694,7 +719,7 @@ const columns = computed(() => {
     { accessorKey: 'status', header: '状态' },
     { accessorKey: 'reporter', header: '提出人' },
     { accessorKey: 'created_at', header: '历时' },
-    { accessorKey: 'estimated_completion', header: '预计完成' },
+    { accessorKey: 'estimated_completion', header: '要求完成日期' },
   ]
   if (showGHColumn.value) {
     cols.push({ accessorKey: 'github_issues', header: 'GitHub Issues' })
@@ -735,6 +760,13 @@ const kanbanColumns = computed(() => {
 
 function onKanbanDrop({ itemId, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
   onStatusChange({ issueId: itemId as number, newStatus: toColumn })
+}
+
+// P0(紧急)卡片用红底高亮,凸显紧急;其余返回空串走默认白底
+function kanbanCardClass(item: any): string {
+  return item.priority === 'P0'
+    ? 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-700 ring-1 ring-red-200 dark:ring-red-800/50'
+    : ''
 }
 
 let rowClickTimer: ReturnType<typeof setTimeout> | null = null
@@ -810,30 +842,35 @@ function issueDuration(issue: any): { pct: number; color: string; label: string 
 
 const statusColor = statusColorFn
 
+// 请求序号:快速拖动优先级滑块等会连发多个请求,响应可能乱序到达。
+// 只采纳最新一次请求的响应,丢弃过期响应,避免列表停在上一个筛选条件。
+let fetchSeq = 0
 async function fetchIssues() {
+  const seq = ++fetchSeq
   loading.value = true
   try {
-    const params = new URLSearchParams()
-    params.set('page', String(page.value))
-    params.set('page_size', String(pageSize))
-    if (!showCompleted.value && !filterStatus.value) {
-      params.set('exclude_statuses', '已关闭,未计划')
-    }
-    const assigneeId = filterHandler.value?.id || filterAssignee.value
-    if (assigneeId) params.set('assignee', assigneeId)
-    const priorityVal = filterPriorityTag.value?.value || filterPriority.value
-    if (priorityVal) params.set('priority', priorityVal)
-    if (filterStatus.value) params.set('status', filterStatus.value)
-    if (filterReporter.value) params.set(filterReporter.value.type, filterReporter.value.value)
-    if (searchQuery.value.trim()) params.set('search', searchQuery.value.trim())
+    const params = buildIssueQueryParams({
+      page: page.value,
+      pageSize,
+      showCompleted: showCompleted.value,
+      filterStatus: filterStatus.value,
+      filterAssignee: filterAssignee.value,
+      filterHandlerId: filterHandler.value?.id ?? null,
+      filterPriority: filterPriority.value,
+      filterPriorityTagValue: filterPriorityTag.value?.value ?? null,
+      filterReporter: filterReporter.value,
+      search: searchQuery.value,
+    })
 
     const data = await api<any>(`/api/issues/?${params.toString()}`)
+    if (seq !== fetchSeq) return // 已有更新的请求发出,丢弃这个过期响应
     issues.value = data.results || data || []
     totalCount.value = data.count ?? issues.value.length
   } catch (e) {
+    if (seq !== fetchSeq) return
     console.error('Failed to load issues:', e)
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) loading.value = false
   }
 }
 
@@ -891,7 +928,10 @@ watch(page, () => {
   fetchIssues()
 })
 
-watch(showCompleted, () => {
+watch(showCompleted, (v) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(SHOW_COMPLETED_KEY, v ? '1' : '0')
+  }
   page.value = 1
   rowSelection.value = {}
   fetchIssues()
@@ -900,6 +940,15 @@ watch(showCompleted, () => {
 // 从负责人下拉框选值时清除处理人标签（两者都按 assignee 筛选，互斥）
 watch(filterAssignee, (v) => {
   if (v) filterHandler.value = null
+  if (v !== String(selfUserId.value)) onlyMine.value = false
+})
+watch(onlyMine, (on) => {
+  if (on) {
+    filterHandler.value = null
+    filterAssignee.value = String(selfUserId.value)
+  } else if (filterAssignee.value === String(selfUserId.value)) {
+    filterAssignee.value = ''
+  }
 })
 // 从优先级下拉框选值时清除优先级标签（互斥）
 watch(filterPriority, (v) => {
@@ -920,6 +969,10 @@ watch(searchQuery, () => {
     rowSelection.value = {}
     fetchIssues()
   }, 300)
+})
+
+onUnmounted(() => {
+  if (searchDebounce) clearTimeout(searchDebounce)
 })
 
 onMounted(async () => {

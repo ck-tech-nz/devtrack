@@ -13,9 +13,9 @@ describe('defaultLayout', () => {
     expect(layout.map(e => e.id)).toEqual(DASHBOARD_BLOCKS.map(b => b.id))
     expect(layout.every(e => e.visible)).toBe(true)
   })
-  it('puts server block last (after activity)', () => {
+  it('puts gateway block last, server after activity', () => {
     const ids = defaultLayout().map(e => e.id)
-    expect(ids[ids.length - 1]).toBe('server')
+    expect(ids[ids.length - 1]).toBe('gateway')
     expect(ids.indexOf('server')).toBeGreaterThan(ids.indexOf('activity'))
   })
 })
@@ -37,7 +37,7 @@ describe('mergeLayout', () => {
     expect(merged[0]).toEqual({ id: 'activity', visible: true })
     expect(merged[1]).toEqual({ id: 'stats', visible: false })
     const rest = merged.slice(2).map(e => e.id)
-    expect(rest).toEqual(['uptime', 'todos', 'mentions', 'tasks', 'server'])
+    expect(rest).toEqual(['uptime', 'todos', 'mentions', 'tasks', 'server', 'gateway'])
     expect(merged).toHaveLength(DASHBOARD_BLOCKS.length)
   })
   it('drops unknown ids', () => {
@@ -77,7 +77,7 @@ describe('moveBlock', () => {
     expect(moveBlock(base, 'stats', -1)).toEqual(base)
   })
   it('returns same order when moving last block down', () => {
-    expect(moveBlock(base, 'server', 1)).toEqual(base)
+    expect(moveBlock(base, 'gateway', 1)).toEqual(base)
   })
   it('returns same order for unknown id', () => {
     expect(moveBlock(base, 'ghost', 1)).toEqual(base)

@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.permissions import FullDjangoModelPermissions
-from .models import Notification, NotificationRecipient
-from .serializers import NotificationSerializer, NotificationManageSerializer
+from .models import Notification, NotificationRecipient, Bulletin
+from .serializers import NotificationSerializer, NotificationManageSerializer, BulletinPublicSerializer, BulletinManageSerializer
 from .services import create_broadcast_notification, generate_recipients
 
 User = get_user_model()
@@ -242,6 +242,37 @@ class ManagePublishView(APIView):
 
         notification.is_draft = False
         notification.save(update_fields=["is_draft"])
-        recipient_count = _generate_recipients(notification)
+        recipient_count = generate_recipients(notification)
 
         return Response({"id": str(notification.id), "recipients": recipient_count})
+
+
+# ──────────────────────────────────────────────
+# Bulletin endpoints (header carousel)
+# ──────────────────────────────────────────────
+
+
+class BulletinActiveListView(generics.ListAPIView):
+    """Public (any authenticated user) — active carousel content."""
+    serializer_class = BulletinPublicSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return Bulletin.objects.currently_active()
+
+
+class BulletinManageListCreateView(generics.ListCreateAPIView):
+    serializer_class = BulletinManageSerializer
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    # select_related 避免列表序列化 created_by_name 时的 N+1 查询
+    queryset = Bulletin.objects.select_related("created_by").all()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class BulletinManageDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BulletinManageSerializer
+    permission_classes = [IsAuthenticated, FullDjangoModelPermissions]
+    queryset = Bulletin.objects.select_related("created_by").all()

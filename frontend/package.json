@@ -24,6 +24,9 @@
     "vue-echarts": "^8.0.1"
   },
   "devDependencies": {
+    "@nuxt/test-utils": "^4.0.3",
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^20.10.2",
     "vitest": "^4.1.8"
   }
 }

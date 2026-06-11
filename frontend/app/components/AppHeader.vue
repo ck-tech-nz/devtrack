@@ -13,6 +13,10 @@
       {{ breadcrumbs[breadcrumbs.length - 1]?.label || '' }}
     </span>
 
+    <div class="hidden lg:flex flex-1 min-w-0 justify-center px-4">
+      <HeaderBulletinCarousel />
+    </div>
+
     <div class="flex items-center space-x-3">
       <UButton
         :icon="themeIcon"
