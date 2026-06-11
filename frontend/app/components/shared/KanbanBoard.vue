@@ -25,8 +25,9 @@
           v-for="item in col.items"
           :key="itemKey(item)"
           :draggable="draggable"
-          class="bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800 p-3 hover:shadow-sm transition-shadow"
+          class="rounded-lg border p-3 hover:shadow-sm transition-shadow"
           :class="[
+            cardClass?.(item) || 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800',
             draggable ? 'cursor-grab active:cursor-grabbing' : '',
             draggable && draggingId === itemKey(item) ? 'opacity-40' : '',
           ]"
@@ -45,6 +46,8 @@ const props = withDefaults(defineProps<{
   columns: Array<{ key: string; label: string; items: any[]; color?: string }>
   itemKey?: (item: any) => string | number
   draggable?: boolean
+  // 可选:按 item 返回卡片容器的覆盖类(返回空串则用默认白底);用于高亮特定卡片
+  cardClass?: (item: any) => string
 }>(), {
   itemKey: (item: any) => item.id,
   draggable: true,

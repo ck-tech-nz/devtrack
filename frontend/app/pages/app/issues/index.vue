@@ -232,6 +232,7 @@
       v-else-if="viewMode === 'kanban'"
       :columns="kanbanColumns"
       :item-key="(item: any) => item.id"
+      :card-class="kanbanCardClass"
       @drop="onKanbanDrop"
     >
       <template #card="{ item }">
@@ -251,6 +252,13 @@
               <span class="text-crystal-600 dark:text-crystal-400 text-[10px] font-medium">{{ (item.assignee_name || '?').slice(0, 1) }}</span>
             </div>
             <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500">{{ item.assignee_name || '-' }}</span>
+          </div>
+          <div
+            v-if="item.estimated_completion"
+            class="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400"
+          >
+            <UIcon name="i-heroicons-calendar-days" class="w-3 h-3 shrink-0" />
+            <span>要求完成日期 {{ item.estimated_completion }}</span>
           </div>
         </NuxtLink>
       </template>
@@ -752,6 +760,13 @@ const kanbanColumns = computed(() => {
 
 function onKanbanDrop({ itemId, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
   onStatusChange({ issueId: itemId as number, newStatus: toColumn })
+}
+
+// P0(紧急)卡片用红底高亮,凸显紧急;其余返回空串走默认白底
+function kanbanCardClass(item: any): string {
+  return item.priority === 'P0'
+    ? 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-700 ring-1 ring-red-200 dark:ring-red-800/50'
+    : ''
 }
 
 let rowClickTimer: ReturnType<typeof setTimeout> | null = null
