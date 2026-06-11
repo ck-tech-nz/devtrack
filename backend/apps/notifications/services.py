@@ -104,6 +104,28 @@ def create_broadcast_notification(
     return notification, recipient_count
 
 
+def create_comment_mention_notifications(*, comment, old_content: str, new_content: str, actor):
+    """评论中 @提及 的站内通知。只对本次新增的提及发，@自己不发。"""
+    old_ids = extract_mentioned_user_ids(old_content)
+    new_ids = extract_mentioned_user_ids(new_content)
+    added_ids = new_ids - old_ids - {actor.id}
+    if not added_ids:
+        return
+
+    issue = comment.issue
+    users = User.objects.filter(id__in=added_ids, is_active=True)
+    for user in users:
+        notification = Notification.objects.create(
+            notification_type=Notification.Type.MENTION,
+            title=f"{actor.name or actor.username} 在 #{issue.pk} 的评论中提到了你",
+            content=comment.content[:100],
+            source_user=actor,
+            source_issue=issue,
+            target_type=Notification.TargetType.USER,
+        )
+        NotificationRecipient.objects.create(notification=notification, user=user)
+
+
 def create_mention_notifications(*, issue, old_description: str, new_description: str, actor):
     old_ids = extract_mentioned_user_ids(old_description)
     new_ids = extract_mentioned_user_ids(new_description)

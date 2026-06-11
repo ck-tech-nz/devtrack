@@ -64,3 +64,54 @@ class TestIssueCommentModel:
     def test_str(self, issue, author):
         c = IssueCommentFactory(issue=issue, author=author, content="x" * 100)
         assert str(c).startswith(f"#{issue.pk} ")
+
+
+class TestCommentMentionService:
+    def _call(self, comment, old_content, actor):
+        from apps.notifications.services import create_comment_mention_notifications
+        create_comment_mention_notifications(
+            comment=comment, old_content=old_content,
+            new_content=comment.content, actor=actor,
+        )
+
+    def test_notifies_newly_mentioned_user(self, issue, author):
+        from apps.notifications.models import Notification
+        target = UserFactory()
+        comment = IssueCommentFactory(
+            issue=issue, author=author, content=f"请看 {mention(target)}",
+        )
+        self._call(comment, old_content="", actor=author)
+
+        n = Notification.objects.filter(
+            notification_type=Notification.Type.MENTION, source_issue=issue,
+        ).first()
+        assert n is not None
+        assert f"#{issue.pk} 的评论中提到了你" in n.title
+        assert n.source_user == author
+        assert n.recipients.filter(user=target).exists()
+
+    def test_self_mention_not_notified(self, issue, author):
+        from apps.notifications.models import Notification
+        comment = IssueCommentFactory(
+            issue=issue, author=author, content=f"自言自语 {mention(author)}",
+        )
+        self._call(comment, old_content="", actor=author)
+        assert Notification.objects.count() == 0
+
+    def test_already_mentioned_in_old_content_not_renotified(self, issue, author):
+        from apps.notifications.models import Notification
+        target = UserFactory()
+        comment = IssueCommentFactory(
+            issue=issue, author=author, content=f"再次 {mention(target)}",
+        )
+        self._call(comment, old_content=f"之前 {mention(target)}", actor=author)
+        assert Notification.objects.count() == 0
+
+    def test_inactive_user_not_notified(self, issue, author):
+        from apps.notifications.models import Notification
+        target = UserFactory(is_active=False)
+        comment = IssueCommentFactory(
+            issue=issue, author=author, content=mention(target),
+        )
+        self._call(comment, old_content="", actor=author)
+        assert Notification.objects.count() == 0
