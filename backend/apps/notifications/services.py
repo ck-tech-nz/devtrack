@@ -118,7 +118,7 @@ def create_comment_mention_notifications(*, comment, old_content: str, new_conte
         notification = Notification.objects.create(
             notification_type=Notification.Type.MENTION,
             title=f"{actor.name or actor.username} 在 #{issue.pk} 的评论中提到了你",
-            content=comment.content[:100],
+            content=MENTION_RE.sub(r"@\1", new_content)[:100],
             source_user=actor,
             source_issue=issue,
             target_type=Notification.TargetType.USER,

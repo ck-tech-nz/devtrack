@@ -89,6 +89,7 @@ class TestCommentMentionService:
         assert f"#{issue.pk} 的评论中提到了你" in n.title
         assert n.source_user == author
         assert n.recipients.filter(user=target).exists()
+        assert Notification.objects.count() == 1
 
     def test_self_mention_not_notified(self, issue, author):
         from apps.notifications.models import Notification
@@ -115,3 +116,17 @@ class TestCommentMentionService:
         )
         self._call(comment, old_content="", actor=author)
         assert Notification.objects.count() == 0
+
+    def test_multiple_mentions_notify_each_user_once(self, issue, author):
+        from apps.notifications.models import Notification
+        a, b = UserFactory(), UserFactory()
+        comment = IssueCommentFactory(
+            issue=issue, author=author,
+            content=f"{mention(a)} 和 {mention(b)} 请跟进",
+        )
+        self._call(comment, old_content="", actor=author)
+        assert Notification.objects.count() == 2
+        for target in (a, b):
+            n = Notification.objects.filter(recipients__user=target).first()
+            assert n is not None
+            assert n.recipients.count() == 1
