@@ -275,6 +275,8 @@ class TestCommentEditDelete:
             f"/api/issues/{issue.pk}/comments/{comment.pk}/", {"content": "x"},
         )
         assert resp.status_code == 404
+        resp = author_client.delete(f"/api/issues/{issue.pk}/comments/{comment.pk}/")
+        assert resp.status_code == 404
 
     def test_edit_notifies_only_new_mentions(self, author_client, author, issue):
         from apps.notifications.models import Notification
@@ -303,3 +305,33 @@ class TestCommentEditDelete:
         assert data["author"] is None
         assert data["author_name"] is None
         assert data["author_avatar"] == ""
+
+    def test_edit_has_no_issue_side_effects(self, author_client, author, issue):
+        from apps.issues.models import Activity
+        comment = IssueCommentFactory(issue=issue, author=author, content="原文")
+        issue.refresh_from_db()
+        old_updated = issue.updated_at
+        old_history = issue.history.count()
+        old_activity = Activity.objects.filter(issue=issue).count()
+        resp = author_client.patch(
+            f"/api/issues/{issue.pk}/comments/{comment.pk}/", {"content": "改过的"},
+        )
+        assert resp.status_code == 200
+        issue.refresh_from_db()
+        assert issue.updated_at == old_updated
+        assert issue.history.count() == old_history
+        assert Activity.objects.filter(issue=issue).count() == old_activity
+
+    def test_comment_of_soft_deleted_issue_locked(self, author_client, author, issue):
+        comment = IssueCommentFactory(issue=issue, author=author)
+        from django.utils import timezone
+        from apps.issues.models import Issue
+        Issue.all_objects.filter(pk=issue.pk).update(
+            is_deleted=True, deleted_at=timezone.now(),
+        )
+        assert author_client.patch(
+            f"/api/issues/{issue.pk}/comments/{comment.pk}/", {"content": "x"},
+        ).status_code == 404
+        assert author_client.delete(
+            f"/api/issues/{issue.pk}/comments/{comment.pk}/"
+        ).status_code == 404

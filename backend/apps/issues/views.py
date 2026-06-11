@@ -584,7 +584,7 @@ class IssueCommentDetailView(APIView):
     def _get_comment(self, pk, comment_id):
         return (
             IssueComment.objects.select_related("author", "issue")
-            .filter(pk=comment_id, issue_id=pk)
+            .filter(pk=comment_id, issue_id=pk, issue__is_deleted=False)
             .first()
         )
 
@@ -597,6 +597,8 @@ class IssueCommentDetailView(APIView):
             return Response({"detail": "只能编辑自己的评论"}, status=status.HTTP_403_FORBIDDEN)
         serializer = IssueCommentSerializer(comment, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        if "content" not in serializer.validated_data:
+            return Response(IssueCommentSerializer(comment).data)
         old_content = comment.content
         comment.content = serializer.validated_data.get("content", comment.content)
         comment.save(update_fields=["content", "updated_at"])
