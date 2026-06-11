@@ -25,7 +25,8 @@
         :saturation="160"
       />
     </div>
-    <div class="flex justify-between text-[10px] leading-none text-gray-400">
+    <!-- relative 让 span 的 offsetParent 是本行,offsetLeft 才是行内坐标(供 thumb 对齐测量) -->
+    <div ref="labelsRow" class="relative flex justify-between text-[10px] leading-none text-gray-400">
       <span
         v-for="(s, i) in STOPS"
         :key="s.value || 'all'"
@@ -64,11 +65,24 @@ const index = computed(() => {
   return i === -1 ? 0 : i
 })
 
-// 玻璃 thumb 以中心点定位:两端时中心点正好落在轨道最左/最右端(允许半个 thumb 悬出轨道)
+// 玻璃 thumb 对齐当前档 label 的正上方:实测各 label 中心 x(labels 行与轨道同宽)
+const labelsRow = ref<HTMLElement | null>(null)
+const labelCenters = ref<number[]>([])
+
+function measureLabels() {
+  const kids = labelsRow.value ? (Array.from(labelsRow.value.children) as HTMLElement[]) : []
+  labelCenters.value = kids.map(el => el.offsetLeft + el.offsetWidth / 2)
+}
+onMounted(() => nextTick(measureLabels))
+watch(STOPS, () => nextTick(measureLabels))  // 站点设置加载后 label 文案会变,重新测量
+
 const thumbLeft = computed(() => {
+  const c = labelCenters.value[index.value]
+  if (c) return `${c}px`
+  // 测量前兜底:近似两端 2 字 label 的半宽(10px)做内缩
   const n = STOPS.value.length - 1
   const t = n ? index.value / n : 0
-  return `${t * 100}%`
+  return `calc(${t * 100}% + ${(0.5 - t) * 20}px)`
 })
 
 function onInput(e: Event) {
@@ -88,19 +102,19 @@ function onInput(e: Event) {
   cursor: pointer;
 }
 /* 原生 thumb 只留交互,外观全部交给叠加的 .priority-thumb;
-   做窄是因为浏览器把 thumb 限制在轨道内(行程 = 宽度 - thumb 宽),
-   越窄按下/拖拽的位置映射越接近玻璃 thumb 的全程中心点定位 */
+   宽 20px 时浏览器的行程内缩(半 thumb=10px)正好贴近两端 2 字 label 的中心,
+   按下/拖拽的位置映射与玻璃 thumb 的 label 对齐定位基本一致 */
 .priority-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 8px;
+  width: 20px;
   height: 20px;
   border-radius: 9999px;
   background: transparent;
   border: none;
 }
 .priority-range::-moz-range-thumb {
-  width: 8px;
+  width: 20px;
   height: 20px;
   border-radius: 9999px;
   background: transparent;
