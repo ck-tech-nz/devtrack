@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-1 w-32 select-none" title="按优先级筛选">
+  <div class="flex flex-col gap-2.5 w-32 select-none" title="按优先级筛选">
     <div class="relative">
       <input
         type="range"
@@ -66,7 +66,7 @@ const index = computed(() => {
 
 // 玻璃 thumb 与原生(透明) thumb 同宽,保证中心位置一致(浏览器把 thumb 限制在轨道内,
 // 行程是 width - THUMB_PX,所以百分比之外还要按位置补一个像素偏移)
-const THUMB_PX = 22
+const THUMB_PX = 28
 const thumbLeft = computed(() => {
   const n = STOPS.value.length - 1
   const t = n ? index.value / n : 0
@@ -93,15 +93,15 @@ function onInput(e: Event) {
 .priority-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 20px;
   border-radius: 9999px;
   background: transparent;
   border: none;
 }
 .priority-range::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 20px;
   border-radius: 9999px;
   background: transparent;
   border: none;
@@ -112,8 +112,8 @@ function onInput(e: Event) {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 20px;
   padding: 0;
   border-radius: 9999px;
   pointer-events: none;
