@@ -251,11 +251,14 @@
             </div>
           </div>
           <p class="text-sm text-gray-900 dark:text-gray-100 font-medium line-clamp-2">{{ item.title }}</p>
-          <div class="mt-2 flex items-center">
-            <div class="w-5 h-5 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center">
-              <span class="text-crystal-600 dark:text-crystal-400 text-[10px] font-medium">{{ (item.assignee_name || '?').slice(0, 1) }}</span>
+          <div class="mt-2 flex items-center justify-between gap-2">
+            <div class="flex items-center min-w-0">
+              <div class="w-5 h-5 rounded-full bg-crystal-100 dark:bg-crystal-900 flex items-center justify-center shrink-0">
+                <span class="text-crystal-600 dark:text-crystal-400 text-[10px] font-medium">{{ (item.assignee_name || '?').slice(0, 1) }}</span>
+              </div>
+              <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500 truncate">{{ item.assignee_name || '-' }}</span>
             </div>
-            <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500">{{ item.assignee_name || '-' }}</span>
+            <SharedSmartTime v-if="item.updated_at" :date="item.updated_at" class="text-[11px] text-gray-400 dark:text-gray-500 shrink-0" />
           </div>
           <div
             v-if="item.estimated_completion"
