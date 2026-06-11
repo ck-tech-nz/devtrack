@@ -9,7 +9,7 @@ services:
       - db-network
       - traefik-network
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - com.centurylinklabs.watchtower.enable=true
       - "traefik.enable=true"
       - "traefik.http.routers.devtrakr-backend.rule=Host(`devtrakr-test.matrixai.xin`) && PathPrefix(`/api`)"
       - "traefik.http.routers.devtrakr-backend.entrypoints=web"
@@ -23,9 +23,6 @@ services:
     #image: registry.aimenu.tech/devtrakr/frontend-test
     image: registry.cktech.hk/devtrakr/frontend-test
     container_name: devtrakr-frontend
-    environment:
-      # 服务器资源 iframe 嵌入地址(运行时注入,值取自同目录 .env)
-      - NUXT_PUBLIC_SERVER_MONITOR_URL=${NUXT_PUBLIC_SERVER_MONITOR_URL}
     networks:
       - db-network
       - traefik-network
