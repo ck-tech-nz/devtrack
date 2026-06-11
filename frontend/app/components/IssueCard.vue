@@ -24,6 +24,13 @@
       <span>{{ issue.assignee_name || '-' }}</span>
       <span v-if="issue.created_at">{{ issue.created_at.slice(5, 10) }}</span>
     </div>
+    <div
+      v-if="issue.estimated_completion"
+      class="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400"
+    >
+      <UIcon name="i-heroicons-calendar-days" class="w-3 h-3 shrink-0" />
+      <span>要求完成日期 {{ issue.estimated_completion }}</span>
+    </div>
   </NuxtLink>
 </template>
 
@@ -41,6 +48,7 @@ defineProps<{
     status: string
     assignee_name?: string
     created_at?: string
+    estimated_completion?: string | null
     source?: string | null
     assignee?: number | null
     project_members?: number[]

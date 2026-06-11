@@ -10,16 +10,18 @@
           <USwitch v-model="showCompleted" size="lg" />
         </label>
         <UInput v-model="searchQuery" placeholder="搜索标题或编号" icon="i-heroicons-magnifying-glass" size="sm" class="w-44" />
-        <button class="only-mine" :class="onlyMine ? 'only-mine--on' : ''" type="button" @click="onlyMine = !onlyMine">
-          <UIcon name="i-heroicons-user" class="w-4 h-4" />
-          <span>只看我的</span>
-        </button>
-        <div class="relative">
-          <USelect v-model="filterAssignee" :items="filterAssigneeOptions" size="sm" class="w-28" value-key="value" placeholder="负责人" />
-          <button v-if="filterAssignee" class="filter-clear" @click="filterAssignee = ''">
-            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
-          </button>
-        </div>
+        <!-- 「只看我的」与「负责人」同属处理人筛选,合并为一个连体按钮组 -->
+        <UButtonGroup size="sm">
+          <UButton
+            icon="i-heroicons-user"
+            :variant="onlyMine ? 'solid' : 'outline'"
+            :color="onlyMine ? 'primary' : 'neutral'"
+            @click="onlyMine = !onlyMine"
+          >
+            只看我的
+          </UButton>
+          <USelect v-model="filterAssignee" :items="filterAssigneeOptions" class="w-28" value-key="value" placeholder="负责人" />
+        </UButtonGroup>
         <PrioritySlider v-model="filterPriority" />
         <div class="relative">
           <USelect v-model="filterStatus" :items="filterStatusOptions" size="sm" class="w-28" value-key="value" placeholder="状态" />
@@ -636,7 +638,11 @@ const createPriorityOptions = PRIORITY_ITEMS.map(p => ({ label: `${p.value} ${p.
 const createStatusOptions: { label: string; value: string }[] = ISSUE_STATUS_OPTIONS
 const createAssigneeOptions = computed(() => [{ label: '无', value: '_none' }, ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) }))])
 
-const filterAssigneeOptions = computed(() => users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })))
+// 首项「全部负责人」(value '') 用于清除负责人筛选,替代原来的浮层 × 按钮
+const filterAssigneeOptions = computed(() => [
+  { label: '全部负责人', value: '' },
+  ...users.value.map(u => ({ label: u.name || u.username, value: String(u.id) })),
+])
 const filterStatusOptions: { label: string; value: string }[] = ISSUE_STATUS_OPTIONS
 
 function closeCreateModal() {
@@ -705,7 +711,7 @@ const columns = computed(() => {
     { accessorKey: 'status', header: '状态' },
     { accessorKey: 'reporter', header: '提出人' },
     { accessorKey: 'created_at', header: '历时' },
-    { accessorKey: 'estimated_completion', header: '预计完成' },
+    { accessorKey: 'estimated_completion', header: '要求完成日期' },
   ]
   if (showGHColumn.value) {
     cols.push({ accessorKey: 'github_issues', header: 'GitHub Issues' })
@@ -1084,29 +1090,6 @@ async function checkAnalyzingIssues() {
 :root.dark .filter-clear:hover {
   color: #d1d5db;
   background-color: #374151;
-}
-.only-mine {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.875rem;
-  border-radius: 0.5rem;
-  color: #6b7280;
-  box-shadow: inset 0 0 0 1px #e5e7eb;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.only-mine--on {
-  color: var(--color-crystal-700);
-  background-color: var(--color-crystal-50);
-  box-shadow: inset 0 0 0 1px var(--color-crystal-200);
-}
-:root.dark .only-mine { color: #9ca3af; box-shadow: inset 0 0 0 1px #374151; }
-:root.dark .only-mine--on {
-  color: var(--color-crystal-300);
-  background-color: color-mix(in oklab, var(--color-crystal-950) 60%, transparent);
-  box-shadow: inset 0 0 0 1px var(--color-crystal-800);
 }
 .duration-cell {
   display: flex;
