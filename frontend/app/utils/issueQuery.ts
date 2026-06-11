@@ -20,44 +20,11 @@ export interface IssueFilterState {
   search: string
 }
 
-export interface PagedIssues {
-  results: any[]
-  count: number
-  next: string | null
-}
+// 纯筛选条件部分(不含分页/状态默认排除),看板按列取数时复用
+export type IssueFilterOnly = Omit<IssueFilterState, 'page' | 'pageSize' | 'showCompleted'>
 
-// 看板按状态分桶需要全量数据:循环拉取所有分页直到 next 为空,
-// 否则排序靠后的问题(如创建较早的进行中问题)会被第 1 页截断、永远不显示。
-// pageSize 需 ≤ 后端 max_page_size(200)。
-export const KANBAN_PAGE_SIZE = 100
-
-export async function fetchAllIssuePages(
-  fetchPage: (params: URLSearchParams) => Promise<PagedIssues>,
-  baseParams: URLSearchParams,
-  pageSize: number = KANBAN_PAGE_SIZE,
-): Promise<{ results: any[]; count: number }> {
-  const results: any[] = []
-  let count = 0
-  for (let pageNum = 1; ; pageNum++) {
-    const params = new URLSearchParams(baseParams)
-    params.set('page', String(pageNum))
-    params.set('page_size', String(pageSize))
-    const data = await fetchPage(params)
-    results.push(...(data.results || []))
-    count = data.count ?? results.length
-    if (!data.next) break
-  }
-  return { results, count }
-}
-
-export function buildIssueQueryParams(s: IssueFilterState): URLSearchParams {
+export function buildIssueFilterParams(s: IssueFilterOnly): URLSearchParams {
   const params = new URLSearchParams()
-  params.set('page', String(s.page))
-  params.set('page_size', String(s.pageSize))
-  // 未勾选「显示已完成」且没有显式选状态时,默认排除已关闭/未计划
-  if (!s.showCompleted && !s.filterStatus) {
-    params.set('exclude_statuses', '已关闭,未计划')
-  }
   // 行内处理人徽标优先于筛选栏负责人下拉
   const assigneeId = s.filterHandlerId || s.filterAssignee
   if (assigneeId) params.set('assignee', assigneeId)
@@ -68,5 +35,16 @@ export function buildIssueQueryParams(s: IssueFilterState): URLSearchParams {
   if (s.filterReporter) params.set(s.filterReporter.type, s.filterReporter.value)
   const search = s.search.trim()
   if (search) params.set('search', search)
+  return params
+}
+
+export function buildIssueQueryParams(s: IssueFilterState): URLSearchParams {
+  const params = buildIssueFilterParams(s)
+  params.set('page', String(s.page))
+  params.set('page_size', String(s.pageSize))
+  // 未勾选「显示已完成」且没有显式选状态时,默认排除已关闭/未计划
+  if (!s.showCompleted && !s.filterStatus) {
+    params.set('exclude_statuses', '已关闭,未计划')
+  }
   return params
 }

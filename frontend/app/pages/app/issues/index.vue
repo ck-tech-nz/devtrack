@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-6">
+  <!-- 看板模式定高(学 GitHub Projects):页面不滚动,列内独立滚动 -->
+  <div :class="viewMode === 'kanban' ? 'h-full min-h-0 flex flex-col gap-6' : 'space-y-6'">
     <MyPendingTasks />
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
@@ -230,10 +231,13 @@
     <!-- Kanban View -->
     <SharedKanbanBoard
       v-else-if="viewMode === 'kanban'"
+      class="flex-1 min-h-0"
       :columns="kanbanColumns"
       :item-key="(item: any) => item.id"
       :card-class="kanbanCardClass"
+      scrollable
       @drop="onKanbanDrop"
+      @load-more="kanban.loadMore"
     >
       <template #card="{ item }">
         <NuxtLink :to="`/app/issues/${item.id}`" class="block">
@@ -402,7 +406,7 @@ import { ISSUE_STATUS, ISSUE_STATUS_OPTIONS, kanbanColor, KANBAN_DEFAULT_COLUMNS
 import StatusCell from '~/components/issue/StatusCell.vue'
 import TransferDialog from '~/components/issue/TransferDialog.vue'
 import AssignDialog from '~/components/issue/AssignDialog.vue'
-import { buildIssueQueryParams, fetchAllIssuePages } from '~/utils/issueQuery'
+import { buildIssueQueryParams, buildIssueFilterParams } from '~/utils/issueQuery'
 
 definePageMeta({ layout: 'default' })
 
@@ -727,39 +731,56 @@ const columns = computed(() => {
   return cols
 })
 
-async function onStatusChange({ issueId, newStatus }: { issueId: number, newStatus: string }) {
-  const issue = issues.value.find((i: any) => i.id === issueId)
-  if (!issue) return
+// 看板按列独立取数(学 GitHub Projects):每列 20 条起,滚动到底续取。
+// 列参数 = 当前筛选条件 + 该列状态;状态下拉筛了别的状态时该列置空不取数。
+const kanban = useKanbanIssues((status, pageNum) => {
+  if (filterStatus.value && filterStatus.value !== status) return null
+  const p = buildIssueFilterParams({
+    filterStatus: status,
+    filterAssignee: filterAssignee.value,
+    filterHandlerId: filterHandler.value?.id ?? null,
+    filterPriority: filterPriority.value,
+    filterPriorityTagValue: filterPriorityTag.value?.value ?? null,
+    filterReporter: filterReporter.value,
+    search: searchQuery.value,
+  })
+  p.set('page', String(pageNum))
+  p.set('page_size', String(KANBAN_COLUMN_PAGE_SIZE))
+  return p
+})
 
-  const oldStatus = issue.status
-  issue.status = newStatus
+const kanbanStatusKeys = computed(() => showCompleted.value
+  ? [...KANBAN_COMPLETED_LEFT, ...KANBAN_DEFAULT_COLUMNS, ...KANBAN_COMPLETED_RIGHT]
+  : KANBAN_DEFAULT_COLUMNS)
 
-  try {
-    await api(`/api/issues/${issueId}/`, {
-      method: 'PATCH',
-      body: { status: newStatus },
-    })
-  } catch (e) {
-    console.error('Failed to update issue status:', e)
-    issue.status = oldStatus
-  }
-}
-
-const kanbanColumns = computed(() => {
-  const baseKeys = KANBAN_DEFAULT_COLUMNS
-  const keys = showCompleted.value
-    ? [...KANBAN_COMPLETED_LEFT, ...baseKeys, ...KANBAN_COMPLETED_RIGHT]
-    : baseKeys
-  return keys.map(key => ({
+const kanbanColumns = computed(() => kanbanStatusKeys.value.map((key) => {
+  const col = kanban.columns.value[key]
+  return {
     key,
     label: key,
     color: kanbanColor(key),
-    items: issues.value.filter(i => i.status === key),
-  }))
-})
+    items: col?.items ?? [],
+    count: col?.count ?? 0,
+    hasMore: col?.hasMore ?? false,
+    loading: col?.loading ?? false,
+  }
+}))
 
-function onKanbanDrop({ itemId, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
-  onStatusChange({ issueId: itemId as number, newStatus: toColumn })
+async function onKanbanDrop({ itemId, fromColumn, toColumn }: { itemId: string | number; fromColumn: string; toColumn: string }) {
+  // 乐观迁移,失败回滚
+  const rollback = kanban.moveCard(itemId, fromColumn, toColumn)
+  const moved = kanban.columns.value[toColumn]?.items.find((i: any) => i.id === itemId)
+  if (moved) moved.status = toColumn
+  try {
+    await api(`/api/issues/${itemId}/`, {
+      method: 'PATCH',
+      body: { status: toColumn },
+    })
+  } catch (e) {
+    console.error('Failed to update issue status:', e)
+    if (moved) moved.status = fromColumn
+    rollback()
+  }
 }
 
 // P0(紧急)卡片用红底高亮,凸显紧急;其余返回空串走默认白底
@@ -846,6 +867,12 @@ const statusColor = statusColorFn
 // 只采纳最新一次请求的响应,丢弃过期响应,避免列表停在上一个筛选条件。
 let fetchSeq = 0
 async function fetchIssues() {
+  // 看板模式:按列独立分页取数,列内有各自的加载态,不占用全局 loading
+  if (viewMode.value === 'kanban') {
+    loading.value = false
+    await kanban.reset(kanbanStatusKeys.value)
+    return
+  }
   const seq = ++fetchSeq
   loading.value = true
   try {
@@ -862,10 +889,7 @@ async function fetchIssues() {
       search: searchQuery.value,
     })
 
-    // 看板按状态分桶需要全量数据,只取一页会把排序靠后的问题截断在看板之外
-    const data = viewMode.value === 'kanban'
-      ? await fetchAllIssuePages(p => api<any>(`/api/issues/?${p.toString()}`), params)
-      : await api<any>(`/api/issues/?${params.toString()}`)
+    const data = await api<any>(`/api/issues/?${params.toString()}`)
     if (seq !== fetchSeq) return // 已有更新的请求发出,丢弃这个过期响应
     issues.value = data.results || data || []
     totalCount.value = data.count ?? issues.value.length
