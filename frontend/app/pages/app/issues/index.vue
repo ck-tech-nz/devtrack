@@ -1,65 +1,32 @@
 <template>
   <div class="space-y-6">
     <MyPendingTasks />
-    <div
-      ref="filterBarRef"
-      class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-      @mouseenter="onRegionEnter"
-      @mouseleave="onRegionLeave"
-      @focusin="onRegionFocusIn"
-      @focusout="onRegionFocusOut"
-    >
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">问题跟踪</h1>
       <div class="flex items-center justify-between md:justify-end gap-3">
-        <!-- 收起态:筛选触发器 + 生效筛选 chips -->
-        <template v-if="!filtersExpanded">
-          <button class="filter-trigger" type="button" @click="filtersExpanded = true">
-            <UIcon name="i-heroicons-funnel" class="w-4 h-4" />
-            <span>筛选</span>
-            <UBadge v-if="activeFilterCount" color="primary" variant="solid" size="xs">{{ activeFilterCount }}</UBadge>
-            <UIcon name="i-heroicons-chevron-down-20-solid" class="w-4 h-4" />
+        <!-- 筛选控件:常驻显示,不自动隐藏 -->
+        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+          <span class="text-sm text-gray-500 dark:text-gray-400">查看全部</span>
+          <USwitch v-model="showCompleted" size="lg" />
+        </label>
+        <UInput v-model="searchQuery" placeholder="搜索标题或编号" icon="i-heroicons-magnifying-glass" size="sm" class="w-44" />
+        <button class="only-mine" :class="onlyMine ? 'only-mine--on' : ''" type="button" @click="onlyMine = !onlyMine">
+          <UIcon name="i-heroicons-user" class="w-4 h-4" />
+          <span>只看我的</span>
+        </button>
+        <div class="relative">
+          <USelect v-model="filterAssignee" :items="filterAssigneeOptions" size="sm" class="w-28" value-key="value" placeholder="负责人" />
+          <button v-if="filterAssignee" class="filter-clear" @click="filterAssignee = ''">
+            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
           </button>
-          <div class="hidden md:flex items-center gap-2 max-w-[36vw] overflow-x-auto">
-            <UBadge
-              v-for="chip in activeFilterChips"
-              :key="chip.key"
-              variant="subtle"
-              size="md"
-              class="filter-chip shrink-0"
-            >
-              <span>{{ chip.label }}</span>
-              <button class="ml-1 flex items-center" :aria-label="`清除${chip.label}`" @click.stop="chip.clear()">
-                <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
-              </button>
-            </UBadge>
-          </div>
-        </template>
-
-        <!-- 展开态:完整筛选控件 -->
-        <template v-else>
-          <label class="flex items-center gap-1.5 cursor-pointer select-none">
-            <span class="text-sm text-gray-500 dark:text-gray-400">查看全部</span>
-            <USwitch v-model="showCompleted" size="lg" />
-          </label>
-          <UInput v-model="searchQuery" placeholder="搜索标题或编号" icon="i-heroicons-magnifying-glass" size="sm" class="w-44" />
-          <button class="only-mine" :class="onlyMine ? 'only-mine--on' : ''" type="button" @click="onlyMine = !onlyMine">
-            <UIcon name="i-heroicons-user" class="w-4 h-4" />
-            <span>只看我的</span>
+        </div>
+        <PrioritySlider v-model="filterPriority" />
+        <div class="relative">
+          <USelect v-model="filterStatus" :items="filterStatusOptions" size="sm" class="w-28" value-key="value" placeholder="状态" />
+          <button v-if="filterStatus" class="filter-clear" @click="filterStatus = ''">
+            <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
           </button>
-          <div class="relative">
-            <USelect v-model="filterAssignee" :items="filterAssigneeOptions" size="sm" class="w-28" value-key="value" placeholder="负责人" />
-            <button v-if="filterAssignee" class="filter-clear" @click="filterAssignee = ''">
-              <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
-            </button>
-          </div>
-          <PrioritySlider v-model="filterPriority" />
-          <div class="relative">
-            <USelect v-model="filterStatus" :items="filterStatusOptions" size="sm" class="w-28" value-key="value" placeholder="状态" />
-            <button v-if="filterStatus" class="filter-clear" @click="filterStatus = ''">
-              <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
-            </button>
-          </div>
-        </template>
+        </div>
 
         <!-- 始终可见:点击徽章触发的上下文标签(处理人/优先级/提出人) -->
         <UBadge v-if="filterHandler" variant="subtle" size="md" class="filter-chip shrink-0">
@@ -501,29 +468,6 @@ const filterPriorityTag = ref<{ value: string; label: string } | null>(null)
 // 「只看我的」：等价于 assignee=当前用户;与负责人下拉互斥
 const onlyMine = ref(false)
 
-const activeFilterChips = computed(() => {
-  const chips: { key: string; label: string; clear: () => void }[] = []
-  if (onlyMine.value) {
-    chips.push({ key: 'mine', label: '只看我的', clear: () => { onlyMine.value = false } })
-  } else if (filterAssignee.value) {
-    const u = users.value.find((x: any) => String(x.id) === filterAssignee.value)
-    chips.push({ key: 'assignee', label: `负责人：${u?.name || u?.username || filterAssignee.value}`, clear: () => { filterAssignee.value = '' } })
-  }
-  if (filterPriority.value) {
-    chips.push({ key: 'priority', label: `优先级：${priorityLabel(filterPriority.value)}`, clear: () => { filterPriority.value = '' } })
-  }
-  if (filterStatus.value) {
-    chips.push({ key: 'status', label: `状态：${filterStatus.value}`, clear: () => { filterStatus.value = '' } })
-  }
-  if (searchQuery.value.trim()) {
-    chips.push({ key: 'search', label: `搜索：${searchQuery.value.trim()}`, clear: () => { searchQuery.value = '' } })
-  }
-  if (showCompleted.value) {
-    chips.push({ key: 'all', label: '含已完成', clear: () => { showCompleted.value = false } })
-  }
-  return chips
-})
-const activeFilterCount = computed(() => activeFilterChips.value.length)
 const rowSelection = ref<Record<string, boolean>>({})
 const showBatchDeleteConfirm = ref(false)
 const batchDeleting = ref(false)
@@ -1006,50 +950,7 @@ watch(searchQuery, () => {
   }, 300)
 })
 
-// 筛选条自动收起：默认收起;悬停 ~400ms 或点击触发器展开;鼠标移开 ~2.5s 后收起,
-// 但当区域内有元素获得焦点(如下拉框打开)时不收起。
-const filterBarRef = ref<HTMLElement | null>(null)
-const filtersExpanded = ref(false)
-const keepOpen = ref(false)
-let expandTimer: ReturnType<typeof setTimeout> | null = null
-let collapseTimer: ReturnType<typeof setTimeout> | null = null
-
-function clearExpandTimer() { if (expandTimer) { clearTimeout(expandTimer); expandTimer = null } }
-function clearCollapseTimer() { if (collapseTimer) { clearTimeout(collapseTimer); collapseTimer = null } }
-
-function onRegionEnter() {
-  clearCollapseTimer()
-  if (!filtersExpanded.value) {
-    clearExpandTimer()
-    expandTimer = setTimeout(() => { filtersExpanded.value = true }, 400)
-  }
-}
-function scheduleCollapse() {
-  clearCollapseTimer()
-  collapseTimer = setTimeout(() => { if (!keepOpen.value) filtersExpanded.value = false }, 2500)
-}
-function onRegionLeave() {
-  clearExpandTimer()
-  if (!keepOpen.value) scheduleCollapse()
-}
-function onRegionFocusIn() {
-  keepOpen.value = true
-  clearCollapseTimer()
-}
-function onRegionFocusOut() {
-  // 等焦点转移完成后再判断是否仍在区域内（下拉框等无障碍组件会把焦点留在触发器上）
-  setTimeout(() => {
-    const el = filterBarRef.value
-    if (el && !el.contains(document.activeElement)) {
-      keepOpen.value = false
-      scheduleCollapse()
-    }
-  }, 0)
-}
-
 onUnmounted(() => {
-  clearExpandTimer()
-  clearCollapseTimer()
   if (searchDebounce) clearTimeout(searchDebounce)
 })
 
@@ -1184,21 +1085,6 @@ async function checkAnalyzingIssues() {
   color: #d1d5db;
   background-color: #374151;
 }
-.filter-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.875rem;
-  border-radius: 0.5rem;
-  color: #374151;
-  background-color: #f3f4f6;
-  cursor: pointer;
-}
-.filter-trigger:hover { background-color: #e5e7eb; }
-:root.dark .filter-trigger { color: #d1d5db; background-color: #1f2937; }
-:root.dark .filter-trigger:hover { background-color: #374151; }
-
 .only-mine {
   display: flex;
   align-items: center;
