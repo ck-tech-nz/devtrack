@@ -21,13 +21,15 @@ from apps.ai.models import Analysis
 from apps.ai.services import IssueAnalysisService
 from apps.repos.services import GitHubSyncService
 from apps.repos.serializers import GitHubIssueBriefSerializer
-from .models import Issue, IssueStatus, Activity
+from .models import Issue, IssueStatus, Activity, IssueComment
 from .serializers import (
     IssueListSerializer, IssueDetailSerializer,
     IssueCreateUpdateSerializer, BatchUpdateSerializer,
     ActivitySerializer,
     IssueTransferInputSerializer, IssueAssignInputSerializer,
+    IssueCommentSerializer,
 )
+from apps.notifications.services import create_comment_mention_notifications
 from .services import claim_issue, confirm_issue, transfer_issue, assign_issue, InvalidTransition
 
 User = get_user_model()
@@ -532,6 +534,45 @@ class IssueAttachmentsView(APIView):
             return Response({"detail": "附件不存在"}, status=404)
         issue.attachments.remove(attachment)
         return Response(status=204)
+
+
+def _can_moderate_comments(user) -> bool:
+    """管理员（superuser 或「管理员」组）可删除任意评论。"""
+    return user.is_superuser or user.groups.filter(name="管理员").exists()
+
+
+class IssueCommentsView(APIView):
+    """GET: 评论列表（旧→新）。POST: 发表评论。"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        comments = issue.comments.select_related("author")
+        return Response(IssueCommentSerializer(comments, many=True).data)
+
+    def post(self, request, pk):
+        issue = Issue.objects.filter(pk=pk).first()
+        if not issue:
+            return Response({"detail": "问题不存在"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = IssueCommentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = IssueComment.objects.create(
+            issue=issue, author=request.user,
+            content=serializer.validated_data["content"],
+        )
+        Activity.objects.create(user=request.user, issue=issue, action="commented")
+        # bump updated_at 让问题列表/看板反映评论动态;
+        # 必须用 queryset.update 绕过 save() → 不产生 simple_history 快照
+        Issue.objects.filter(pk=issue.pk).update(updated_at=timezone.now())
+        create_comment_mention_notifications(
+            comment=comment, old_content="", new_content=comment.content,
+            actor=request.user,
+        )
+        return Response(
+            IssueCommentSerializer(comment).data, status=status.HTTP_201_CREATED,
+        )
 
 
 FIELD_LABELS = {

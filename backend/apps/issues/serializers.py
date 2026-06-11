@@ -11,7 +11,7 @@ from apps.repos.serializers import GitHubIssueBriefSerializer
 from apps.tools.models import Attachment
 from apps.tools.serializers import AttachmentSerializer
 from apps.notifications.services import create_mention_notifications
-from .models import Issue, IssueStatus, Activity, IssueAssignment
+from .models import Issue, IssueStatus, Activity, IssueAssignment, IssueComment
 
 User = get_user_model()
 
@@ -177,6 +177,39 @@ class IssueAssignmentSerializer(serializers.ModelSerializer):
         if obj.actor:
             return obj.actor.name or obj.actor.username
         return None
+
+
+class IssueCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_avatar = serializers.SerializerMethodField()
+    is_edited = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IssueComment
+        fields = [
+            "id", "author", "author_name", "author_avatar",
+            "content", "created_at", "updated_at", "is_edited",
+        ]
+        read_only_fields = ["id", "author", "created_at", "updated_at"]
+
+    def get_author_name(self, obj):
+        if obj.author:
+            return obj.author.name or obj.author.username
+        return None
+
+    def get_author_avatar(self, obj):
+        return obj.author.avatar if obj.author else ""
+
+    def get_is_edited(self, obj):
+        # auto_now 与 auto_now_add 在创建时存在微小差异,用 1 秒容差判定
+        return (obj.updated_at - obj.created_at).total_seconds() > 1
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("评论内容不能为空")
+        if len(value) > 65536:
+            raise serializers.ValidationError("评论内容过长（上限 65536 字符）")
+        return value
 
 
 class IssueDetailSerializer(IssueListSerializer):

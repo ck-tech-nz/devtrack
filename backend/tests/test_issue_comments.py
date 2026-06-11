@@ -130,3 +130,75 @@ class TestCommentMentionService:
             n = Notification.objects.filter(recipients__user=target).first()
             assert n is not None
             assert n.recipients.count() == 1
+
+
+class TestCommentListCreate:
+    def test_create_returns_201_with_payload(self, author_client, author, issue):
+        resp = author_client.post(
+            f"/api/issues/{issue.pk}/comments/", {"content": "第一条评论"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["content"] == "第一条评论"
+        assert data["author"] == author.id
+        assert data["author_name"] == (author.name or author.username)
+        assert data["is_edited"] is False
+
+    def test_list_returns_oldest_first(self, author_client, issue, author):
+        c1 = IssueCommentFactory(issue=issue, author=author, content="老评论")
+        c2 = IssueCommentFactory(issue=issue, author=author, content="新评论")
+        resp = author_client.get(f"/api/issues/{issue.pk}/comments/")
+        assert resp.status_code == 200
+        assert [c["id"] for c in resp.json()] == [c1.id, c2.id]
+
+    def test_blank_content_rejected(self, author_client, issue):
+        resp = author_client.post(f"/api/issues/{issue.pk}/comments/", {"content": "   "})
+        assert resp.status_code == 400
+
+    def test_overlong_content_rejected(self, author_client, issue):
+        resp = author_client.post(
+            f"/api/issues/{issue.pk}/comments/", {"content": "x" * 65537},
+        )
+        assert resp.status_code == 400
+
+    def test_unauthenticated_401(self, api_client, issue):
+        assert api_client.get(f"/api/issues/{issue.pk}/comments/").status_code == 401
+        assert api_client.post(
+            f"/api/issues/{issue.pk}/comments/", {"content": "x"},
+        ).status_code == 401
+
+    def test_unknown_issue_404(self, author_client):
+        assert author_client.get("/api/issues/999999/comments/").status_code == 404
+        assert author_client.post(
+            "/api/issues/999999/comments/", {"content": "x"},
+        ).status_code == 404
+
+    def test_create_writes_commented_activity(self, author_client, author, issue):
+        from apps.issues.models import Activity
+        author_client.post(f"/api/issues/{issue.pk}/comments/", {"content": "评论"})
+        assert Activity.objects.filter(
+            issue=issue, user=author, action="commented",
+        ).exists()
+
+    def test_create_bumps_updated_at_without_history_row(self, author_client, issue):
+        old_updated = issue.updated_at
+        old_history = issue.history.count()
+        resp = author_client.post(f"/api/issues/{issue.pk}/comments/", {"content": "bump"})
+        assert resp.status_code == 201
+        issue.refresh_from_db()
+        assert issue.updated_at > old_updated
+        # 用 queryset.update 绕过 save() → 不允许产生 simple_history 快照
+        assert issue.history.count() == old_history
+
+    def test_create_with_mention_notifies(self, author_client, issue):
+        from apps.notifications.models import Notification
+        target = UserFactory()
+        resp = author_client.post(
+            f"/api/issues/{issue.pk}/comments/",
+            {"content": f"请处理 {mention(target)}"},
+        )
+        assert resp.status_code == 201
+        n = Notification.objects.filter(
+            notification_type=Notification.Type.MENTION, source_issue=issue,
+        ).first()
+        assert n is not None and n.recipients.filter(user=target).exists()
