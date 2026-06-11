@@ -479,7 +479,11 @@ const viewMode = computed({
   get: () => settings.value.issues_view_mode,
   set: (v: 'kanban' | 'table') => updateSettings('issues_view_mode', v),
 })
-const showCompleted = ref(false)
+// 「查看全部」持久化到浏览器 localStorage,刷新页面不丢失该偏好
+const SHOW_COMPLETED_KEY = 'issues:showCompleted'
+const showCompleted = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem(SHOW_COMPLETED_KEY) === '1',
+)
 const page = ref(1)
 const pageSize = 15
 
@@ -873,7 +877,11 @@ function issueDuration(issue: any): { pct: number; color: string; label: string 
 
 const statusColor = statusColorFn
 
+// 请求序号:快速拖动优先级滑块等会连发多个请求,响应可能乱序到达。
+// 只采纳最新一次请求的响应,丢弃过期响应,避免列表停在上一个筛选条件。
+let fetchSeq = 0
 async function fetchIssues() {
+  const seq = ++fetchSeq
   loading.value = true
   try {
     const params = buildIssueQueryParams({
@@ -890,12 +898,14 @@ async function fetchIssues() {
     })
 
     const data = await api<any>(`/api/issues/?${params.toString()}`)
+    if (seq !== fetchSeq) return // 已有更新的请求发出,丢弃这个过期响应
     issues.value = data.results || data || []
     totalCount.value = data.count ?? issues.value.length
   } catch (e) {
+    if (seq !== fetchSeq) return
     console.error('Failed to load issues:', e)
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) loading.value = false
   }
 }
 
@@ -953,7 +963,10 @@ watch(page, () => {
   fetchIssues()
 })
 
-watch(showCompleted, () => {
+watch(showCompleted, (v) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(SHOW_COMPLETED_KEY, v ? '1' : '0')
+  }
   page.value = 1
   rowSelection.value = {}
   fetchIssues()
