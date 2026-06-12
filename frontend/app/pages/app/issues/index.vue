@@ -261,6 +261,7 @@
         :data="issues"
         :columns="columns"
         class="issues-table"
+        :style="{ '--title-col-w': titleColWidth ? titleColWidth + 'px' : '' }"
         :ui="{ th: 'text-xs whitespace-nowrap', td: 'text-sm', tr: 'hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer' }"
         @select="onRowSelect"
       >
@@ -278,6 +279,18 @@
         </template>
         <template #id-cell="{ row }">
           <NuxtLink :to="`/app/issues/${row.original.id}`" class="text-crystal-500 dark:text-crystal-400 hover:text-crystal-700 dark:hover:text-crystal-300 font-medium">{{ row.original.id }}</NuxtLink>
+        </template>
+        <template #title-header>
+          <div class="title-header">
+            <span>标题</span>
+            <span
+              class="col-resize-handle"
+              title="拖动调整列宽，双击复原"
+              @pointerdown="onTitleResizeDown"
+              @dblclick.stop="resetTitleColWidth"
+              @click.stop
+            ><i></i><i></i></span>
+          </div>
         </template>
         <template #title-cell="{ row }">
           <div class="flex items-center gap-1.5 min-w-0">
@@ -465,6 +478,21 @@ const SHOW_COMPLETED_KEY = 'issues:showCompleted'
 const showCompleted = ref(
   typeof localStorage !== 'undefined' && localStorage.getItem(SHOW_COMPLETED_KEY) === '1',
 )
+
+// 标题列宽:拖拽调整 + 按浏览器 localStorage 记忆(见 useColumnWidth)
+const {
+  width: titleColWidth,
+  load: loadTitleColWidth,
+  startResize: startTitleResize,
+  reset: resetTitleColWidth,
+} = useColumnWidth('issues:title-col-width')
+
+// 表头手柄按下:以当前列实际像素宽为起点开始拖拽
+function onTitleResizeDown(e: PointerEvent) {
+  const th = (e.currentTarget as HTMLElement | null)?.closest('th')
+  startTitleResize(e, th?.getBoundingClientRect().width ?? 0)
+}
+
 const page = ref(1)
 const pageSize = 15
 
@@ -1013,6 +1041,7 @@ onUnmounted(() => {
 })
 
 onMounted(async () => {
+  loadTitleColWidth()
   const [, usersData, settingsData, projectsData, reposData] = await Promise.all([
     fetchIssues(),
     api<any[]>('/api/users/choices/').catch(() => []),
@@ -1197,7 +1226,9 @@ async function checkAnalyzingIssues() {
 .issues-table :deep(table) { table-layout: fixed; width: 100%; }
 .issues-table :deep(:is(th, td):nth-child(1)) { width: 2.5%; }   /* select */
 .issues-table :deep(:is(th, td):nth-child(2)) { width: 3.5%; }   /* ID */
-/* 3: 标题 — auto */
+/* 3: 标题 — 可拖拽调宽，默认 auto；宽度由 --title-col-w 注入 */
+.issues-table :deep(:is(th, td):nth-child(3)) { width: var(--title-col-w, auto); }
+.issues-table :deep(th:nth-child(3)) { position: relative; }
 /* 4: 原因分析 — auto */
 /* 5: 解决方案 — auto */
 .issues-table :deep(:is(th, td):nth-child(6)) { width: 4.5%; }   /* 优先级 */
@@ -1205,6 +1236,41 @@ async function checkAnalyzingIssues() {
 .issues-table :deep(:is(th, td):nth-child(8)) { width: 6%; }     /* 提出人 */
 .issues-table :deep(:is(th, td):nth-child(9)) { width: 7%; }    /* 历时 */
 .issues-table :deep(:is(th, td):nth-child(10)) { width: 5%; }    /* 预计完成 */
+
+/* 标题列「抓手」:右边界常驻一个双竖条握柄(始终可见、好发现),hover 时点亮主题紫
+ * 并浮出柔光底,明确"可拖拽";表头/表体均不加分隔线,保持原有留白。 */
+.title-header { display: flex; align-items: center; }
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 4px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  transition: background-color 0.12s;
+}
+.col-resize-handle i {
+  width: 1.5px;
+  height: 12px;
+  border-radius: 1px;
+  background: #9ca3af; /* gray-400:常驻浅灰握柄 */
+  transition: background-color 0.12s;
+}
+:root.dark .col-resize-handle i { background: #6b7280; } /* gray-500 */
+/* 鼠标移到标题表头任意处即点亮抓手,提示可拖拽 */
+.issues-table :deep(th:nth-child(3):hover .col-resize-handle) {
+  background: rgba(139, 92, 246, 0.12); /* crystal-500 柔光底 */
+}
+.issues-table :deep(th:nth-child(3):hover .col-resize-handle i) {
+  background: var(--color-crystal-500); /* 主题紫 */
+}
 
 /* 表格行按优先级着色:规则随站点设置动态生成,见 script 中 priorityRowCss + useHead */
 </style>
