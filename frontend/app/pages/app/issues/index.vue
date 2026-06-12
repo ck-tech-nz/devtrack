@@ -316,9 +316,6 @@
           >{{ row.original.reporter || row.original.created_by_name }}</button>
           <span v-else class="block truncate text-gray-300 dark:text-gray-600">-</span>
         </template>
-        <template #remark-cell="{ row }">
-          <EditableCell :value="row.original.remark" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'remark', v)" />
-        </template>
         <template #cause-cell="{ row }">
           <EditableCell :value="row.original.cause" :placeholder="row.original.ai_cause" @dblclick="cancelRowClick" @save="(v: string) => inlineUpdate(row.original.id, 'cause', v)" />
         </template>
@@ -722,7 +719,6 @@ const columns = computed(() => {
     { accessorKey: 'title', header: '标题' },
     { accessorKey: 'cause', header: '原因分析' },
     { accessorKey: 'solution', header: '解决方案' },
-    { accessorKey: 'remark', header: '备注' },
     { accessorKey: 'priority', header: '优先级' },
     { accessorKey: 'status', header: '状态' },
     { accessorKey: 'reporter', header: '提出人' },
@@ -1195,7 +1191,7 @@ async function checkAnalyzingIssues() {
 }
 /*
  * Issues table: fixed layout so we control column widths.
- * Columns: select | ID | 标题 | 原因分析 | 解决方案 | 备注 | 优先级 | 状态 | 提出人 | 历时 | 预计完成
+ * Columns: select | ID | 标题 | 原因分析 | 解决方案 | 优先级 | 状态 | 提出人 | 历时 | 预计完成
  * Narrow cols get fixed width; 标题/原因/方案 share remaining space.
  */
 .issues-table :deep(table) { table-layout: fixed; width: 100%; }
@@ -1204,12 +1200,11 @@ async function checkAnalyzingIssues() {
 /* 3: 标题 — auto */
 /* 4: 原因分析 — auto */
 /* 5: 解决方案 — auto */
-.issues-table :deep(:is(th, td):nth-child(6)) { width: 4.5%; }   /* 备注 */
-.issues-table :deep(:is(th, td):nth-child(7)) { width: 4.5%; }   /* 优先级 */
-.issues-table :deep(:is(th, td):nth-child(8)) { width: 8%; }     /* 状态 */
-.issues-table :deep(:is(th, td):nth-child(9)) { width: 6%; }     /* 提出人 */
-.issues-table :deep(:is(th, td):nth-child(10)) { width: 7%; }    /* 历时 */
-.issues-table :deep(:is(th, td):nth-child(11)) { width: 5%; }    /* 预计完成 */
+.issues-table :deep(:is(th, td):nth-child(6)) { width: 4.5%; }   /* 优先级 */
+.issues-table :deep(:is(th, td):nth-child(7)) { width: 8%; }     /* 状态 */
+.issues-table :deep(:is(th, td):nth-child(8)) { width: 6%; }     /* 提出人 */
+.issues-table :deep(:is(th, td):nth-child(9)) { width: 7%; }    /* 历时 */
+.issues-table :deep(:is(th, td):nth-child(10)) { width: 5%; }    /* 预计完成 */
 
 /* 表格行按优先级着色:规则随站点设置动态生成,见 script 中 priorityRowCss + useHead */
 </style>

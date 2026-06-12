@@ -6,11 +6,18 @@
       <NuxtLink to="/app/roadmap" class="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">产品路线图</NuxtLink>
     </div>
 
-    <span class="ml-auto font-mono">{{ config.public.version }}</span>
+    <span class="ml-auto font-mono">{{ footerVersion }}</span>
   </footer>
 </template>
 
 <script setup lang="ts">
 const config = useRuntimeConfig()
-const year = new Date().getFullYear()
+
+// version 形如 "env/test de454ac"(环境 + 短 SHA),把构建时间插到环境与 SHA 之间
+const footerVersion = computed(() => {
+  const { version, gitHash, buildDate } = config.public
+  if (!gitHash) return version
+  const envLabel = version.slice(0, version.length - gitHash.length).trim()
+  return [envLabel, buildDate, gitHash].filter(Boolean).join(' ')
+})
 </script>

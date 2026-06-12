@@ -4,7 +4,7 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import action
-from .models import Notification, NotificationRecipient
+from .models import Bulletin, Notification, NotificationRecipient
 from .services import RemotePublishError, generate_recipients, publish_notification_to_remote
 
 
@@ -83,3 +83,18 @@ class NotificationAdmin(ModelAdmin):
 class NotificationRecipientAdmin(ModelAdmin):
     list_display = ("notification", "user", "is_read", "is_deleted")
     list_filter = ("is_read", "is_deleted")
+
+
+@admin.register(Bulletin)
+class BulletinAdmin(ModelAdmin):
+    list_display = ("id", "category", "content", "is_active", "sort_order", "starts_at", "ends_at", "created_by")
+    list_filter = ("category", "is_active")
+    search_fields = ("content", "source")
+    list_editable = ("is_active", "sort_order")
+    readonly_fields = ("created_by", "created_at", "updated_at")
+    ordering = ("sort_order", "-created_at")
+
+    def save_model(self, request, obj, form, change):
+        if not change and obj.created_by_id is None:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)

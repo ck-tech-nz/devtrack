@@ -279,6 +279,11 @@ UNFOLD = {
                         "icon": "mark_email_read",
                         "link": reverse_lazy("admin:notifications_notificationrecipient_changelist"),
                     },
+                    {
+                        "title": "走马灯公告",
+                        "icon": "campaign",
+                        "link": reverse_lazy("admin:notifications_bulletin_changelist"),
+                    },
                 ],
             },
             {
